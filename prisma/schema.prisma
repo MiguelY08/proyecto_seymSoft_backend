@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,512 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model abonos {
+  id_abono          Int             @id @default(autoincrement())
+  id_venta          Int
+  monto_abono       Decimal         @db.Decimal(12, 2)
+  fecha_abono       DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_metodo_pago    Int  
+  observaciones     String?         @db.VarChar(255)
+  saldo_posterior   Decimal         @db.Decimal(12, 2)
+  id_estado_credito Int
+  id_credito        Int
+  metodos_pago      metodos_pago    @relation(fields: [id_metodo_pago], references: [id_metodo_pago], onDelete: NoAction, onUpdate: NoAction)
+  creditos          creditos        @relation(fields: [id_credito], references: [id_credito], onDelete: Cascade, map: "fk_abonos_credito")
+  estados_credito   estados_credito @relation(fields: [id_estado_credito], references: [id_estado_credito], map: "fk_abonos_estado_credito")
+}
+
+model acceso {
+  id_acceso           Int       @id @default(autoincrement())
+  id_usuario          Int
+  fecha_inicio_acceso DateTime? @default(now()) @db.Timestamp(6)
+  fecha_fin_acceso    DateTime? @db.Timestamp(6)
+  usuarios            usuarios  @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model categorias {
+  id_categoria           Int                    @id @default(autoincrement())
+  nombre_categoria       String                 @unique @db.VarChar(100)
+  id_estado              Int?
+  cantidad_subcategorias Int?
+  estados_generales      estados_generales?     @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+  producto_no_conforme   producto_no_conforme[]
+  productos              productos[]
+  subcategorias          subcategorias[]
+}
+
+model clientes {
+  id_cliente              Int             @id @default(autoincrement())
+  tipo_persona            String          @db.VarChar(20)
+  rut                     Boolean?        @default(false)
+  codigo_ciu              String?         @db.VarChar(25)
+  direccion               String?         @db.VarChar(255)
+  numero_persona_contacto BigInt?
+  nombre_persona_contacto String?         @db.VarChar(255)
+  id_usuario              Int             @unique
+  tipo_cliente            String?         @db.VarChar(20)
+  credito                 Decimal?        @db.Decimal(10, 2)
+  saldo_a_favor           Decimal?        @db.Decimal(10, 2)
+  usuarios                usuarios        @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  creditos                creditos[]
+  pedidos_venta           pedidos_venta[]
+}
+
+model codigo_de_barras {
+  id_codigo_barras         Int                        @id @default(autoincrement())
+  codigo_de_barras         String                     @unique @db.VarChar(100)
+  tipo_codigo              String?                    @db.VarChar(50)
+  stock                    Int?                       @default(0)
+  id_producto              Int
+  codigo_barras_2          String?                    @db.VarChar(100)
+  productos                productos                  @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
+  detalle_compra           detalle_compra[]
+  detalle_devolucion_venta detalle_devolucion_venta[]
+  producto_no_conforme     producto_no_conforme[]
+}
+
+model compras {
+  id_compra            Int                    @id @default(autoincrement())
+  no_factura           String                 @unique(map: "compras_no_recibo_key") @db.VarChar(50)
+  fecha_compra         DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
+  total                Decimal?               @default(0) @db.Decimal(12, 2)
+  id_proveedor         Int
+  id_estado_compras    Int
+  proveedores          proveedores            @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: NoAction, onUpdate: NoAction)
+  estados_compras      estados_compras        @relation(fields: [id_estado_compras], references: [id_estado_compras], map: "fk_compras_estado")
+  detalle_compra       detalle_compra[]
+  devoluciones_compras devoluciones_compras[]
+}
+
+model creditos {
+  id_credito         Int             @id @default(autoincrement())
+  id_venta           Int             @unique
+  fecha_vencimiento  DateTime        @db.Date
+  porcentaje_interes Decimal?        @default(0) @db.Decimal(5, 2)
+  interes_aplicado   Decimal?        @default(0) @db.Decimal(12, 2)
+  nueva_deuda_total  Decimal         @db.Decimal(12, 2)
+  id_estado_credito  Int
+  id_cliente         Int
+  cupo_ocupado       Decimal?        @db.Decimal(10, 2)
+  cupo_disponible    Decimal?        @db.Decimal(10, 2)
+  abonos             abonos[]
+  ventas             ventas          @relation(fields: [id_venta], references: [id_venta], onDelete: NoAction, onUpdate: NoAction)
+  clientes           clientes        @relation(fields: [id_cliente], references: [id_cliente], map: "fk_creditos_cliente")
+  estados_credito    estados_credito @relation(fields: [id_estado_credito], references: [id_estado_credito], map: "fk_creditos_estado_credito")
+}
+
+model detalle_compra {
+  id_detalle_compra     Int              @id @default(autoincrement())
+  id_compra             Int
+  id_codigo_producto    Int
+  cantidad              Int
+  precio_unitario_bruto Decimal          @db.Decimal(10, 2)
+  precio_unitario_iva   Decimal          @db.Decimal(10, 2)
+  precio_unitario_neto  Decimal          @db.Decimal(10, 2)
+  subtotal_bruto        Decimal          @db.Decimal(10, 2)
+  subtotal_iva          Decimal          @db.Decimal(10, 2)
+  subtotal_neto         Decimal          @db.Decimal(10, 2)
+  porcentaje_iva        Decimal          @db.Decimal(5, 2)
+  codigo_lote           String           @db.VarChar(50)
+  motivo_anulaci_n      String?          @map("motivo_anulación") @db.VarChar(250)
+  codigo_de_barras      codigo_de_barras @relation(fields: [id_codigo_producto], references: [id_codigo_barras], onDelete: NoAction, onUpdate: NoAction)
+  compras               compras          @relation(fields: [id_compra], references: [id_compra], onDelete: NoAction, onUpdate: NoAction)
+  hec                   hec[]
+}
+
+model detalle_devolucion_compra {
+  id_ddc               Int                  @id @default(autoincrement())
+  id_devolucion_compra Int
+  codigo_barras        String               @db.VarChar(100)
+  cantidad             Int
+  fecha_proveedor      DateTime?            @db.Date
+  id_motivo_devolucion Int
+  id_metodo_devolucion Int
+  id_estado_devolucion Int
+  id_producto          Int
+  devoluciones_compras devoluciones_compras @relation(fields: [id_devolucion_compra], references: [id_devolucion_compra], onDelete: NoAction, onUpdate: NoAction)
+  estado_devoluciones  estado_devoluciones  @relation(fields: [id_estado_devolucion], references: [id_estado_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  metodo_devolucion    metodo_devolucion    @relation(fields: [id_metodo_devolucion], references: [id_metodo_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  motivos_devolucion   motivos_devolucion   @relation(fields: [id_motivo_devolucion], references: [id_motivo_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  productos            productos            @relation(fields: [id_producto], references: [id_producto], map: "fk_ddc_producto")
+  hedc                 hedc[]
+}
+
+model detalle_devolucion_venta {
+  id_ddv               Int                 @id @default(autoincrement())
+  id_devolucion_venta  Int
+  codigo_barras        String              @db.VarChar(100)
+  cantidad             Int
+  id_motivo_devolucion Int
+  id_metodo_devolucion Int
+  id_estado_devolucion Int
+  motivo_anulacion     String?             @db.VarChar(250)
+  id_codigo_barras     Int?
+  devoluciones_ventas  devoluciones_ventas @relation(fields: [id_devolucion_venta], references: [id_devolucion_venta], onDelete: NoAction, onUpdate: NoAction)
+  estado_devoluciones  estado_devoluciones @relation(fields: [id_estado_devolucion], references: [id_estado_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  metodo_devolucion    metodo_devolucion   @relation(fields: [id_metodo_devolucion], references: [id_metodo_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  motivos_devolucion   motivos_devolucion  @relation(fields: [id_motivo_devolucion], references: [id_motivo_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  codigo_de_barras     codigo_de_barras?   @relation(fields: [id_codigo_barras], references: [id_codigo_barras], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_dev_codigo_barras")
+  hedv                 hedv[]
+}
+
+model detalles_pedidos {
+  id_detalle_pedido Int           @id @default(autoincrement())
+  id_pedido         Int
+  codigo_barras     String        @db.VarChar(100)
+  cantidad          Int
+  precio_unitario   Decimal       @db.Decimal(10, 2)
+  subtotal          Decimal       @db.Decimal(10, 2)
+  monto_iva         Decimal       @db.Decimal(10, 2)
+  id_producto       Int
+  pedidos_venta     pedidos_venta @relation(fields: [id_pedido], references: [id_pedido], onDelete: NoAction, onUpdate: NoAction)
+  productos         productos     @relation(fields: [id_producto], references: [id_producto], map: "fk_detalle_producto")
+}
+
+model devoluciones_compras {
+  id_devolucion_compra      Int                         @id @default(autoincrement())
+  id_compra                 Int
+  fecha_creacion            DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_estado_devolucion      Int
+  detalle_devolucion_compra detalle_devolucion_compra[]
+  compras                   compras                     @relation(fields: [id_compra], references: [id_compra], onDelete: NoAction, onUpdate: NoAction)
+  estado_devoluciones       estado_devoluciones         @relation(fields: [id_estado_devolucion], references: [id_estado_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  hec                       hec[]
+}
+
+model devoluciones_ventas {
+  id_devolucion_venta         Int                           @id @default(autoincrement())
+  id_venta                    Int
+  fecha_creacion              DateTime?                     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_estado_devolucion        Int
+  detalle_devolucion_venta    detalle_devolucion_venta[]
+  estado_devoluciones         estado_devoluciones           @relation(fields: [id_estado_devolucion], references: [id_estado_devolucion], onDelete: NoAction, onUpdate: NoAction)
+  ventas                      ventas                        @relation(fields: [id_venta], references: [id_venta], onDelete: NoAction, onUpdate: NoAction)
+  evidencia_devolucion_ventas evidencia_devolucion_ventas[]
+}
+
+model empleados {
+  id_empleado       Int                @id @default(autoincrement())
+  id_usuario        Int                @unique
+  id_estado         Int?
+  estados_generales estados_generales? @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+  usuarios          usuarios           @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  empleados_rol     empleados_rol?
+  ventas            ventas[]
+}
+
+model empleados_rol {
+  id_er                 Int                @id @default(autoincrement())
+  id_empleado           Int                @unique
+  id_permisos_asignados Int
+  empleados             empleados          @relation(fields: [id_empleado], references: [id_empleado], onDelete: NoAction, onUpdate: NoAction)
+  permisos_asignados    permisos_asignados @relation(fields: [id_permisos_asignados], references: [id_permiso], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model estado_devoluciones {
+  id_estado_devolucion      Int                         @id @default(autoincrement())
+  nombre                    String                      @unique @db.VarChar(25)
+  descripcion_compra        String?                     @db.VarChar(255)
+  descripcion_venta         String?                     @db.VarChar(255)
+  detalle_devolucion_compra detalle_devolucion_compra[]
+  detalle_devolucion_venta  detalle_devolucion_venta[]
+  devoluciones_compras      devoluciones_compras[]
+  devoluciones_ventas       devoluciones_ventas[]
+}
+
+model estados_compras {
+  id_estado_compras Int       @id @default(autoincrement())
+  nombre            String    @unique @db.VarChar(50)
+  compras           compras[]
+  hec               hec[]
+}
+
+model estados_credito {
+  id_estado_credito Int        @id @default(autoincrement())
+  nombre            String     @unique @db.VarChar(50)
+  abonos            abonos[]
+  creditos          creditos[]
+}
+
+model estados_generales {
+  id_estado         Int                 @id @default(autoincrement())
+  nombre            String              @unique @db.VarChar(50)
+  categorias        categorias[]
+  empleados         empleados[]
+  imagenes_carrusel imagenes_carrusel[]
+  productos         productos[]
+  proveedores       proveedores[]
+  roles             roles[]
+  subcategorias     subcategorias[]
+  usuarios          usuarios[]
+}
+
+model estados_pedidos {
+  id_estado_pedido Int             @id @default(autoincrement())
+  nombre           String          @unique @db.VarChar(50)
+  descripcion      String?         @db.VarChar(100)
+  pedidos_venta    pedidos_venta[]
+}
+
+model estados_ventas {
+  id_estado_venta Int      @id @default(autoincrement())
+  nombre          String   @unique @db.VarChar(50)
+  descripcion     String?  @db.VarChar(100)
+  hev             hev[]
+  ventas          ventas[]
+}
+
+model evidencia_devolucion_ventas {
+  id_evidencias       Int                 @id @default(autoincrement())
+  ruta_imagen         String              @unique @db.VarChar(255)
+  descripcion_imagen  String?             @db.VarChar(255)
+  id_devolucion_venta Int
+  devoluciones_ventas devoluciones_ventas @relation(fields: [id_devolucion_venta], references: [id_devolucion_venta], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model hec {
+  id_historico_estado_compra Int                  @id @default(autoincrement())
+  id_devolucion_compra       Int
+  estado_compra              Int
+  fecha_estado               DateTime?            @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_detalle_compra          Int
+  devoluciones_compras       devoluciones_compras @relation(fields: [id_devolucion_compra], references: [id_devolucion_compra], onDelete: Cascade, map: "fk_hec_devolucion_compra")
+  estados_compras            estados_compras      @relation(fields: [estado_compra], references: [id_estado_compras], map: "fk_hec_estado_compra")
+  detalle_compra             detalle_compra       @relation(fields: [id_detalle_compra], references: [id_detalle_compra], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model hedc {
+  id_estado_devolucion      Int                       @id @default(autoincrement())
+  id_detalle                Int
+  estado                    String                    @db.VarChar(50)
+  fecha_estado              DateTime?                 @default(dbgenerated("CURRENT_DATE")) @db.Date
+  detalle_devolucion_compra detalle_devolucion_compra @relation(fields: [id_detalle], references: [id_ddc], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model hedv {
+  id_estado_devolucion     Int                      @id @default(autoincrement())
+  id_detalle               Int
+  estado                   String                   @db.VarChar(50)
+  fecha_estado             DateTime?                @default(dbgenerated("CURRENT_DATE")) @db.Date
+  detalle_devolucion_venta detalle_devolucion_venta @relation(fields: [id_detalle], references: [id_ddv], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model hev {
+  id_pedido           Int            @id
+  id_devolucion_venta Int?
+  estado_venta        Int
+  fecha_estado        DateTime?      @default(dbgenerated("CURRENT_DATE")) @db.Date
+  estados_ventas      estados_ventas @relation(fields: [estado_venta], references: [id_estado_venta], onDelete: NoAction, onUpdate: NoAction)
+  pedidos_venta       pedidos_venta  @relation(fields: [id_pedido], references: [id_pedido], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model imagenes_carrusel {
+  id_imagen         Int               @id @default(autoincrement())
+  ruta_imagen       String            @unique @db.VarChar(255)
+  orden             Int
+  estado            Int
+  fecha_creacion    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_usuario        Int
+  estados_generales estados_generales @relation(fields: [estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+  usuarios          usuarios          @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model metodo_devolucion {
+  id_metodo_devolucion      Int                         @id @default(autoincrement())
+  descripcion               String                      @unique @db.VarChar(50)
+  detalle_devolucion_compra detalle_devolucion_compra[]
+  detalle_devolucion_venta  detalle_devolucion_venta[]
+}
+
+model metodos_pago {
+  id_metodo_pago Int      @id @default(autoincrement())
+  nombre         String   @unique @db.VarChar(50)
+  abonos         abonos[]
+  ventas         ventas[]
+}
+
+model modulos {
+  id_modulo          Int                  @id @default(autoincrement())
+  nombre_modulo      String               @unique @db.VarChar(50)
+  descripcion        String?              @db.VarChar(100)
+  permisos_asignados permisos_asignados[]
+}
+
+model motivos_devolucion {
+  id_motivo_devolucion      Int                         @id @default(autoincrement())
+  descripcion               String                      @unique @db.VarChar(50)
+  detalle_devolucion_compra detalle_devolucion_compra[]
+  detalle_devolucion_venta  detalle_devolucion_venta[]
+}
+
+model pedidos_venta {
+  id_pedido        Int                @id @default(autoincrement())
+  id_cliente       Int
+  fecha_pedido     DateTime?          @default(dbgenerated("CURRENT_DATE")) @db.Date
+  domicilio        String?            @db.VarChar(255)
+  id_estado_pedido Int
+  detalles_pedidos detalles_pedidos[]
+  hev              hev?
+  clientes         clientes           @relation(fields: [id_cliente], references: [id_cliente], onDelete: NoAction, onUpdate: NoAction)
+  estados_pedidos  estados_pedidos    @relation(fields: [id_estado_pedido], references: [id_estado_pedido], onDelete: NoAction, onUpdate: NoAction)
+  ventas           ventas?
+}
+
+model permisos_asignados {
+  id_permiso    Int             @id @default(autoincrement())
+  id_rol        Int
+  id_modulo     Int
+  id_privilegio Int
+  empleados_rol empleados_rol[]
+  modulos       modulos         @relation(fields: [id_modulo], references: [id_modulo], onDelete: NoAction, onUpdate: NoAction)
+  privilegios   privilegios     @relation(fields: [id_privilegio], references: [id_privilegio], onDelete: NoAction, onUpdate: NoAction)
+  roles         roles           @relation(fields: [id_rol], references: [id_rol], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id_rol, id_modulo, id_privilegio])
+}
+
+model privilegios {
+  id_privilegio      Int                  @id @default(autoincrement())
+  nombre_privilegio  String               @unique @db.VarChar(50)
+  descripcion        String?              @db.VarChar(100)
+  permisos_asignados permisos_asignados[]
+}
+
+model producto_no_conforme {
+  id_pnc             Int              @id @default(autoincrement())
+  cantidad_afectada  Int
+  fecha_deteccion    DateTime?        @default(dbgenerated("CURRENT_DATE")) @db.Date
+  motivo_reporte     String           @db.VarChar(255)
+  id_codigo_producto Int
+  id_categoria       Int
+  categorias         categorias       @relation(fields: [id_categoria], references: [id_categoria], map: "fk_pnc_categoria")
+  codigo_de_barras   codigo_de_barras @relation(fields: [id_codigo_producto], references: [id_codigo_barras], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model producto_unidad_medida {
+  id_producto      Int
+  id_unidad_medida Int
+  productos        productos     @relation(fields: [id_producto], references: [id_producto], onDelete: Cascade, map: "fk_pum_producto")
+  unidad_medida    unidad_medida @relation(fields: [id_unidad_medida], references: [id_unidad_medida], map: "fk_pum_unidad_medida")
+
+  @@id([id_producto, id_unidad_medida])
+}
+
+model productos {
+  id_producto               Int                         @id @default(autoincrement())
+  nombre                    String                      @db.VarChar(255)
+  referencia                String                      @unique @db.VarChar(50)
+  stock                     Int?                        @default(0)
+  precio_minorista          Decimal                     @db.Decimal(10, 2)
+  precio_mayorista          Decimal                     @db.Decimal(10, 2)
+  id_unidad_medida          Int
+  porcentaje_iva            Decimal?                    @default(0) @db.Decimal(5, 2)
+  id_estado                 Int
+  id_categoria              Int
+  precio_colegas            Decimal?                    @db.Decimal(10, 2)
+  precio_x_pacas            Decimal?                    @db.Decimal(10, 2)
+  codigo_de_barras          codigo_de_barras[]
+  detalle_devolucion_compra detalle_devolucion_compra[]
+  detalles_pedidos          detalles_pedidos[]
+  producto_unidad_medida    producto_unidad_medida[]
+  categorias                categorias                  @relation(fields: [id_categoria], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction)
+  estados_generales         estados_generales           @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+  unidad_medida             unidad_medida               @relation(fields: [id_unidad_medida], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
+  productos_proveedores     productos_proveedores[]
+}
+
+model productos_proveedores {
+  id_producto_proveedor Int         @id @default(autoincrement())
+  id_producto           Int
+  id_proveedor          Int
+  productos             productos   @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
+  proveedores           proveedores @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id_producto, id_proveedor])
+}
+
+model proveedores {
+  id_proveedor            Int                      @id @default(autoincrement())
+  nit                     String                   @unique @db.VarChar(20)
+  tipo_persona            String                   @db.VarChar(25)
+  rut                     Boolean?                 @default(false)
+  codigo_ciu              String?                  @db.VarChar(30)
+  direccion               String?                  @db.VarChar(255)
+  nombre_persona_contacto String?                  @db.VarChar(255)
+  numero_persona_contacto BigInt?
+  id_estado               Int?
+  correo                  String?                  @db.VarChar(150)
+  telefono                String?                  @db.VarChar(20)
+  plazo_maximo_devolucion Unsupported("interval")?
+  tipo_documento          String?                  @db.VarChar(20)
+  numero_documento        String?                  @db.VarChar(20)
+  nombre                  String?                  @db.VarChar(100)
+  apellido                String?                  @db.VarChar(100)
+  compras                 compras[]
+  productos_proveedores   productos_proveedores[]
+  estados_generales       estados_generales?       @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model roles {
+  id_rol             Int                  @id @default(autoincrement())
+  nombre_rol         String               @unique @db.VarChar(20)
+  descripcion        String?              @db.VarChar(50)
+  fecha_creacion     DateTime?            @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_estado          Int
+  permisos_asignados permisos_asignados[]
+  estados_generales  estados_generales    @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
+}
+
+model subcategorias {
+  id_subcategorias  Int               @id @default(autoincrement())
+  nombre            String            @db.VarChar(100)
+  descripcion       String?           @db.VarChar(250)
+  id_estado         Int
+  id_categoria      Int
+  categorias        categorias        @relation(fields: [id_categoria], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_categoria")
+  estados_generales estados_generales @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_estado")
+}
+
+model unidad_medida {
+  id_unidad_medida       Int                      @id @default(autoincrement())
+  nombre                 String                   @unique @db.VarChar(50)
+  abreviado              String                   @unique @db.VarChar(3)
+  producto_unidad_medida producto_unidad_medida[]
+  productos              productos[]
+}
+
+model usuarios {
+  id_usuario         Int                 @id @default(autoincrement())
+  tipo_documento     String              @db.VarChar(3)
+  documento          BigInt              @unique
+  nombre_completo    String              @db.VarChar(255)
+  correo_electronico String              @unique @db.VarChar(255)
+  contrasena         String              @db.VarChar(255)
+  fecha_creacion     DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  telefono           BigInt?
+  id_estado          Int?
+  acceso             acceso[]
+  clientes           clientes?
+  empleados          empleados?
+  imagenes_carrusel  imagenes_carrusel[]
+  estados_generales  estados_generales?  @relation(fields: [id_estado], references: [id_estado], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model ventas {
+  id_venta             Int                   @id @default(autoincrement())
+  id_pedido            Int?                  @unique
+  id_empleado_vendedor Int
+  id_metodo_pago       Int
+  subtotal             Decimal               @db.Decimal(12, 2)
+  fecha_venta          DateTime?             @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_estado_venta      Int
+  tipo_venta           String?               @db.VarChar(50)
+  creditos             creditos?
+  devoluciones_ventas  devoluciones_ventas[]
+  empleados            empleados             @relation(fields: [id_empleado_vendedor], references: [id_empleado], onDelete: NoAction, onUpdate: NoAction)
+  estados_ventas       estados_ventas        @relation(fields: [id_estado_venta], references: [id_estado_venta], onDelete: NoAction, onUpdate: NoAction)
+  metodos_pago         metodos_pago          @relation(fields: [id_metodo_pago], references: [id_metodo_pago], onDelete: NoAction, onUpdate: NoAction)
+  pedidos_venta        pedidos_venta?        @relation(fields: [id_pedido], references: [id_pedido], onDelete: NoAction, onUpdate: NoAction)
 }
