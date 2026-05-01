@@ -1,6 +1,6 @@
 import { httpCodes }             from "../../../../shared/constants/httpCodes.js";
 import { CategoryRepository } from "../repositories/categoryRepository.js";
-import { ToggleCategoryStatusUseCase } from "../use-cases/toggleCategoryStatus.usecase.js";
+import { ToggleCategoryStatusUseCase } from "../use-cases/toggleCategoryStatusUseCase.js";
 
 const repo = new CategoryRepository();
  

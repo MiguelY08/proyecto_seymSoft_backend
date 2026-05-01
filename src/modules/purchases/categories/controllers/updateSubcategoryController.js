@@ -1,7 +1,7 @@
 import { httpCodes }             from "../../../../shared/constants/httpCodes.js";
 import { CategoryRepository } from "../repositories/categoryRepository.js";
 import { UpdateSubcategoryDto } from "../dtos/updateSubcategory.dto.js";
-import { UpdateSubcategoryUseCase } from "../use-cases/updateSubcategory.usecase.js";
+import { UpdateSubcategoryUseCase } from "../use-cases/updateSubcategoryUseCase.js";
 
 const repo = new CategoryRepository();
  
