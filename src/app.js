@@ -25,7 +25,7 @@ app.get("/api/health", (req, res) => {
 
 /* Rutas de autenticación */
 app.use("/auth", authRoutes);
-app.use("/api/categories", categoryRoutes);
+app.use("/api/categories", categoryRoutes); 
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

@@ -301,24 +301,24 @@ model products {
 }
 
 model providers {
-  id_provider           Int                      @id(map: "proveedores_pkey") @default(autoincrement())
-  nit                   String                   @unique(map: "proveedores_nit_key") @db.VarChar(20)
-  person_type           String                   @db.VarChar(25)
-  rut                   Boolean?                 @default(false)
-  ciu_code              String?                  @db.VarChar(30)
-  address               String?                  @db.VarChar(255)
-  contact_person_name   String?                  @db.VarChar(255)
+  id_provider           Int                 @id(map: "proveedores_pkey") @default(autoincrement())
+  nit                   String              @unique(map: "proveedores_nit_key") @db.VarChar(20)
+  person_type           String              @db.VarChar(25)
+  rut                   Boolean?            @default(false)
+  ciu_code              String?             @db.VarChar(30)
+  address               String?             @db.VarChar(255)
+  contact_person_name   String?             @db.VarChar(255)
   contact_person_number BigInt?
   id_status             Int?
-  email                 String?                  @db.VarChar(150)
-  phone                 String?                  @db.VarChar(20)
-  max_return_period     Unsupported("interval")?
-  document_type         String?                  @db.VarChar(20)
-  document_number       String?                  @db.VarChar(20)
-  name_provider         String?                  @db.VarChar(100)
-  lastname              String?                  @db.VarChar(100)
+  email                 String?             @db.VarChar(150)
+  phone                 String?             @db.VarChar(20)
+  document_type         String?             @db.VarChar(20)
+  document_number       String?             @db.VarChar(20)
+  name_provider         String?             @db.VarChar(100)
+  lastname              String?             @db.VarChar(100)
+  max_return_period     Int?
   product_suppliers     product_suppliers[]
-  general_statuses      general_statuses?        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
+  general_statuses      general_statuses?   @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
   purchases             purchases[]
 }
 
