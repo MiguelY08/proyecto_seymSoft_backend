@@ -8,7 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model hedv {
   id_return_status      Int                 @id @default(autoincrement())
   id_sale_return_detail Int
@@ -74,7 +73,6 @@ model barcodes {
   barcode_type            String?                   @db.VarChar(50)
   stock                   Int?                      @default(0)
   id_product              Int
-  secondary_barcode       String?                   @db.VarChar(100)
   products                products                  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "codigo_de_barras_id_producto_fkey")
   non_conforming_products non_conforming_products[]
   purchase_details        purchase_details[]
@@ -289,7 +287,7 @@ model products {
   id_unit_measure       Int
   tax_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
   id_status             Int
-  id_categorie          Int
+  id_category           Int
   partner_price         Decimal?                @db.Decimal(10, 2)
   bulk_price            Decimal?                @db.Decimal(10, 2)
   barcodes              barcodes[]
@@ -297,7 +295,7 @@ model products {
   prd                   prd[]
   product_suppliers     product_suppliers[]
   product_unit_measures product_unit_measures[]
-  categories            categories              @relation(fields: [id_categorie], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
+  categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
   unit_measures         unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
 }
@@ -459,16 +457,16 @@ model sales {
 }
 
 model sales_orders {
-  id_order        Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
-  id_customer     Int
-  order_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  delivery_adress String?         @db.VarChar(255)
-  id_order_status Int
-  hev             hev?
-  order_details   order_details[]
-  sales           sales?
-  clients         clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
-  order_statuses  order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
+  id_order         Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
+  id_customer      Int
+  order_date       DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  delivery_address String?         @db.VarChar(255)
+  id_order_status  Int
+  hev              hev?
+  order_details    order_details[]
+  sales            sales?
+  clients          clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
+  order_statuses   order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
 }
 
 model sales_returns {
@@ -509,34 +507,10 @@ model users {
   pass_word        String            @db.VarChar(255)
   creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
   phone            BigInt?
-  id_status        Int? 
-  access                access[]
-  banner_img            banner_img[]
-  clients               clients?
-  employees             employees?
-  refresh_tokens        refresh_tokens[]        
-  password_resets       password_resets[]       
-  general_statuses      general_statuses?       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-model refresh_tokens {
-  id_token        Int       @id @default(autoincrement())
-  id_user         Int
-  token           String    @unique
-  expiration_date DateTime
-  created_at      DateTime  @default(now())
-  users           users     @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
-  
-  @@map("refresh_tokens")
-}
-
-model password_resets {
-  id_reset        Int       @id @default(autoincrement())
-  id_user         Int
-  token           String    @unique
-  expiration_date DateTime
-  created_at      DateTime  @default(now())
-  used            Boolean   @default(false)
-  users           users     @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
-  
-  @@map("password_resets")
+  id_status        Int?
+  access           access[]
+  banner_img       banner_img[]
+  clients          clients?
+  employees        employees?
+  general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
