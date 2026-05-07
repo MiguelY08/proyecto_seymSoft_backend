@@ -12,7 +12,7 @@ export class UserRepository {
         email: data.email,
         pass_word: data.password,
         phone: data.phone,
-        id_status: data.statusId
+        id_status: data.idStatus
       }
     });
 
@@ -136,10 +136,9 @@ export class UserRepository {
 
     // Calcular datos de paginación
     const totalPages = Math.ceil(total / limitNum);
-    const mappedUsers = users.map(UserMapper.toDomain);
 
     return {
-      users: mappedUsers,
+      users: users,
       total,
       page: pageNum,
       limit: limitNum,
@@ -164,7 +163,7 @@ export class UserRepository {
       },
     });
 
-    return UserMapper.toDomain(user);
+    return user;
   }
 
   static async findByEmail(email) {
@@ -190,18 +189,18 @@ export class UserRepository {
         ...(data.fullName && { full_name: data.fullName }),
         ...(data.email && { email: data.email }),
         ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.statusId && { id_status: data.statusId }),
+        ...(data.idStatus && { id_status: data.idStatus }),
       },
     });
 
     return UserMapper.toDomain(user);
   }
 
-  static async updateStatus(id, statusId) {
+  static async updateStatus(id, idStatus) {
     const user = await prisma.users.update({
       where: { id_user: id },
       data: {
-        id_status: statusId
+        id_status: idStatus
       }
     });
 

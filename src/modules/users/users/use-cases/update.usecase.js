@@ -15,7 +15,7 @@ import { UserRepository } from "../repositories/userRepository.js";
  * - Si se actualiza email, DEBE ser único (pero se permite si es el mismo)
  * - Si se actualiza docNumber, DEBE ser único (pero se permite si es el mismo)
  * - Solo se actualizan los campos que vienen en updateData (parcial)
- * - No se puede actualizar: id, statusId, creationDate, password
+ * - No se puede actualizar: id, idStatus, creationDate, password
  * - Retorna el usuario actualizado con todos sus datos
  * 
  * Campos que se pueden actualizar:
@@ -26,13 +26,13 @@ import { UserRepository } from "../repositories/userRepository.js";
  * - phone
  * 
  * Campos que NO se pueden actualizar:
- * - id (inmutable)
+ * - idUser (inmutable)
  * - creationDate (inmutable)
- * - statusId (usar updateStatus.usecase.js)
+ * - idStatus (usar updateStatus.usecase.js)
  * - password (usar módulo auth)
  * 
  * @param {Object} params - Parámetros
- * @param {number} params.userId - ID del usuario a actualizar
+ * @param {number} params.idUser - ID del usuario a actualizar
  * @param {Object} params.updateData - Datos a actualizar (todos opcionales)
  * @param {string} params.updateData.docType - Tipo de documento
  * @param {number} params.updateData.docNumber - Número de documento
@@ -44,14 +44,14 @@ import { UserRepository } from "../repositories/userRepository.js";
  * {
  *   success: boolean,
  *   data: {
- *     id: number,
+ *     idUser: number,
  *     docType: string,
  *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
  *     creationDate: Date,
- *     statusId: number
+ *     idStatus: number
  *   }|null,
  *   error: string|null,
  *   errorCode: string|null
@@ -68,7 +68,7 @@ import { UserRepository } from "../repositories/userRepository.js";
  * 
  * Ejemplo de uso:
  * const result = await updateUserUseCase({
- *   userId: 5,
+ *   idUser: 5,
  *   updateData: {
  *     fullName: "Juan Carlos Pérez",
  *     email: "juancarlos@example.com",
@@ -86,10 +86,10 @@ import { UserRepository } from "../repositories/userRepository.js";
  */
 export const updateUserUseCase = async (params) => {
   try {
-    const { userId, updateData } = params;
+    const { idUser, updateData } = params;
 
-    // Validar userId
-    if (!userId || isNaN(userId) || userId < 1) {
+    // Validar idUser
+    if (!idUser || isNaN(idUser) || idUser < 1) {
       return {
         success: false,
         data: null,
@@ -98,7 +98,7 @@ export const updateUserUseCase = async (params) => {
       };
     }
 
-    const parsedUserId = Number(userId);
+    const parsedIdUser = Number(idUser);
 
     // Validar que updateData no esté vacío
     if (!updateData || Object.keys(updateData).length === 0) {
@@ -111,7 +111,7 @@ export const updateUserUseCase = async (params) => {
     }
 
     // Buscar usuario existente
-    const existingUser = await UserRepository.findById(parsedUserId);
+    const existingUser = await UserRepository.findById(parsedIdUser);
 
     // Usuario no existe
     if (!existingUser) {
@@ -128,7 +128,7 @@ export const updateUserUseCase = async (params) => {
       const existingEmail = await UserRepository.findByEmail(updateData.email);
 
       // Permitir si es el mismo usuario, rechazar si pertenece a otro
-      if (existingEmail && existingEmail.id !== parsedUserId) {
+      if (existingEmail && existingEmail.id !== parsedIdUser) {
         return {
           success: false,
           data: null,
@@ -145,7 +145,7 @@ export const updateUserUseCase = async (params) => {
       );
 
       // Permitir si es el mismo usuario, rechazar si pertenece a otro
-      if (existingDocNumber && existingDocNumber.id !== parsedUserId) {
+      if (existingDocNumber && existingDocNumber.id !== parsedIdUser) {
         return {
           success: false,
           data: null,
@@ -156,7 +156,7 @@ export const updateUserUseCase = async (params) => {
     }
 
     // Actualizar usuario en BD
-    const updatedUser = await UserRepository.update(parsedUserId, updateData);
+    const updatedUser = await UserRepository.update(parsedIdUser, updateData);
 
     // Validar resultado de la actualización
     if (!updatedUser) {
@@ -170,13 +170,13 @@ export const updateUserUseCase = async (params) => {
 
     // Validar que el usuario actualizado tenga los campos requeridos
     const requiredFields = [
-      "id",
+      "idUser",
       "docType",
       "docNumber",
       "fullName",
       "email",
       "creationDate",
-      "statusId",
+      "idStatus",
     ];
 
     for (const field of requiredFields) {

@@ -13,7 +13,7 @@ export const UpdateUserController = async (req, res) => {
       });
     }
 
-    const userId = Number(id);
+    const idUser = Number(id);
 
     // Validar datos con Zod
     const validation = validateUpdateUser(req.body);
@@ -29,7 +29,7 @@ export const UpdateUserController = async (req, res) => {
 
     // Ejecutar use-case
     const result = await updateUserUseCase({
-      userId,
+      idUser,
       updateData: validatedData,
     });
 

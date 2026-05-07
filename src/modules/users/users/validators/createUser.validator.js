@@ -1,16 +1,26 @@
 import { z } from "zod";
-import { DOC_TYPES } from "../../../../shared/constants/docTypes";
+import { DOC_TYPES } from "../../../../shared/constants/docTypes.js";
 
 /**
  * Schema de validación para CREATE USER
  * 
  * Reglas:
  * - docType: Solo valores permitidos (CC, CE, NIT, TI, PP)
- * - docNumber: Número positivo único (validación BD en controller)
+ * - docNumber: Número positivo único (validación BD en use-case)
  * - fullName: Texto 1-255 caracteres
- * - email: Email válido, único (validación BD en controller)
- * - password: String no vacío (ya hasheada, viene del módulo de acceso)
+ * - email: Email válido, único (validación BD en use-case)
  * - phone: Número opcional y positivo
+ * 
+ * Nota sobre contraseña:
+ * - NO se valida en este schema (no viene en el body)
+ * - Se GENERA automáticamente en el use-case (10 caracteres aleatorios)
+ * - Se HASHEA con bcrypt en el use-case
+ * - Se ENVÍA al usuario mediante email de bienvenida
+ * 
+ * Por qué no se valida password:
+ * - El administrador/empleado NO puede enviar contraseña
+ * - El sistema la genera automáticamente
+ * - El usuario la recibe por email y debe cambiarla en primer login
  */
 
 export const createUserSchema = z.object({
@@ -42,11 +52,6 @@ export const createUserSchema = z.object({
     .email("El email debe ser válido")
     .max(255, "El email no puede exceder 255 caracteres"),
 
-  password: z
-    .string()
-    .min(6, "La contraseña no puede estar vacía")
-    .optional(),
-
   phone: z
     .number()
     .int()
@@ -58,7 +63,17 @@ export const createUserSchema = z.object({
 /**
  * Validador de CreateUser
  * 
- * @param {Object} data - Datos a validar
+ * Valida:
+ * - docType (obligatorio, enum)
+ * - docNumber (obligatorio, positivo)
+ * - fullName (obligatorio, 1-255 caracteres)
+ * - email (obligatorio, válido)
+ * - phone (opcional)
+ * 
+ * NO valida:
+ * - password (se genera automáticamente en use-case)
+ * 
+ * @param {Object} data - Datos a validar (sin password)
  * @returns {Object} { success: boolean, data: Object|null, errors: Object|null }
  * 
  * Uso:
@@ -67,6 +82,15 @@ export const createUserSchema = z.object({
  *   return res.status(400).json({ errors: validation.errors });
  * }
  * const validatedData = validation.data;
+ * 
+ * Ejemplo de body válido:
+ * {
+ *   "docType": "CC",
+ *   "docNumber": 1234567890,
+ *   "fullName": "Juan Pérez",
+ *   "email": "juan@example.com",
+ *   "phone": 3001234567
+ * }
  */
 export const validateCreateUser = (data) => {
   try {

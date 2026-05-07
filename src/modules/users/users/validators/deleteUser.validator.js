@@ -35,7 +35,10 @@ export const deleteUserSchema = z.object({}).strict();
  */
 export const validateDeleteUser = (data) => {
   try {
-    const validatedData = deleteUserSchema.parse(data);
+    // Asegurar que data es siempre un objeto
+    const objectData = data && typeof data === 'object' ? data : {};
+
+    const validatedData = deleteUserSchema.parse(objectData);
 
     return {
       success: true,
@@ -43,7 +46,7 @@ export const validateDeleteUser = (data) => {
       errors: null,
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof z.ZodError && error.errors) {
       const formattedErrors = error.errors.reduce((acc, err) => {
         const path = err.path.join(".") || "general";
         acc[path] = err.message;
@@ -58,6 +61,7 @@ export const validateDeleteUser = (data) => {
     }
 
     // Error inesperado
+    console.log("[ValidateDeleteUser] Error:", error.message);
     return {
       success: false,
       data: null,

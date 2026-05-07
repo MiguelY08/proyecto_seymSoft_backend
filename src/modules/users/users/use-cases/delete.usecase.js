@@ -1,8 +1,9 @@
 import { prisma } from "../../../../config/prisma.js";
 import { UserRepository } from "../repositories/userRepository.js";
+import { UserMapper } from "../mappers/usersMapper.js";
 
-const SYSTEM_USER_ID = 1; // Ajustar según tu configuración
-const INACTIVE_STATUS_ID = 2; // Ajustar según tu configuración
+const SYSTEM_ID_USER = 1; // Ajustar según tu configuración
+const INACTIVE_ID_STATUS = 2; // Ajustar según tu configuración
 
 /**
  * Use-Case: Eliminar usuario
@@ -17,7 +18,7 @@ const INACTIVE_STATUS_ID = 2; // Ajustar según tu configuración
  * 
  * Reglas de negocio:
  * - El usuario DEBE existir
- * - El usuario DEBE estar INACTIVO (statusId = 2)
+ * - El usuario DEBE estar INACTIVO (idStatus = 2)
  * - NO se puede eliminar el usuario del sistema (id = 1)
  * - Antes de eliminar, se transfieren todas sus relaciones:
  *   • clients
@@ -32,13 +33,13 @@ const INACTIVE_STATUS_ID = 2; // Ajustar según tu configuración
  * - ID = 1 (ajustar si es diferente en tu sistema)
  * - Status = 1 (activo)
  * 
- * @param {number} userId - ID del usuario a eliminar
+ * @param {number} idUser - ID del usuario a eliminar
  * 
  * @returns {Promise<Object>} Resultado con estructura:
  * {
  *   success: boolean,
  *   data: {
- *     deletedUserId: number,
+ *     deletedIdUser: number,
  *     relationsTransferred: {
  *       clients: number,
  *       employees: number,
@@ -71,10 +72,10 @@ const INACTIVE_STATUS_ID = 2; // Ajustar según tu configuración
  *   console.error("Error:", result.error);
  * }
  */
-export const deleteUserUseCase = async (userId) => {
+export const deleteUserUseCase = async (idUser) => {
   try {
-    // Validar userId
-    if (!userId || isNaN(userId) || userId < 1) {
+    // Validar idUser
+    if (!idUser || isNaN(idUser) || idUser < 1) {
       return {
         success: false,
         data: null,
@@ -83,10 +84,10 @@ export const deleteUserUseCase = async (userId) => {
       };
     }
 
-    const parsedUserId = Number(userId);
+    const parsedIdUser = Number(idUser);
 
     // Buscar usuario existente
-    const existingUser = await UserRepository.findById(parsedUserId);
+    const existingUser = await UserRepository.findById(parsedIdUser);
 
     // Usuario no existe
     if (!existingUser) {
@@ -98,8 +99,11 @@ export const deleteUserUseCase = async (userId) => {
       };
     }
 
+    // Mappear usuario
+    const mappedUser = UserMapper.toDomain(existingUser);
+
     // Validar que usuario está INACTIVO
-    if (existingUser.statusId !== INACTIVE_STATUS_ID) {
+    if (mappedUser.idStatus !== INACTIVE_ID_STATUS) {
       return {
         success: false,
         data: null,
@@ -109,7 +113,7 @@ export const deleteUserUseCase = async (userId) => {
     }
 
     // Prevenir eliminación del usuario del sistema
-    if (parsedUserId === SYSTEM_USER_ID) {
+    if (parsedIdUser === SYSTEM_ID_USER) {
       return {
         success: false,
         data: null,
@@ -132,35 +136,35 @@ export const deleteUserUseCase = async (userId) => {
 
         // Contar y transferir clientes
         const clientsResult = await tx.clients.updateMany({
-          where: { id_user: parsedUserId },
-          data: { id_user: SYSTEM_USER_ID },
+          where: { id_user: parsedIdUser },
+          data: { id_user: SYSTEM_ID_USER },
         });
         relationsTransferred.clients = clientsResult.count;
 
         // Contar y transferir empleados
         const employeesResult = await tx.employees.updateMany({
-          where: { id_user: parsedUserId },
-          data: { id_user: SYSTEM_USER_ID },
+          where: { id_user: parsedIdUser },
+          data: { id_user: SYSTEM_ID_USER },
         });
         relationsTransferred.employees = employeesResult.count;
 
         // Contar y transferir accesos
         const accessResult = await tx.access.updateMany({
-          where: { id_user: parsedUserId },
-          data: { id_user: SYSTEM_USER_ID },
+          where: { id_user: parsedIdUser },
+          data: { id_user: SYSTEM_ID_USER },
         });
         relationsTransferred.access = accessResult.count;
 
         // Contar y transferir imágenes de banner
         const bannerImgResult = await tx.banner_img.updateMany({
-          where: { id_user: parsedUserId },
-          data: { id_user: SYSTEM_USER_ID },
+          where: { id_user: parsedIdUser },
+          data: { id_user: SYSTEM_ID_USER },
         });
         relationsTransferred.bannerImages = bannerImgResult.count;
 
         // Eliminar usuario
         await tx.users.delete({
-          where: { id_user: parsedUserId },
+          where: { id_user: parsedIdUser },
         });
       });
     } catch (txError) {
@@ -191,7 +195,7 @@ export const deleteUserUseCase = async (userId) => {
     return {
       success: true,
       data: {
-        deletedUserId: parsedUserId,
+        deletedIdUser: parsedIdUser,
         relationsTransferred,
       },
       error: null,

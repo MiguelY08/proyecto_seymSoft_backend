@@ -23,21 +23,21 @@ import { UserRepository } from "../repositories/userRepository.js";
  * - Etc.
  * 
  * @param {Object} params - Parámetros
- * @param {number} params.userId - ID del usuario
- * @param {number} params.statusId - Nuevo ID de estado
+ * @param {number} params.idUser - ID del usuario
+ * @param {number} params.idStatus - Nuevo ID de estado
  * 
  * @returns {Promise<Object>} Resultado con estructura:
  * {
  *   success: boolean,
  *   data: {
- *     id: number,
+ *     idUser: number,
  *     docType: string,
  *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
  *     creationDate: Date,
- *     statusId: number
+ *     idStatus: number
  *   }|null,
  *   error: string|null
  * }
@@ -46,8 +46,8 @@ import { UserRepository } from "../repositories/userRepository.js";
  * 
  * Ejemplo de uso:
  * const result = await updateUserStatusUseCase({
- *   userId: 5,
- *   statusId: 2
+ *   idUser: 5,
+ *   idStatus: 2
  * });
  * 
  * if (result.success) {
@@ -58,10 +58,10 @@ import { UserRepository } from "../repositories/userRepository.js";
  */
 export const updateUserStatusUseCase = async (params) => {
   try {
-    const { userId, statusId } = params;
+    const { idUser, idStatus } = params;
 
     // Validar parámetros
-    if (!userId || isNaN(userId) || userId < 1) {
+    if (!idUser || isNaN(idUser) || idUser < 1) {
       return {
         success: false,
         data: null,
@@ -69,7 +69,7 @@ export const updateUserStatusUseCase = async (params) => {
       };
     }
 
-    if (!statusId || isNaN(statusId) || statusId < 1) {
+    if (!idStatus || isNaN(idStatus) || idStatus < 1) {
       return {
         success: false,
         data: null,
@@ -77,11 +77,11 @@ export const updateUserStatusUseCase = async (params) => {
       };
     }
 
-    const parsedUserId = Number(userId);
-    const parsedStatusId = Number(statusId);
+    const parsedIdUser = Number(idUser);
+    const parsedIdStatus = Number(idStatus);
 
     // Buscar usuario existente
-    const existingUser = await UserRepository.findById(parsedUserId);
+    const existingUser = await UserRepository.findById(parsedIdUser);
 
     // Usuario no existe
     if (!existingUser) {
@@ -93,7 +93,7 @@ export const updateUserStatusUseCase = async (params) => {
     }
 
     // Validar que el estado sea diferente (evitar actualización innecesaria)
-    if (existingUser.statusId === parsedStatusId) {
+    if (existingUser.idStatus === parsedIdStatus) {
       return {
         success: false,
         data: null,
@@ -103,8 +103,8 @@ export const updateUserStatusUseCase = async (params) => {
 
     // Actualizar estado en BD
     const updatedUser = await UserRepository.updateStatus(
-      parsedUserId,
-      parsedStatusId
+      parsedIdUser,
+      parsedIdStatus
     );
 
     // Validar resultado de la actualización
@@ -118,14 +118,14 @@ export const updateUserStatusUseCase = async (params) => {
 
     // Validar que el usuario actualizado tenga los campos requeridos
     const requiredFields = [
-      "id",
+      "idUser",
       "docType",
       "docNumber",
       "fullName",
       "email",
       "phone",
       "creationDate",
-      "statusId",
+      "idStatus",
     ];
 
     for (const field of requiredFields) {
@@ -139,7 +139,7 @@ export const updateUserStatusUseCase = async (params) => {
     }
 
     // Validar que el estado fue actualizado correctamente
-    if (updatedUser.statusId !== parsedStatusId) {
+    if (updatedUser.idStatus !== parsedIdStatus) {
       return {
         success: false,
         data: null,

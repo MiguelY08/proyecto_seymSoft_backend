@@ -13,7 +13,7 @@ export const GetUserByIdController = async (req, res) => {
       });
     }
 
-    const userId = Number(id);
+    const idUser = Number(id);
 
     // Validar body con Zod (debe estar vacío)
     const validation = validateGetUserById(req.body);
@@ -26,7 +26,7 @@ export const GetUserByIdController = async (req, res) => {
     }
 
     // Ejecutar use-case
-    const result = await getUserByIdUseCase(userId);
+    const result = await getUserByIdUseCase(idUser);
 
     // Validar resultado del use-case
     if (!result.success) {

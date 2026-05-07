@@ -4,7 +4,7 @@ import { z } from "zod";
  * Schema de validación para UPDATE USER STATUS
  * 
  * Reglas:
- * - statusId: Número entero y positivo (OBLIGATORIO)
+ * - idStatus: Número entero y positivo (OBLIGATORIO)
  * 
  * Nota:
  * - Este endpoint es específico para cambiar el estado del usuario
@@ -13,7 +13,7 @@ import { z } from "zod";
  */
 
 export const updateUserStatusSchema = z.object({
-  statusId: z
+  idStatus: z
     .number()
     .int("El ID del estado debe ser un número entero")
     .positive({
@@ -34,7 +34,7 @@ export const updateUserStatusSchema = z.object({
  * }
  * const validatedData = validation.data;
  * 
- * Nota: El statusId es OBLIGATORIO para este endpoint
+ * Nota: El idStatus es OBLIGATORIO para este endpoint
  */
 export const validateUpdateUserStatus = (data) => {
   try {

@@ -1,4 +1,5 @@
 import { UserRepository } from "../repositories/userRepository.js";
+import { UserMapper } from "../mappers/usersMapper.js";
 
 /**
  * Use-Case: Obtener usuario por ID
@@ -29,14 +30,14 @@ import { UserRepository } from "../repositories/userRepository.js";
  * {
  *   success: boolean,
  *   data: {
- *     id: number,
+ *     idUser: number,
  *     docType: string,
  *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
  *     creationDate: Date,
- *     statusId: number
+ *     idStatus: number
  *   }|null,
  *   error: string|null
  * }
@@ -65,10 +66,10 @@ export const getUserByIdUseCase = async (id) => {
       };
     }
 
-    const userId = Number(id);
+    const idUser = Number(id);
 
     // Buscar usuario en el repository
-    const user = await UserRepository.findById(userId);
+    const user = await UserRepository.findById(idUser);
 
     // Usuario no existe
     if (!user) {
@@ -79,20 +80,33 @@ export const getUserByIdUseCase = async (id) => {
       };
     }
 
+    // Mapear usuario de formato BD a formato limpio PRIMERO
+    let mappedUser;
+    try {
+      mappedUser = UserMapper.toDomain(user);
+    } catch (mapError) {
+      console.error("[GetUserByIdUseCase] Error mapping user:", mapError.message);
+      return {
+        success: false,
+        data: null,
+        error: "Error al mapear usuario: " + mapError.message,
+      };
+    }
+
     // Validar que el usuario tenga los campos requeridos
     const requiredFields = [
-      "id",
+      "idUser",
       "docType",
       "docNumber",
       "fullName",
       "email",
       "phone",
       "creationDate",
-      "statusId",
+      "idStatus",
     ];
 
     for (const field of requiredFields) {
-      if (user[field] === undefined) {
+      if (mappedUser[field] === undefined) {
         return {
           success: false,
           data: null,
@@ -104,7 +118,7 @@ export const getUserByIdUseCase = async (id) => {
     // Retornar usuario encontrado
     return {
       success: true,
-      data: user,
+      data: mappedUser,
       error: null,
     };
 

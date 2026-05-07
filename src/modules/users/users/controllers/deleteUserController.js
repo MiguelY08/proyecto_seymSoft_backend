@@ -12,7 +12,7 @@ export const DeleteUserController = async (req, res) => {
       });
     }
 
-    const userId = Number(id);
+    const idUser = Number(id);
 
     // Validar body con Zod (debe estar vacío)
     const validation = validateDeleteUser(req.body);
@@ -25,7 +25,7 @@ export const DeleteUserController = async (req, res) => {
     }
 
     // Ejecutar use-case
-    const result = await deleteUserUseCase(userId);
+    const result = await deleteUserUseCase(idUser);
 
     // Manejar diferentes tipos de error
     if (!result.success) {
@@ -61,7 +61,7 @@ export const DeleteUserController = async (req, res) => {
     return res.status(200).json({
       message: "Usuario eliminado exitosamente.",
       data: {
-        deletedUserId: result.data.deletedUserId,
+        deletedIdUser: result.data.deletedIdUser,
         relationsTransferred: result.data.relationsTransferred,
       },
     });

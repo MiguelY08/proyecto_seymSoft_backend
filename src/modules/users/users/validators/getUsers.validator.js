@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DOC_TYPES } from "../../../../shared/constants/docTypes";
+import { DOC_TYPES } from "../../../../shared/constants/docTypes.js";
 
 /**
  * Constantes de validación

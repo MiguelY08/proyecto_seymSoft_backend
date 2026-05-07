@@ -13,9 +13,9 @@ export const UpdateUserStatusController = async (req, res) => {
       });
     }
 
-    const userId = Number(id);
+    const idUser = Number(id);
 
-    // Validar statusId con Zod
+    // Validar idStatus con Zod
     const validation = validateUpdateUserStatus(req.body);
 
     if (!validation.success) {
@@ -29,8 +29,8 @@ export const UpdateUserStatusController = async (req, res) => {
 
     // Ejecutar use-case
     const result = await updateUserStatusUseCase({
-      userId,
-      statusId: validatedData.statusId,
+      idUser,
+      idStatus: validatedData.idStatus,
     });
 
     // Validar resultado del use-case

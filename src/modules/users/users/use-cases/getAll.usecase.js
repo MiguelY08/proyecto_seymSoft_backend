@@ -1,4 +1,5 @@
 import { UserRepository } from "../repositories/userRepository.js";
+import { UserMapper } from "../mappers/usersMapper.js";
 
 /**
  * Use-Case: Obtener todos los usuarios
@@ -36,14 +37,14 @@ import { UserRepository } from "../repositories/userRepository.js";
  *   success: boolean,
  *   data: {
  *     users: Array<{
- *       id: number,
+ *       idUser: number,
  *       docType: string,
  *       docNumber: number,
  *       fullName: string,
  *       email: string,
  *       phone: number|null,
  *       creationDate: Date,
- *       statusId: number
+ *       idStatus: number
  *     }>,
  *     total: number,
  *     page: number,
@@ -87,32 +88,41 @@ export const getAllUsersUseCase = async (filters = {}) => {
       };
     }
 
-    // Validar que cada usuario tenga los campos requeridos
-    const requiredFields = [
-      "docType",
-      "docNumber",
-      "fullName",
-      "email",
-      "phone",
-    ];
-
-    for (const user of result.users) {
-      for (const field of requiredFields) {
-        if (user[field] === undefined) {
-          return {
-            success: false,
-            data: null,
-            error: `Error: usuario falta campo requerido: ${field}`,
-          };
-        }
-      }
+    // Si está vacío, retornar vacío
+    if (result.users.length === 0) {
+      return {
+        success: true,
+        data: {
+          users: [],
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+          hasNextPage: result.hasNextPage,
+          hasPrevPage: result.hasPrevPage,
+        },
+        error: null,
+      };
     }
+
+    // Mapear usuarios de formato BD a formato limpio
+    const mappedUsers = result.users.map((user) => {
+      if (!user || Object.keys(user).length === 0) {
+        return null;
+      }
+      try {
+        return UserMapper.toDomain(user);
+      } catch (mapError) {
+        console.error("[DEBUG] Error mapping user:", mapError.message);
+        return null;
+      }
+    }).filter(u => u !== null);
 
     // Retornar resultado exitoso con estructura esperada
     return {
       success: true,
       data: {
-        users: result.users,
+        users: mappedUsers,
         total: result.total,
         page: result.page,
         limit: result.limit,
@@ -124,8 +134,8 @@ export const getAllUsersUseCase = async (filters = {}) => {
     };
 
   } catch (error) {
-    // Capturar errores no esperados
     console.error("[GetAllUsersUseCase] Error:", error.message);
+    console.error("[GetAllUsersUseCase] Stack:", error.stack);
 
     return {
       success: false,
@@ -135,7 +145,4 @@ export const getAllUsersUseCase = async (filters = {}) => {
   }
 };
 
-/**
- * Alias (exportación alternativa para compatibilidad)
- */
 export const getAll = getAllUsersUseCase;

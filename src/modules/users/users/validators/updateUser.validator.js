@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DOC_TYPES } from "../../../../shared/constants/docTypes";
+import { DOC_TYPES } from "../../../../shared/constants/docTypes.js";
 
 /**
  * Constantes de validación
@@ -19,7 +19,7 @@ import { DOC_TYPES } from "../../../../shared/constants/docTypes";
  * 
  * Nota: 
  * - password NO se actualiza aquí (manejo en módulo auth)
- * - statusId NO se actualiza aquí (tiene endpoint /status)
+ * - idStatus NO se actualiza aquí (tiene endpoint /status)
  */
 
 export const updateUserSchema = z.object({
