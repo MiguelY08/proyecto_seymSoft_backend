@@ -7,33 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model hedv {
-  id_return_status      Int                 @id @default(autoincrement())
-  id_sale_return_detail Int
-  status                String              @db.VarChar(50)
-  status_date           DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
-  sale_return_details   sale_return_details @relation(fields: [id_sale_return_detail], references: [id_sale_return_detail], onDelete: NoAction, onUpdate: NoAction, map: "hedv_id_detalle_fkey")
-}
-
-model hev {
-  id_order        Int           @id
-  id_sales_return Int?
-  id_sale_status  Int
-  status_date     DateTime?     @default(dbgenerated("CURRENT_DATE")) @db.Date
-  sale_statuses   sale_statuses @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "hev_estado_venta_fkey")
-  sales_orders    sales_orders  @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "hev_id_pedido_fkey")
-}
-
-model roles {
-  id_role              Int                    @id @default(autoincrement())
-  name_role            String                 @unique(map: "roles_nombre_rol_key") @db.VarChar(20)
-  description          String?                @db.VarChar(50)
-  date_creation        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_status            Int
-  assigned_permissions assigned_permissions[]
-  general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
-}
-
 model access {
   id_access         Int       @id(map: "acceso_pkey") @default(autoincrement())
   id_user           Int
@@ -161,6 +134,23 @@ model general_statuses {
   users         users[]
 }
 
+model hedv {
+  id_return_status      Int                 @id @default(autoincrement())
+  id_sale_return_detail Int
+  status                String              @db.VarChar(50)
+  status_date           DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  sale_return_details   sale_return_details @relation(fields: [id_sale_return_detail], references: [id_sale_return_detail], onDelete: NoAction, onUpdate: NoAction, map: "hedv_id_detalle_fkey")
+}
+
+model hev {
+  id_order        Int           @id
+  id_sales_return Int?
+  id_sale_status  Int
+  status_date     DateTime?     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  sale_statuses   sale_statuses @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "hev_estado_venta_fkey")
+  sales_orders    sales_orders  @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "hev_id_pedido_fkey")
+}
+
 model hsp {
   id_history_status_purchase Int               @id(map: "hec_pkey") @default(autoincrement())
   id_purchase_return         Int
@@ -283,7 +273,9 @@ model products {
   retail_price          Decimal                 @db.Decimal(10, 2)
   wholesale_price       Decimal                 @db.Decimal(10, 2)
   id_unit_measure       Int
+  iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
   id_status             Int
+  id_category           Int
   partner_price         Decimal?                @db.Decimal(10, 2)
   bulk_price            Decimal?                @db.Decimal(10, 2)
   id_category           Int
@@ -314,7 +306,6 @@ model providers {
   name_provider         String?             @db.VarChar(100)
   lastname              String?             @db.VarChar(100)
   max_return_period     Int?
-  nit                   String?             @db.VarChar(20)
   product_suppliers     product_suppliers[]
   general_statuses      general_statuses?   @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
   purchases             purchases[]
@@ -403,6 +394,16 @@ model return_statuses {
   sales_returns        sales_returns[]
 }
 
+model roles {
+  id_role              Int                    @id @default(autoincrement())
+  name_role            String                 @unique(map: "roles_nombre_rol_key") @db.VarChar(20)
+  description          String?                @db.VarChar(50)
+  date_creation        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_status            Int
+  assigned_permissions assigned_permissions[]
+  general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
+}
+
 model sale_return_details {
   id_sale_return_detail Int             @id(map: "detalle_devolucion_venta_pkey") @default(autoincrement())
   id_sales_return       Int
@@ -455,16 +456,16 @@ model sales {
 }
 
 model sales_orders {
-  id_order        Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
-  id_customer     Int
-  order_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_order_status Int
-  delivery_adress String?         @db.VarChar(255)
-  hev             hev?
-  order_details   order_details[]
-  sales           sales?
-  clients         clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
-  order_statuses  order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
+  id_order         Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
+  id_customer      Int
+  order_date       DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  delivery_address String?         @db.VarChar(255)
+  id_order_status  Int
+  hev              hev?
+  order_details    order_details[]
+  sales            sales?
+  clients          clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
+  order_statuses   order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
 }
 
 model sales_returns {
@@ -506,31 +507,9 @@ model users {
   creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
   phone            BigInt?
   id_status        Int?
-  token_version    Int               @default(0)
   access           access[]
   banner_img       banner_img[]
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model refresh_tokens {
-  id_token        Int      @id @default(autoincrement())
-  id_user         Int
-  token           String   @unique
-  expiration_date DateTime
-  created_at      DateTime @default(now())
-
-  @@map("refresh_tokens")
-}
-
-model password_resets {
-  id_reset        Int      @id @default(autoincrement())
-  id_user         Int
-  token           String   @unique
-  expiration_date DateTime
-  created_at      DateTime @default(now())
-  used            Boolean  @default(false)
-
-  @@map("password_resets")
 }
