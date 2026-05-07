@@ -256,14 +256,14 @@ model privileges {
   assigned_permissions assigned_permissions[]
 }
 
-model product_suppliers {
-  id_product_supplier Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
+model product_providers {
+  id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
   id_product          Int
-  id_supplier         Int
+  id_provider         Int
   products            products  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_producto_fkey")
-  providers           providers @relation(fields: [id_supplier], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
+  providers           providers @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
 
-  @@unique([id_product, id_supplier], map: "productos_proveedores_id_producto_id_proveedor_key")
+  @@unique([id_product, id_provider], map: "productos_proveedores_id_producto_id_proveedor_key")
 }
 
 model product_unit_measures {
@@ -290,7 +290,7 @@ model products {
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]
-  product_suppliers     product_suppliers[]
+  product_providers     product_providers[]
   product_unit_measures product_unit_measures[]
   categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
@@ -314,7 +314,7 @@ model providers {
   lastname              String?             @db.VarChar(100)
   max_return_period     Int?
   nit                   String?             @db.VarChar(20)
-  product_suppliers     product_suppliers[]
+  product_providers     product_providers[]
   general_statuses      general_statuses?   @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
   purchases             purchases[]
 }
@@ -515,7 +515,7 @@ model unit_measures {
 
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  doc_type         String            @db.VarChar(3)
+  doc_type         String            @db.VarChar(6)
   doc_number       BigInt            @unique(map: "usuarios_documento_key")
   full_name        String            @db.VarChar(255)
   email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)

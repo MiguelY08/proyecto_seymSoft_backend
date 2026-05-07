@@ -1,13 +1,7 @@
-import pkg from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+// Prisma configuration
 
-const { PrismaClient } = pkg;
-
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
+import { PrismaClient } from "@prisma/client";
 
 export const prisma = new PrismaClient({
-  adapter,
   log: ["warn", "error"],
 });

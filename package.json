@@ -21,7 +21,6 @@
   "homepage": "https://github.com/MiguelY08/proyecto_seymSoft_backend#readme",
   "description": "",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
