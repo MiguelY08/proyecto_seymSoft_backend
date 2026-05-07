@@ -279,7 +279,6 @@ model products {
   id_product            Int                     @id(map: "productos_pkey") @default(autoincrement())
   name                  String                  @db.VarChar(255)
   reference             String                  @unique(map: "productos_referencia_key") @db.VarChar(50)
-  stock                 Int?                    @default(0)
   retail_price          Decimal                 @db.Decimal(10, 2)
   wholesale_price       Decimal                 @db.Decimal(10, 2)
   id_unit_measure       Int
