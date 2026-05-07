@@ -1,38 +1,10 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-model hedv {
-  id_return_status      Int                 @id @default(autoincrement())
-  id_sale_return_detail Int
-  status                String              @db.VarChar(50)
-  status_date           DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
-  sale_return_details   sale_return_details @relation(fields: [id_sale_return_detail], references: [id_sale_return_detail], onDelete: NoAction, onUpdate: NoAction, map: "hedv_id_detalle_fkey")
-}
-
-model hev {
-  id_order        Int           @id
-  id_sales_return Int?
-  id_sale_status  Int
-  status_date     DateTime?     @default(dbgenerated("CURRENT_DATE")) @db.Date
-  sale_statuses   sale_statuses @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "hev_estado_venta_fkey")
-  sales_orders    sales_orders  @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "hev_id_pedido_fkey")
-}
-
-model roles {
-  id_role              Int                    @id @default(autoincrement())
-  name_role            String                 @unique(map: "roles_nombre_rol_key") @db.VarChar(20)
-  description          String?                @db.VarChar(50)
-  date_creation        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_status            Int
-  assigned_permissions assigned_permissions[]
-  general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
 }
 
 model access {
@@ -162,6 +134,23 @@ model general_statuses {
   users         users[]
 }
 
+model hedv {
+  id_return_status      Int                 @id @default(autoincrement())
+  id_sale_return_detail Int
+  status                String              @db.VarChar(50)
+  status_date           DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  sale_return_details   sale_return_details @relation(fields: [id_sale_return_detail], references: [id_sale_return_detail], onDelete: NoAction, onUpdate: NoAction, map: "hedv_id_detalle_fkey")
+}
+
+model hev {
+  id_order        Int           @id
+  id_sales_return Int?
+  id_sale_status  Int
+  status_date     DateTime?     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  sale_statuses   sale_statuses @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "hev_estado_venta_fkey")
+  sales_orders    sales_orders  @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "hev_id_pedido_fkey")
+}
+
 model hsp {
   id_history_status_purchase Int               @id(map: "hec_pkey") @default(autoincrement())
   id_purchase_return         Int
@@ -285,7 +274,7 @@ model products {
   retail_price          Decimal                 @db.Decimal(10, 2)
   wholesale_price       Decimal                 @db.Decimal(10, 2)
   id_unit_measure       Int
-  tax_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
+  iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
   id_status             Int
   id_category           Int
   partner_price         Decimal?                @db.Decimal(10, 2)
@@ -301,24 +290,23 @@ model products {
 }
 
 model providers {
-  id_provider           Int                      @id(map: "proveedores_pkey") @default(autoincrement())
-  nit                   String                   @unique(map: "proveedores_nit_key") @db.VarChar(20)
-  person_type           String                   @db.VarChar(25)
-  rut                   Boolean?                 @default(false)
-  ciu_code              String?                  @db.VarChar(30)
-  address               String?                  @db.VarChar(255)
-  contact_person_name   String?                  @db.VarChar(255)
+  id_provider           Int                 @id(map: "proveedores_pkey") @default(autoincrement())
+  person_type           String              @db.VarChar(25)
+  rut                   Boolean?            @default(false)
+  ciu_code              String?             @db.VarChar(30)
+  address               String?             @db.VarChar(255)
+  contact_person_name   String?             @db.VarChar(255)
   contact_person_number BigInt?
   id_status             Int?
-  email                 String?                  @db.VarChar(150)
-  phone                 String?                  @db.VarChar(20)
-  max_return_period     Unsupported("interval")?
-  document_type         String?                  @db.VarChar(20)
-  document_number       String?                  @db.VarChar(20)
-  name_provider         String?                  @db.VarChar(100)
-  lastname              String?                  @db.VarChar(100)
+  email                 String?             @db.VarChar(150)
+  phone                 String?             @db.VarChar(20)
+  document_type         String?             @db.VarChar(20)
+  document_number       String?             @db.VarChar(20)
+  name_provider         String?             @db.VarChar(100)
+  lastname              String?             @db.VarChar(100)
+  max_return_period     Int?
   product_suppliers     product_suppliers[]
-  general_statuses      general_statuses?        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
+  general_statuses      general_statuses?   @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
   purchases             purchases[]
 }
 
@@ -403,6 +391,16 @@ model return_statuses {
   purchases_returns    purchases_returns[]
   sale_return_details  sale_return_details[]
   sales_returns        sales_returns[]
+}
+
+model roles {
+  id_role              Int                    @id @default(autoincrement())
+  name_role            String                 @unique(map: "roles_nombre_rol_key") @db.VarChar(20)
+  description          String?                @db.VarChar(50)
+  date_creation        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_status            Int
+  assigned_permissions assigned_permissions[]
+  general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
 }
 
 model sale_return_details {

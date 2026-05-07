@@ -6,6 +6,7 @@ import morgan from "morgan";
 
 import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
 import authRoutes from "./modules/users/auth/routes/authRoutes.js";
+import userRoutes from "./modules/users/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 
 const app = express();
@@ -25,7 +26,12 @@ app.get("/api/health", (req, res) => {
 
 /* Rutas de autenticación */
 app.use("/auth", authRoutes);
+
+/* Rutas de categorias */
 app.use("/api/categories", categoryRoutes);
+
+/* Rutas de usuarios */
+app.use("/users", userRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);
