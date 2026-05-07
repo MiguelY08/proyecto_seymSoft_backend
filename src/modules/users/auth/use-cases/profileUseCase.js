@@ -1,5 +1,5 @@
 import { AuthRepository } from "../repositories/authRepository.js";
-import { UserMapper } from "../mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/userMapper.js";
 import { NotFoundError } from "../../../../shared/errors/index.js";
 
 export class ProfileUseCase {

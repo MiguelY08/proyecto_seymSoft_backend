@@ -1,10 +1,11 @@
 import { verifyAccessToken } from "../../config/jwt.js";
 import { AppError } from "../errors/appError.js";
+import { prisma } from "../../config/prisma.js";
 
 /**
  * MIDDLEWARE: VALIDAR AUTENTICACIÓN
  */
-export const authMiddleware = (req, res, next) => {
+export const authMiddleware = async (req, res, next) => {
   try {
     // Obtener el header Authorization
     const authHeader = req.headers.authorization;
@@ -35,10 +36,23 @@ export const authMiddleware = (req, res, next) => {
       throw new AppError("Token inválido o expirado", 401);
     }
 
+    const user = await prisma.users.findUnique({
+      where: { id_user: decoded.id_user },
+    });
+
+    if (!user) {
+      throw new AppError("Usuario no encontrado", 401);
+    }
+
+    if (user.token_version !== decoded.tokenVersion) {
+      throw new AppError("Token inválido o expirado", 401);
+    }
+
     // Token válido
-    // Adjuntar los datos del usuario al objeto req
-    // Ahora los controllers pueden acceder a req.user.id_user, req.user.email
-    req.user = decoded;
+    req.user = {
+      id_user: user.id_user,
+      email: user.email,
+    };
 
     // Pasar al siguiente middleware o controller
     next();

@@ -1,5 +1,5 @@
 import { AuthRepository } from "../repositories/authRepository.js";
-import { UserMapper } from "../mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/userMapper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -25,7 +25,11 @@ export class LoginUseCase {
     }
 
     // Generar tokens
-    const accessToken = generateAccessToken(user.id_user, user.email);
+    const accessToken = generateAccessToken(
+      user.id_user,
+      user.email,
+      user.token_version,
+    );
     const refreshToken = generateRefreshToken(user.id_user);
 
     // Calcular fecha de expiración del refresh token (7 días)

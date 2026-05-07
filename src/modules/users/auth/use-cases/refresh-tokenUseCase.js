@@ -6,7 +6,8 @@ import {
 import { UnauthorizedError } from "../../../../shared/errors/index.js";
 
 export class RefreshTokenUseCase {
-  static async execute({ refreshToken }) {
+  static async execute({ refresh_token }) {
+    const refreshToken = refresh_token;
     // Verificar token JWT
     const decoded = verifyRefreshToken(refreshToken);
     if (!decoded) {
@@ -25,7 +26,11 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedError("User not found");
     }
 
-    const newAccessToken = generateAccessToken(user.id_user, user.email);
+    const newAccessToken = generateAccessToken(
+      user.id_user,
+      user.email,
+      user.token_version,
+    );
 
     return {
       accessToken: newAccessToken,

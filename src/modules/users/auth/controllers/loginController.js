@@ -10,7 +10,7 @@ export class LoginController {
       // Validar input
       const validation = loginSchema.safeParse(req.body);
       if (!validation.success) {
-        throw new ValidationError("Invalid input data");
+        throw new ValidationError("Validation failed", validation.error.errors);
       }
 
       const loginDto = new LoginDto(validation.data);

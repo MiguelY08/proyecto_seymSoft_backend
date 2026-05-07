@@ -1,13 +1,11 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 
 model hedv {
   id_return_status      Int                 @id @default(autoincrement())
@@ -74,7 +72,6 @@ model barcodes {
   barcode_type            String?                   @db.VarChar(50)
   stock                   Int?                      @default(0)
   id_product              Int
-  secondary_barcode       String?                   @db.VarChar(100)
   products                products                  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "codigo_de_barras_id_producto_fkey")
   non_conforming_products non_conforming_products[]
   purchase_details        purchase_details[]
@@ -283,44 +280,43 @@ model products {
   id_product            Int                     @id(map: "productos_pkey") @default(autoincrement())
   name                  String                  @db.VarChar(255)
   reference             String                  @unique(map: "productos_referencia_key") @db.VarChar(50)
-  stock                 Int?                    @default(0)
   retail_price          Decimal                 @db.Decimal(10, 2)
   wholesale_price       Decimal                 @db.Decimal(10, 2)
   id_unit_measure       Int
-  tax_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
   id_status             Int
-  id_categorie          Int
   partner_price         Decimal?                @db.Decimal(10, 2)
   bulk_price            Decimal?                @db.Decimal(10, 2)
+  id_category           Int
+  iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]
   product_suppliers     product_suppliers[]
   product_unit_measures product_unit_measures[]
-  categories            categories              @relation(fields: [id_categorie], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
+  categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
   unit_measures         unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
 }
 
 model providers {
-  id_provider           Int                      @id(map: "proveedores_pkey") @default(autoincrement())
-  nit                   String                   @unique(map: "proveedores_nit_key") @db.VarChar(20)
-  person_type           String                   @db.VarChar(25)
-  rut                   Boolean?                 @default(false)
-  ciu_code              String?                  @db.VarChar(30)
-  address               String?                  @db.VarChar(255)
-  contact_person_name   String?                  @db.VarChar(255)
+  id_provider           Int                 @id(map: "proveedores_pkey") @default(autoincrement())
+  person_type           String              @db.VarChar(25)
+  rut                   Boolean?            @default(false)
+  ciu_code              String?             @db.VarChar(30)
+  address               String?             @db.VarChar(255)
+  contact_person_name   String?             @db.VarChar(255)
   contact_person_number BigInt?
   id_status             Int?
-  email                 String?                  @db.VarChar(150)
-  phone                 String?                  @db.VarChar(20)
-  max_return_period     Unsupported("interval")?
-  document_type         String?                  @db.VarChar(20)
-  document_number       String?                  @db.VarChar(20)
-  name_provider         String?                  @db.VarChar(100)
-  lastname              String?                  @db.VarChar(100)
+  email                 String?             @db.VarChar(150)
+  phone                 String?             @db.VarChar(20)
+  document_type         String?             @db.VarChar(20)
+  document_number       String?             @db.VarChar(20)
+  name_provider         String?             @db.VarChar(100)
+  lastname              String?             @db.VarChar(100)
+  max_return_period     Int?
+  nit                   String?             @db.VarChar(20)
   product_suppliers     product_suppliers[]
-  general_statuses      general_statuses?        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
+  general_statuses      general_statuses?   @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
   purchases             purchases[]
 }
 
@@ -462,8 +458,8 @@ model sales_orders {
   id_order        Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
   id_customer     Int
   order_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  delivery_adress String?         @db.VarChar(255)
   id_order_status Int
+  delivery_adress String?         @db.VarChar(255)
   hev             hev?
   order_details   order_details[]
   sales           sales?
@@ -502,41 +498,39 @@ model unit_measures {
 
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  doc_type         String            @db.VarChar(3)
+  doc_type         String            @db.VarChar(6)
   doc_number       BigInt            @unique(map: "usuarios_documento_key")
   full_name        String            @db.VarChar(255)
   email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
   pass_word        String            @db.VarChar(255)
   creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
   phone            BigInt?
-  id_status        Int? 
-  access                access[]
-  banner_img            banner_img[]
-  clients               clients?
-  employees             employees?
-  refresh_tokens        refresh_tokens[]        
-  password_resets       password_resets[]       
-  general_statuses      general_statuses?       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+  id_status        Int?
+  token_version    Int               @default(0)
+  access           access[]
+  banner_img       banner_img[]
+  clients          clients?
+  employees        employees?
+  general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
+
 model refresh_tokens {
-  id_token        Int       @id @default(autoincrement())
+  id_token        Int      @id @default(autoincrement())
   id_user         Int
-  token           String    @unique
+  token           String   @unique
   expiration_date DateTime
-  created_at      DateTime  @default(now())
-  users           users     @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
-  
+  created_at      DateTime @default(now())
+
   @@map("refresh_tokens")
 }
 
 model password_resets {
-  id_reset        Int       @id @default(autoincrement())
+  id_reset        Int      @id @default(autoincrement())
   id_user         Int
-  token           String    @unique
+  token           String   @unique
   expiration_date DateTime
-  created_at      DateTime  @default(now())
-  used            Boolean   @default(false)
-  users           users     @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
-  
+  created_at      DateTime @default(now())
+  used            Boolean  @default(false)
+
   @@map("password_resets")
 }

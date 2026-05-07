@@ -8,7 +8,7 @@ export class RefreshTokenController {
       // Validar input
       const validation = refreshTokenSchema.safeParse(req.body);
       if (!validation.success) {
-        throw new ValidationError("Invalid refresh token");
+        throw new ValidationError("Validation failed", validation.error.errors);
       }
 
       // Ejecutar caso de uso

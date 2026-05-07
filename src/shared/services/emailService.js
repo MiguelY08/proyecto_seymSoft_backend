@@ -1,14 +1,23 @@
 import nodemailer from "nodemailer";
 
+// DEBUG: Ver qué variables se cargan
+console.log("🔍 EMAIL CONFIG DEBUG:");
+console.log("  USER:", process.env.EMAIL_USER);
+console.log("  PASS:", process.env.EMAIL_PASSWORD ? "✅ CARGADO" : "❌ FALTA");
+console.log("  HOST:", process.env.EMAIL_HOST);
+console.log("  PORT:", process.env.EMAIL_PORT);
+
 const mailConfig = {
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined,
-  secure: process.env.EMAIL_SECURE === "true",
+  secure: false,  // ← Cambia a false temporalmente para debug
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASSWORD,
   },
 };
+
+console.log("📧 Mail Config:", mailConfig);
 
 const transporter = nodemailer.createTransport(mailConfig);
 

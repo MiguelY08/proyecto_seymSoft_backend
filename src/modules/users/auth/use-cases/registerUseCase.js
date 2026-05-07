@@ -1,5 +1,5 @@
 import { AuthRepository } from "../repositories/authRepository.js";
-import { UserMapper } from "../mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/userMapper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -16,6 +16,14 @@ export class RegisterUseCase {
       throw new ConflictError("User already exists with this email");
     }
 
+    // Verificar si el número de documento ya existe
+    const existingDoc = await AuthRepository.findUserByDocNumber(
+      userData.docNumber,
+    );
+    if (existingDoc) {
+      throw new ConflictError("User already exists with this document number");
+    }
+
     // Hashear la contraseña
     const hashedPassword = await hashPassword(userData.password);
 
@@ -30,21 +38,14 @@ export class RegisterUseCase {
         phone: userData.phone || null,
         id_status: 1, // Status activo por defecto
       },
-      include: {
-        employees: {
-          include: {
-            employee_roles: {
-              include: {
-                roles: true,
-              },
-            },
-          },
-        },
-      },
     });
 
     // Generar tokens
-    const accessToken = generateAccessToken(newUser.id_user, newUser.email);
+    const accessToken = generateAccessToken(
+      newUser.id_user,
+      newUser.email,
+      newUser.token_version,
+    );
     const refreshToken = generateRefreshToken(newUser.id_user);
 
     // Calcular fecha de expiración del refresh token (7 días)

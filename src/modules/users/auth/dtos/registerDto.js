@@ -1,10 +1,17 @@
 export class RegisterDto {
-  constructor({ docType, docNumber, fullName, email, password, phone }) {
-    this.docType = docType;
-    this.docNumber = docNumber;
-    this.fullName = fullName;
-    this.email = email;
-    this.password = password;
-    this.phone = phone;
+  docType;
+  docNumber;
+  fullName;
+  email;
+  password;
+  phone;
+
+  constructor(data) {
+    this.docType = data.doc_type;
+    this.docNumber = data.doc_number;
+    this.fullName = data.full_name;
+    this.email = data.email;
+    this.password = data.pass_word;
+    this.phone = data.phone || null;
   }
 }
