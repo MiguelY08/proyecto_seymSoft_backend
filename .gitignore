@@ -3,5 +3,4 @@ node_modules
 .env
 /prisma/schema.prisma
 prisma.config.ts
-
-/generated/prisma
+.gitignore
