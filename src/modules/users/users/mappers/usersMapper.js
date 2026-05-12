@@ -5,27 +5,10 @@ export class UserMapper {
     const { pass_word, ...cleanUser } = user;
 
     return {
-      idUser:
-        cleanUser.id_user ||
-        cleanUser.idUser,
-
-      docType:
-        cleanUser.doc_type ||
-        cleanUser.docType,
-
-      docNumber:
-        cleanUser.doc_number ||
-        cleanUser.docNumber
-          ? String(
-              cleanUser.doc_number ||
-              cleanUser.docNumber
-            )
-          : null,
-
-      fullName:
-        cleanUser.full_name ||
-        cleanUser.fullName,
-
+      idUser: cleanUser.id_user,
+      idGoogle: cleanUser.id_google || null,
+      tokenVersion: cleanUser.token_version,
+      fullName: cleanUser.full_name,
       email: cleanUser.email,
 
       creationDate:
@@ -66,11 +49,6 @@ export class UserMapper {
 
     return {
       id: user.idUser,
-
-      docType: user.docType,
-
-      docNumber: user.docNumber,
-
       name: user.fullName,
 
       email: user.email,

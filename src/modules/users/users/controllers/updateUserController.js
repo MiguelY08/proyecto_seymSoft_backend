@@ -48,13 +48,6 @@ export const UpdateUserController = async (req, res) => {
         });
       }
 
-      if (result.errorCode === "DUPLICATE_DOC_NUMBER") {
-        return res.status(409).json({
-          message: "El documento ya está registrado.",
-          errors: { docNumber: "Documento duplicado." },
-        });
-      }
-
       if (result.errorCode === "NO_DATA_TO_UPDATE") {
         return res.status(400).json({
           message: "Debe proporcionar al menos un campo para actualizar.",

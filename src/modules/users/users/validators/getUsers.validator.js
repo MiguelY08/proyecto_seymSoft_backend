@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { DOC_TYPES } from "../../../../shared/constants/docTypes.js";
 
 /**
  * Constantes de validación
@@ -14,8 +13,7 @@ const ORDER_VALUES = ["asc", "desc"];
  * - page: Número entero positivo (default 1)
  * - limit: Número entero entre 1-100 (default 10, máx 100 por seguridad)
  * - status: ID de estado (número entero positivo, opcional)
- * - docType: Tipo de documento [CC, CE, NIT, TI, PP] (opcional)
- * - search: Búsqueda en nombre, email, documento (1-255 caracteres, opcional)
+ * - search: Búsqueda en nombre o email (1-255 caracteres, opcional)
  * - sortBy: Campo para ordenar [name, email, date] (default: date)
  * - order: Dirección de orden [asc, desc] (default: desc)
  * 
@@ -23,6 +21,7 @@ const ORDER_VALUES = ["asc", "desc"];
  * - Los query parameters vienen como strings, se convierten a números
  * - Se rechaza con .strict() cualquier parámetro desconocido
  * - Todos los parámetros son opcionales
+ * - Tipo y número de documento: Responsabilidad del módulo de Clientes
  */
 
 export const getUsersSchema = z.object({
@@ -48,14 +47,6 @@ export const getUsersSchema = z.object({
     .transform((val) => (val ? parseInt(val, 10) : undefined))
     .refine((val) => val === undefined || (!isNaN(val) && val > 0), {
       message: "status debe ser un número positivo",
-    }),
-
-  docType: z
-    .string()
-    .toUpperCase()
-    .optional()
-    .refine((val) => val === undefined || DOC_TYPES.includes(val), {
-      message: `docType debe ser uno de: ${DOC_TYPES.join(", ")}`,
     }),
 
   search: z
@@ -99,7 +90,7 @@ export const getUsersSchema = z.object({
  * const result = await UserRepository.findAllWithFilters(filters);
  * 
  * Ejemplo de query válida:
- * GET /users?page=2&limit=20&status=1&docType=CC&search=juan&sortBy=name&order=asc
+ * GET /users?page=2&limit=20&status=1&search=juan&sortBy=name&order=asc
  */
 export const validateGetUsers = (query) => {
   try {
