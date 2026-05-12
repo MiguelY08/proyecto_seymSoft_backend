@@ -5,13 +5,9 @@ export class UserMapper {
     const { pass_word, ...cleanUser } = user;
     return {
       idUser: cleanUser.id_user,
-      docType: cleanUser.doc_type,
-      docNumber:
-        cleanUser.doc_number !== undefined
-          ? String(cleanUser.doc_number)
-          : null,
+      idGoogle: cleanUser.id_google || null,
+      tokenVersion: cleanUser.token_version,
       fullName: cleanUser.full_name,
-      // address: cleanUser.address,
       email: cleanUser.email,
       creationDate: cleanUser.creation_date,
       phone:
@@ -40,8 +36,6 @@ export class UserMapper {
 
     return {
       id: user.idUser,
-      docType: user.docType,
-      docNumber: user.docNumber,
       name: user.fullName,
       email: user.email,
       phone: user.phone,

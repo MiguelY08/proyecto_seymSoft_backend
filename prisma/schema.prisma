@@ -75,6 +75,8 @@ model clients {
   client_type           String?        @db.VarChar(20)
   credit                Decimal?       @db.Decimal(10, 2)
   credit_balance        Decimal?       @db.Decimal(10, 2)
+  doc_type              String?        @db.VarChar
+  doc_number            BigInt?
   users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
@@ -528,8 +530,6 @@ model unit_measures {
 
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  doc_type         String            @db.VarChar(6)
-  doc_number       BigInt            @unique(map: "usuarios_documento_key")
   full_name        String            @db.VarChar(255)
   email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
   pass_word        String            @db.VarChar(255)
@@ -537,6 +537,7 @@ model users {
   phone            BigInt?
   id_status        Int?
   token_version    Int               @default(0)
+  id_google        String?
   access           access[]
   banner_img       banner_img[]
   clients          clients?

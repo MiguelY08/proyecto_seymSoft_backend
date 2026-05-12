@@ -27,7 +27,6 @@ const generateRandomPassword = () => {
  * Responsabilidades:
  * - Aplicar lógica de negocio
  * - Validar que email no es duplicado
- * - Validar que documento no es duplicado
  * - GENERAR contraseña aleatoria de 10 caracteres
  * - HASHEAR la contraseña con bcrypt
  * - Crear usuario en BD
@@ -36,7 +35,6 @@ const generateRandomPassword = () => {
  * 
  * Reglas de negocio:
  * - Email DEBE ser único
- * - Número de documento DEBE ser único
  * - Contraseña se GENERA AUTOMÁTICAMENTE (10 caracteres aleatorios)
  * - Contraseña se HASHEA con bcrypt (SALT_ROUNDS = 12)
  * - Estado por defecto es 1 (Activo)
@@ -52,16 +50,13 @@ const generateRandomPassword = () => {
  * Flujo:
  * 1. Validar datos obligatorios (sin password)
  * 2. Validar email único
- * 3. Validar documento único
- * 4. GENERAR contraseña aleatoria
- * 5. HASHEAR contraseña
- * 6. CREAR usuario en BD
- * 7. ENVIAR email con contraseña temporal
- * 8. RETORNAR usuario creado
+ * 3. GENERAR contraseña aleatoria
+ * 4. HASHEAR contraseña
+ * 5. CREAR usuario en BD
+ * 6. ENVIAR email con contraseña temporal
+ * 7. RETORNAR usuario creado
  * 
  * @param {Object} userData - Datos del usuario (SIN password)
- * @param {string} userData.docType - Tipo de documento (CC, CE, NIT, TI, PP)
- * @param {number} userData.docNumber - Número de documento (único)
  * @param {string} userData.fullName - Nombre completo
  * @param {string} userData.email - Email (único)
  * @param {number} userData.phone - Teléfono (opcional)
@@ -71,8 +66,6 @@ const generateRandomPassword = () => {
  *   success: boolean,
  *   data: {
  *     idUser: number,
- *     docType: string,
- *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
@@ -88,7 +81,6 @@ const generateRandomPassword = () => {
  * Códigos de error:
  * - VALIDATION_ERROR: Faltan datos obligatorios
  * - DUPLICATE_EMAIL: Email ya existe
- * - DUPLICATE_DOC_NUMBER: Documento ya existe
  * - PASSWORD_GENERATION_ERROR: Error generando contraseña
  * - PASSWORD_HASH_ERROR: Error hasheando contraseña
  * - EMAIL_SEND_ERROR: Error enviando email de bienvenida
@@ -96,8 +88,6 @@ const generateRandomPassword = () => {
  * 
  * Ejemplo de uso:
  * const result = await createUserUseCase({
- *   docType: "CC",
- *   docNumber: 1234567890,
  *   fullName: "Juan Pérez",
  *   email: "juan@example.com",
  *   phone: 3001234567
@@ -115,10 +105,10 @@ const generateRandomPassword = () => {
  */
 export const createUserUseCase = async (userData) => {
   try {
-    const { docType, docNumber, fullName, email, phone } = userData;
+    const { fullName, email, phone } = userData;
 
     // Validar datos requeridos (sin password - se genera automáticamente)
-    if (!docType || !docNumber || !fullName || !email) {
+    if (!fullName || !email) {
       return {
         success: false,
         data: null,
@@ -136,18 +126,6 @@ export const createUserUseCase = async (userData) => {
         data: null,
         error: "El email ya está registrado",
         errorCode: "DUPLICATE_EMAIL",
-      };
-    }
-
-    // Validar que el documento sea único
-    const existingDocNumber = await UserRepository.findByDocNumber(docNumber);
-
-    if (existingDocNumber) {
-      return {
-        success: false,
-        data: null,
-        error: "El documento ya está registrado",
-        errorCode: "DUPLICATE_DOC_NUMBER",
       };
     }
 
@@ -179,8 +157,6 @@ export const createUserUseCase = async (userData) => {
 
     // Crear usuario en BD
     const newUser = await UserRepository.create({
-      docType,
-      docNumber,
       fullName,
       email,
       password: hashedPassword,
@@ -201,8 +177,6 @@ export const createUserUseCase = async (userData) => {
     // Validar que el usuario creado tenga los campos requeridos
     const requiredFields = [
       "idUser",
-      "docType",
-      "docNumber",
       "fullName",
       "email",
       "creationDate",
@@ -270,8 +244,6 @@ export const createUserUseCase = async (userData) => {
       const field = error.meta?.target?.[0];
       if (field === "email") {
         errorCode = "DUPLICATE_EMAIL";
-      } else if (field === "doc_number") {
-        errorCode = "DUPLICATE_DOC_NUMBER";
       }
     }
 

@@ -6,8 +6,8 @@ export class UserRepository {
   static async create(data) {
     const user = await prisma.users.create({
       data: {
-        doc_type: data.docType,
-        doc_number: data.docNumber,
+        id_google: data.idGoogle || null,
+        token_version: 0,
         full_name: data.fullName,
         email: data.email,
         pass_word: data.password,
@@ -27,8 +27,6 @@ export class UserRepository {
     const users = await prisma.users.findMany({
       select: {
         id_user: true,
-        doc_type: true,
-        doc_number: true,
         full_name: true,
         email: true,
         creation_date: true,
@@ -47,8 +45,7 @@ export class UserRepository {
    * @param {number} filters.page - Número de página (default: 1)
    * @param {number} filters.limit - Usuarios por página (default: 10)
    * @param {number} filters.status - ID de estado (opcional)
-   * @param {string} filters.docType - Tipo de documento: CC, CE, NIT, TI, PP (opcional)
-   * @param {string} filters.search - Buscar en nombre, email o doc (opcional)
+   * @param {string} filters.search - Buscar en nombre o email (opcional)
    * @param {string} filters.sortBy - Campo para ordenar: name, email, date (default: date)
    * @param {string} filters.order - Orden: asc, desc (default: desc)
    * 
@@ -69,7 +66,6 @@ export class UserRepository {
       page = 1,
       limit = 10,
       status,
-      docType,
       search,
       sortBy = "date",
       order = "desc",
@@ -87,17 +83,12 @@ export class UserRepository {
       where.id_status = status;
     }
 
-    if (docType) {
-      where.doc_type = docType.toUpperCase();
-    }
-
     if (search) {
-      // Buscar en nombre, email o número de documento
+      // Buscar en nombre o email
       where.OR = [
         { full_name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
-        { doc_number: isNaN(search) ? undefined : Number(search) },
-      ].filter(condition => Object.values(condition)[0] !== undefined);
+      ];
     }
 
     // Mapear sortBy a campo de BD
@@ -117,8 +108,6 @@ export class UserRepository {
         where,
         select: {
           id_user: true,
-          doc_type: true,
-          doc_number: true,
           full_name: true,
           email: true,
           creation_date: true,
@@ -153,8 +142,6 @@ export class UserRepository {
       where: { id_user: id },
       select: {
         id_user: true,
-        doc_type: true,
-        doc_number: true,
         full_name: true,
         email: true,
         creation_date: true,
@@ -173,19 +160,10 @@ export class UserRepository {
     return user;
   }
 
-  static async findByDocNumber(docNumber) {
-    const user = await prisma.users.findUnique({
-      where: { doc_number: docNumber }
-    });
-    return user;
-  }
-
   static async update(id, data) {
     const user = await prisma.users.update({
       where: { id_user: id },
       data: {
-        ...(data.docType && { doc_type: data.docType }),
-        ...(data.docNumber && { doc_number: data.docNumber }),
         ...(data.fullName && { full_name: data.fullName }),
         ...(data.email && { email: data.email }),
         ...(data.phone !== undefined && { phone: data.phone }),

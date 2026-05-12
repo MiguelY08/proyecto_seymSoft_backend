@@ -12,8 +12,6 @@ import { UserMapper } from "../mappers/usersMapper.js";
  * 
  * Reglas de negocio:
  * - Los usuarios retornados DEBEN contener:
- *   • Tipo de documento
- *   • Número de documento
  *   • Nombre completo
  *   • Correo electrónico
  *   • Teléfono/celular
@@ -27,8 +25,7 @@ import { UserMapper } from "../mappers/usersMapper.js";
  * @param {number} filters.page - Número de página (default: 1)
  * @param {number} filters.limit - Usuarios por página (default: 10)
  * @param {number} filters.status - Filtro por estado (opcional)
- * @param {string} filters.docType - Filtro por tipo documento (opcional)
- * @param {string} filters.search - Búsqueda por nombre/email/doc (opcional)
+ * @param {string} filters.search - Búsqueda por nombre/email (opcional)
  * @param {string} filters.sortBy - Campo de orden: name, email, date (default: date)
  * @param {string} filters.order - Dirección: asc, desc (default: desc)
  * 
@@ -38,8 +35,6 @@ import { UserMapper } from "../mappers/usersMapper.js";
  *   data: {
  *     users: Array<{
  *       idUser: number,
- *       docType: string,
- *       docNumber: number,
  *       fullName: string,
  *       email: string,
  *       phone: number|null,

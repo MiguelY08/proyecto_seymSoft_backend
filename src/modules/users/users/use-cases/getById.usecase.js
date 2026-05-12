@@ -13,8 +13,6 @@ import { UserMapper } from "../mappers/usersMapper.js";
  * - El usuario DEBE existir
  * - Debe retornar todos los campos del usuario:
  *   • ID del usuario
- *   • Tipo de documento
- *   • Número de documento
  *   • Nombre completo
  *   • Correo electrónico
  *   • Teléfono/celular
@@ -31,8 +29,6 @@ import { UserMapper } from "../mappers/usersMapper.js";
  *   success: boolean,
  *   data: {
  *     idUser: number,
- *     docType: string,
- *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
@@ -96,8 +92,6 @@ export const getUserByIdUseCase = async (id) => {
     // Validar que el usuario tenga los campos requeridos
     const requiredFields = [
       "idUser",
-      "docType",
-      "docNumber",
       "fullName",
       "email",
       "phone",

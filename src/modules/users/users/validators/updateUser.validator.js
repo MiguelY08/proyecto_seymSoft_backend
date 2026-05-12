@@ -1,9 +1,4 @@
 import { z } from "zod";
-import { DOC_TYPES } from "../../../../shared/constants/docTypes.js";
-
-/**
- * Constantes de validación
- */
 
 /**
  * Schema de validación para UPDATE USER
@@ -11,35 +6,17 @@ import { DOC_TYPES } from "../../../../shared/constants/docTypes.js";
  * Reglas:
  * - TODOS los campos son OPCIONALES (actualización parcial)
  * - Si están presentes, se validan con las mismas reglas que CREATE
- * - docType: Solo valores permitidos
- * - docNumber: Número positivo (validación de duplicado en controller)
  * - fullName: Texto 1-255 caracteres
- * - email: Email válido (validación de duplicado en controller)
+ * - email: Email válido (validación de duplicado en use-case)
  * - phone: Número opcional y positivo
  * 
  * Nota: 
  * - password NO se actualiza aquí (manejo en módulo auth)
  * - idStatus NO se actualiza aquí (tiene endpoint /status)
+ * - docType y docNumber: Responsabilidad del módulo de Clientes
  */
 
 export const updateUserSchema = z.object({
-  docType: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .refine((val) => DOC_TYPES.includes(val), {
-      message: `Tipo de documento debe ser uno de: ${DOC_TYPES.join(", ")}`,
-    })
-    .optional(),
-
-  docNumber: z
-    .number()
-    .int()
-    .positive({
-      message: "El número de documento debe ser positivo",
-    })
-    .optional(),
-
   fullName: z
     .string()
     .trim()
