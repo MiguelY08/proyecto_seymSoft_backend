@@ -43,6 +43,7 @@ app.use("/api/auth", authRoutes);
 
 /* Rutas de categorias */
 app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
 
 /* Rutas de usuarios */
 app.use("/users", userRoutes);
