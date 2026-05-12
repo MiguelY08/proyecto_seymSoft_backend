@@ -6,7 +6,7 @@ const mailConfig = {
   secure: process.env.EMAIL_SECURE === "true",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASSWORD,
   },
 };
 

@@ -31,8 +31,6 @@ import { UserRepository } from "../repositories/userRepository.js";
  *   success: boolean,
  *   data: {
  *     idUser: number,
- *     docType: string,
- *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
@@ -119,8 +117,6 @@ export const updateUserStatusUseCase = async (params) => {
     // Validar que el usuario actualizado tenga los campos requeridos
     const requiredFields = [
       "idUser",
-      "docType",
-      "docNumber",
       "fullName",
       "email",
       "phone",

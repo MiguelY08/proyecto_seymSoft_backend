@@ -6,21 +6,18 @@ import { UserRepository } from "../repositories/userRepository.js";
  * Responsabilidades:
  * - Aplicar lógica de negocio
  * - Validar que el usuario existe
- * - Validar duplicados de email y documento (si se actualizan)
+ * - Validar duplicados de email (si se actualiza)
  * - Actualizar solo los campos especificados
  * - Retornar usuario actualizado
  * 
  * Reglas de negocio:
  * - El usuario DEBE existir
  * - Si se actualiza email, DEBE ser único (pero se permite si es el mismo)
- * - Si se actualiza docNumber, DEBE ser único (pero se permite si es el mismo)
  * - Solo se actualizan los campos que vienen en updateData (parcial)
  * - No se puede actualizar: id, idStatus, creationDate, password
  * - Retorna el usuario actualizado con todos sus datos
  * 
  * Campos que se pueden actualizar:
- * - docType
- * - docNumber (con validación de unicidad)
  * - fullName
  * - email (con validación de unicidad)
  * - phone
@@ -34,8 +31,6 @@ import { UserRepository } from "../repositories/userRepository.js";
  * @param {Object} params - Parámetros
  * @param {number} params.idUser - ID del usuario a actualizar
  * @param {Object} params.updateData - Datos a actualizar (todos opcionales)
- * @param {string} params.updateData.docType - Tipo de documento
- * @param {number} params.updateData.docNumber - Número de documento
  * @param {string} params.updateData.fullName - Nombre completo
  * @param {string} params.updateData.email - Email
  * @param {number} params.updateData.phone - Teléfono
@@ -45,8 +40,6 @@ import { UserRepository } from "../repositories/userRepository.js";
  *   success: boolean,
  *   data: {
  *     idUser: number,
- *     docType: string,
- *     docNumber: number,
  *     fullName: string,
  *     email: string,
  *     phone: number|null,
@@ -62,7 +55,6 @@ import { UserRepository } from "../repositories/userRepository.js";
  * Códigos de error:
  * - USER_NOT_FOUND: Usuario no existe
  * - DUPLICATE_EMAIL: Email ya existe en otro usuario
- * - DUPLICATE_DOC_NUMBER: Documento ya existe en otro usuario
  * - NO_DATA_TO_UPDATE: updateData está vacío
  * - DATABASE_ERROR: Error en BD
  * 
@@ -138,23 +130,6 @@ export const updateUserUseCase = async (params) => {
       }
     }
 
-    // Validar documento único (si se está actualizando)
-    if (updateData.docNumber) {
-      const existingDocNumber = await UserRepository.findByDocNumber(
-        updateData.docNumber
-      );
-
-      // Permitir si es el mismo usuario, rechazar si pertenece a otro
-      if (existingDocNumber && existingDocNumber.id !== parsedIdUser) {
-        return {
-          success: false,
-          data: null,
-          error: "El documento ya está registrado",
-          errorCode: "DUPLICATE_DOC_NUMBER",
-        };
-      }
-    }
-
     // Actualizar usuario en BD
     const updatedUser = await UserRepository.update(parsedIdUser, updateData);
 
@@ -171,8 +146,6 @@ export const updateUserUseCase = async (params) => {
     // Validar que el usuario actualizado tenga los campos requeridos
     const requiredFields = [
       "idUser",
-      "docType",
-      "docNumber",
       "fullName",
       "email",
       "creationDate",
@@ -209,8 +182,6 @@ export const updateUserUseCase = async (params) => {
       const field = error.meta?.target?.[0];
       if (field === "email") {
         errorCode = "DUPLICATE_EMAIL";
-      } else if (field === "doc_number") {
-        errorCode = "DUPLICATE_DOC_NUMBER";
       }
     }
 

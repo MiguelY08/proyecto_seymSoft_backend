@@ -41,8 +41,6 @@ export const CreateUserController = async (req, res) => {
 
     // Ejecutar use-case (sin enviar password)
     const result = await createUserUseCase({
-      docType: validatedData.docType,
-      docNumber: validatedData.docNumber,
       fullName: validatedData.fullName,
       email: validatedData.email,
       phone: validatedData.phone,
@@ -56,14 +54,6 @@ export const CreateUserController = async (req, res) => {
         return res.status(409).json({
           message: "El email ya está registrado.",
           errors: { email: "Email duplicado." },
-        });
-      }
-
-      // Documento duplicado
-      if (result.errorCode === "DUPLICATE_DOC_NUMBER") {
-        return res.status(409).json({
-          message: "El documento ya está registrado.",
-          errors: { docNumber: "Documento duplicado." },
         });
       }
 
