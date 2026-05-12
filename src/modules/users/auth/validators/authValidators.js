@@ -34,19 +34,6 @@ export const loginSchema = z
  */
 export const registerSchema = z
   .object({
-    doc_type: z
-      .string()
-      .min(1, "El tipo de documento es requerido")
-      .max(3, "El tipo de documento no puede exceder 3 caracteres")
-      .trim(),
-    doc_number: z
-      .union([
-        z.string().min(1, "El número de documento es requerido"),
-        z.number().int(),
-      ])
-      .transform((val) =>
-        typeof val === "number" ? BigInt(val) : BigInt(val.toString().trim()),
-      ),
     full_name: z
       .string()
       .min(1, "El nombre completo es requerido")

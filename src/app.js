@@ -10,7 +10,7 @@ import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
 import authRoutes from "./modules/users/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
-
+import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
 const app = express();
 
 /* Middlewares globales */
@@ -46,6 +46,9 @@ app.use("/api/categories", categoryRoutes);
 
 /* Rutas de usuarios */
 app.use("/users", userRoutes);
+
+/* Rutas de Roles */
+app.use("/api/roles", roleRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

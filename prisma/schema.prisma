@@ -33,8 +33,8 @@ model banner_img {
   img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
   disposition      Int
   id_status        Int
-  creation_date    DateTime?        @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_user          Int
+  creation_date    DateTime?        @db.Timestamp(6)
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
   users            users            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_id_usuario_fkey")
 }
@@ -59,6 +59,7 @@ model categories {
   general_statuses        general_statuses?         @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "categorias_id_estado_fkey")
   non_conforming_products non_conforming_products[]
   products                products[]
+  provider_categories     provider_categories[]
   subcategories           subcategories[]
 }
 
@@ -74,6 +75,8 @@ model clients {
   client_type           String?        @db.VarChar(20)
   credit                Decimal?       @db.Decimal(10, 2)
   credit_balance        Decimal?       @db.Decimal(10, 2)
+  doc_type              String?        @db.VarChar
+  doc_number            BigInt?
   users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
@@ -215,6 +218,15 @@ model order_statuses {
   sales_orders    sales_orders[]
 }
 
+model password_resets {
+  id_reset        Int      @id @default(autoincrement())
+  id_user         Int
+  token           String   @unique
+  expiration_date DateTime
+  created_at      DateTime @default(now())
+  used            Boolean  @default(false)
+}
+
 model payment_methods {
   id_payment_method   Int            @id(map: "metodos_pago_pkey") @default(autoincrement())
   name_payment_method String         @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)
@@ -247,16 +259,6 @@ model privileges {
   assigned_permissions assigned_permissions[]
 }
 
-model product_suppliers {
-  id_product_supplier Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
-  id_product          Int
-  id_supplier         Int
-  products            products  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_producto_fkey")
-  providers           providers @relation(fields: [id_supplier], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
-
-  @@unique([id_product, id_supplier], map: "productos_proveedores_id_producto_id_proveedor_key")
-}
-
 model product_unit_measures {
   id_product      Int
   id_unit_measure Int
@@ -273,9 +275,7 @@ model products {
   retail_price          Decimal                 @db.Decimal(10, 2)
   wholesale_price       Decimal                 @db.Decimal(10, 2)
   id_unit_measure       Int
-  iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
   id_status             Int
-  id_category           Int
   partner_price         Decimal?                @db.Decimal(10, 2)
   bulk_price            Decimal?                @db.Decimal(10, 2)
   id_category           Int
@@ -283,7 +283,7 @@ model products {
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]
-  product_suppliers     product_suppliers[]
+  product_providers     product_providers[]
   product_unit_measures product_unit_measures[]
   categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
@@ -291,23 +291,25 @@ model products {
 }
 
 model providers {
-  id_provider           Int                 @id(map: "proveedores_pkey") @default(autoincrement())
-  person_type           String              @db.VarChar(25)
-  rut                   Boolean?            @default(false)
-  ciu_code              String?             @db.VarChar(30)
-  address               String?             @db.VarChar(255)
-  contact_person_name   String?             @db.VarChar(255)
+  id_provider           Int                   @id(map: "proveedores_pkey") @default(autoincrement())
+  person_type           String                @db.VarChar(25)
+  rut                   Boolean?              @default(false)
+  ciu_code              String?               @db.VarChar(30)
+  address               String?               @db.VarChar(255)
+  contact_person_name   String?               @db.VarChar(255)
   contact_person_number BigInt?
   id_status             Int?
-  email                 String?             @db.VarChar(150)
-  phone                 String?             @db.VarChar(20)
-  document_type         String?             @db.VarChar(20)
-  document_number       String?             @db.VarChar(20)
-  name_provider         String?             @db.VarChar(100)
-  lastname              String?             @db.VarChar(100)
+  email                 String?               @db.VarChar(150)
+  phone                 String?               @db.VarChar(20)
+  document_type         String?               @db.VarChar(20)
+  document_number       String?               @db.VarChar(20)
+  name_provider         String?               @db.VarChar(100)
+  lastname              String?               @db.VarChar(100)
   max_return_period     Int?
-  product_suppliers     product_suppliers[]
-  general_statuses      general_statuses?   @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
+  nit                   String?               @db.VarChar(20)
+  product_providers     product_providers[]
+  provider_categories   provider_categories[]
+  general_statuses      general_statuses?     @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "proveedores_id_estado_fkey")
   purchases             purchases[]
 }
 
@@ -367,6 +369,14 @@ model purchases_returns {
   prd                prd[]
   purchases          purchases       @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_compra_fkey")
   return_statuses    return_statuses @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_estado_devolucion_fkey")
+}
+
+model refresh_tokens {
+  id_token        Int      @id @default(autoincrement())
+  id_user         Int
+  token           String   @unique
+  expiration_date DateTime
+  created_at      DateTime @default(now())
 }
 
 model return_methods {
@@ -456,16 +466,16 @@ model sales {
 }
 
 model sales_orders {
-  id_order         Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
-  id_customer      Int
-  order_date       DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  delivery_address String?         @db.VarChar(255)
-  id_order_status  Int
-  hev              hev?
-  order_details    order_details[]
-  sales            sales?
-  clients          clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
-  order_statuses   order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
+  id_order        Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
+  id_customer     Int
+  order_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_order_status Int
+  delivery_adress String?         @db.VarChar(255)
+  hev             hev?
+  order_details   order_details[]
+  sales           sales?
+  clients         clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
+  order_statuses  order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
 }
 
 model sales_returns {
@@ -499,17 +509,38 @@ model unit_measures {
 
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  doc_type         String            @db.VarChar(6)
-  doc_number       BigInt            @unique(map: "usuarios_documento_key")
   full_name        String            @db.VarChar(255)
   email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
   pass_word        String            @db.VarChar(255)
   creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
   phone            BigInt?
   id_status        Int?
+  token_version    Int               @default(0)
+  id_google        String?
   access           access[]
   banner_img       banner_img[]
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+}
+
+model product_providers {
+  id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
+  id_product          Int
+  id_provider         Int
+  products            products  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_producto_fkey")
+  providers           providers @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
+
+  @@unique([id_product, id_provider], map: "productos_proveedores_id_producto_id_proveedor_key")
+}
+
+model provider_categories {
+  id_provider Int
+  id_category Int
+  categories  categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_category")
+  providers   providers  @relation(fields: [id_provider], references: [id_provider], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_provider")
+
+  @@id([id_provider, id_category])
+  @@index([id_category], map: "idx_provider_categories_category")
+  @@index([id_provider], map: "idx_provider_categories_provider")
 }

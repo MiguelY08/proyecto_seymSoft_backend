@@ -1,5 +1,5 @@
 import { AuthRepository } from "../repositories/authRepository.js";
-import { UserMapper } from "../../users/mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/usersMapper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -7,36 +7,35 @@ import {
 import { hashPassword } from "../../../../shared/utils/hashPassword.js";
 import { ConflictError } from "../../../../shared/errors/index.js";
 import { prisma } from "../../../../config/prisma.js";
+import { EmailService } from "../../../../shared/services/emailService.js";
 
 export class RegisterUseCase {
   static async execute(userData) {
     // Verificar si el email ya existe
-    const existingUser = await AuthRepository.findUserByEmail(userData.email);
-    if (existingUser) {
-      throw new ConflictError("User already exists with this email");
-    }
-
-    // Verificar si el número de documento ya existe
-    const existingDoc = await AuthRepository.findUserByDocNumber(
-      userData.docNumber,
+    const existingUser = await AuthRepository.findUserByEmail(
+      userData.email,
     );
-    if (existingDoc) {
-      throw new ConflictError("User already exists with this document number");
+
+    if (existingUser) {
+      throw new ConflictError(
+        "User already exists with this email",
+      );
     }
 
-    // Hashear la contraseña
-    const hashedPassword = await hashPassword(userData.password);
 
-    // Crear el usuario en la base de datos
+    // Hashear contraseña
+    const hashedPassword = await hashPassword(
+      userData.password,
+    );
+
+    // Crear usuario
     const newUser = await prisma.users.create({
       data: {
-        doc_type: userData.docType,
-        doc_number: userData.docNumber,
         full_name: userData.fullName,
         email: userData.email,
         pass_word: hashedPassword,
         phone: userData.phone || null,
-        id_status: 1, // Status activo por defecto
+        id_status: 1,
       },
     });
 
@@ -46,21 +45,44 @@ export class RegisterUseCase {
       newUser.email,
       newUser.token_version,
     );
-    const refreshToken = generateRefreshToken(newUser.id_user);
 
-    // Calcular fecha de expiración del refresh token (7 días)
+    const refreshToken = generateRefreshToken(
+      newUser.id_user,
+    );
+
+    // Fecha expiración refresh token
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
+    expirationDate.setDate(
+      expirationDate.getDate() + 7,
+    );
 
-    // Guardar refresh token en DB
+    // Guardar refresh token
     await AuthRepository.createRefreshToken(
       newUser.id_user,
       refreshToken,
       expirationDate,
     );
 
-    // Mapear usuario limpio (sin contraseña)
-    const cleanUser = UserMapper.toCleanUser(newUser);
+    // Enviar welcome email (NO bloqueante)
+    try {
+      await EmailService.sendLandingWelcomeEmail(
+        newUser.email,
+        newUser.full_name,
+      );
+
+      console.log(
+        ` Welcome email sent to ${newUser.email}`,
+      );
+    } catch (emailError) {
+      console.error(
+        `❌Failed to send welcome email to ${newUser.email}:`,
+        emailError.message,
+      );
+    }
+
+    // Usuario limpio
+    const cleanUser =
+      UserMapper.toCleanUser(newUser);
 
     return {
       user: cleanUser,

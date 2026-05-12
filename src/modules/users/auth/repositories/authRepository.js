@@ -16,9 +16,9 @@ export class AuthRepository {
     return await UserRepository.findByEmail(email);
   }
 
-  static async findUserByDocNumber(docNumber) {
-    return await UserRepository.findByDocNumber(docNumber);
-  }
+  // static async findUserByDocNumber(docNumber) {
+  //   return await UserRepository.findByDocNumber(docNumber);
+  // }
 
   /**
    * MÉTODOS ESPECÍFICOS DE AUTH

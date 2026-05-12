@@ -12,7 +12,6 @@ export class UpdateProfileController {
         password,
         current_password,
         confirm_password,
-        address,
         phone,
       } = req.body;
 
@@ -22,7 +21,6 @@ export class UpdateProfileController {
         pass_word: pass_word || password,
         current_password,
         confirm_password,
-        address,
         phone,
       });
 

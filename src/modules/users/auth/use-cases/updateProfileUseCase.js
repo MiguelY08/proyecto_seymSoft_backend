@@ -1,4 +1,4 @@
-import { UserMapper } from "../../users/mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/usersMapper.js";
 import {
   NotFoundError,
   ConflictError,
@@ -10,6 +10,7 @@ import {
 } from "../../../../shared/utils/hashPassword.js";
 import { prisma } from "../../../../config/prisma.js";
 import { AuthRepository } from "../repositories/authRepository.js";
+import { EmailService } from "../../../../shared/services/emailService.js";
 
 export class UpdateProfileUseCase {
   static async execute(idUser, updateData) {
@@ -24,6 +25,8 @@ export class UpdateProfileUseCase {
 
     const dataToUpdate = {};
     let invalidateSession = false;
+    let emailChanged = false;  // ← AGREGAR ESTO
+    let oldEmail = null;       // ← AGREGAR ESTO
 
     // Validar email único si se quiere cambiar
     if (updateData.email) {
@@ -33,6 +36,13 @@ export class UpdateProfileUseCase {
       if (emailExists && emailExists.id_user !== idUser) {
         throw new ConflictError("Email already in use");
       }
+      
+      // ← AGREGAR ESTO
+      if (updateData.email !== existingUser.email) {
+        oldEmail = existingUser.email;
+        emailChanged = true;
+      }
+      
       dataToUpdate.email = updateData.email;
       invalidateSession = true;
     }
@@ -59,11 +69,6 @@ export class UpdateProfileUseCase {
       invalidateSession = true;
     }
 
-    // Actualizar dirección si se proporciona
-    if (updateData.address) {
-      dataToUpdate.address = updateData.address;
-    }
-
     // Actualizar teléfono si se proporciona
     if (updateData.phone !== undefined && updateData.phone !== null) {
       dataToUpdate.phone = updateData.phone;
@@ -78,6 +83,20 @@ export class UpdateProfileUseCase {
       where: { id_user: idUser },
       data: dataToUpdate,
     });
+
+    //  Enviar email si cambió
+    if (emailChanged && oldEmail) {
+      try {
+        await EmailService.sendEmailChangeNotification(
+          oldEmail,
+          updatedUser.email,
+          updatedUser.full_name
+        );
+      } catch (error) {
+        console.error("Error enviando notificación de cambio de email:", error);
+        // No lanzar error, solo loguear. El cambio ya se hizo.
+      }
+    }
 
     if (invalidateSession) {
       await AuthRepository.deleteRefreshTokensByUserId(idUser);

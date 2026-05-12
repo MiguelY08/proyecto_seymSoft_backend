@@ -85,6 +85,7 @@ async function main() {
       { name_privilege: "DELETE", description: "Eliminar registros" },
       { name_privilege: "ACTIVATE_DEACTIVATE", description: "Activar y desactivar registros" },
       { name_privilege: "EXPORT", description: "Descargar y exportar datos" },
+      { name_privilege : "DESCARGAR", description: "Descargar archivos y reportes" },
       { name_privilege: "ABONAR", description: "Registrar abonos en pagos" },
       { name_privilege: "CONTACTAR", description: "Contactar clientes" },
       { name_privilege: "GENERAR_INTERES", description: "Generar intereses en pagos" },

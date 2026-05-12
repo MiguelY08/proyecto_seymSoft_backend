@@ -1,5 +1,5 @@
 import { AuthRepository } from "../repositories/authRepository.js";
-import { UserMapper } from "../../users/mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/usersMapper.js";
 import {
   generateAccessToken,
   generateRefreshToken,

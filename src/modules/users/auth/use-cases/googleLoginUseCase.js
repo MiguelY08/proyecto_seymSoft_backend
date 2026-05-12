@@ -3,14 +3,14 @@ import {
   generateRefreshToken,
 } from "../../../../config/jwt.js";
 import { AuthRepository } from "../repositories/authRepository.js";
-import { UserMapper } from "../../users/mappers/userMapper.js";
+import { UserMapper } from "../../users/mappers/usersMapper.js";
 
 export class GoogleLoginUseCase {
   static async execute(user) {
     try {
       //  Generar tokens
       const accessToken = generateAccessToken(
-        user.id_user,
+        user.id_user || user.idUser,
         user.email,
         user.token_version,
       );
@@ -22,8 +22,8 @@ export class GoogleLoginUseCase {
 
       //  Guardar refresh token en BD
       await AuthRepository.createRefreshToken(
-        user.id_user,
-        refreshToken,
+        user.id_user || user.idUser,
+        refreshToken,  
         expirationDate,
       );
 
