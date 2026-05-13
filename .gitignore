@@ -5,4 +5,4 @@ node_modules
 prisma.config.ts
 .gitignore
 
-/src/modules/settings/banners
+/src/modules/settings/banners/
