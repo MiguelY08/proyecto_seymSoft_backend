@@ -4,3 +4,5 @@ node_modules
 /prisma/schema.prisma
 prisma.config.ts
 .gitignore
+
+/src/modules/settings/banners/
