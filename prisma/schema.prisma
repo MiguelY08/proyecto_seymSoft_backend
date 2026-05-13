@@ -31,12 +31,10 @@ model assigned_permissions {
 model banner_img {
   id_img           Int              @id(map: "imagenes_carrusel_pkey") @default(autoincrement())
   img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
-  disposition      Int
   id_status        Int
-  id_user          Int
   creation_date    DateTime?        @db.Timestamp(6)
+  disposition      Int?             @unique
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
-  users            users            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_id_usuario_fkey")
 }
 
 model barcodes {
@@ -539,29 +537,7 @@ model users {
   token_version    Int               @default(0)
   id_google        String?
   access           access[]
-  banner_img       banner_img[]
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model product_providers {
-  id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
-  id_product          Int
-  id_provider         Int
-  products            products  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_producto_fkey")
-  providers           providers @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
-
-  @@unique([id_product, id_provider], map: "productos_proveedores_id_producto_id_proveedor_key")
-}
-
-model provider_categories {
-  id_provider Int
-  id_category Int
-  categories  categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_category")
-  providers   providers  @relation(fields: [id_provider], references: [id_provider], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_provider")
-
-  @@id([id_provider, id_category])
-  @@index([id_category], map: "idx_provider_categories_category")
-  @@index([id_provider], map: "idx_provider_categories_provider")
 }

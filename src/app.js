@@ -11,6 +11,7 @@ import authRoutes from "./modules/users/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
+import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 const app = express();
 
 /* Middlewares globales */

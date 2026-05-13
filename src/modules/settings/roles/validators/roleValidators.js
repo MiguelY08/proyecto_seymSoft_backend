@@ -131,7 +131,8 @@ export const updateRoleSchema = z
         {
           message: "No pueden haber permisos duplicados",
         }
-      ),
+      )
+      .optional(),  // ← CAMBIAR A OPTIONAL
   })
   .refine(
     (data) => data.name_role.toLowerCase() !== "administrator",
