@@ -114,7 +114,7 @@ export const updateBannerStatusController = async (req, res) => {
     console.log(`[updateBannerStatusController] Actualizando estado del banner ${req.params.id}`);
 
     // 1. Validar ID y estado desde request
-    const validation = validateUpdateBannerStatus({
+    const validation = validateBannerStatusUpdate({
       id: req.params.id,
       idStatus: req.body.idStatus,
     });

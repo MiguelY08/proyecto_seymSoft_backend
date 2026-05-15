@@ -74,7 +74,7 @@ app.use("/auth", authRoutes);
 /**
  * Rutas de usuarios
  */
-app.use("/users", userRoutes);
+app.use("/api/users", userRoutes);
 
 /**
  * Rutas de categorías y productos
@@ -86,7 +86,7 @@ app.use("/api/products", productRoutes);
 /**
  * Rutas de banners
  */
-app.use("/banners", bannerRoutes);
+app.use("/api/banners", bannerRoutes);
 
 /**
  * Middleware global de errores
