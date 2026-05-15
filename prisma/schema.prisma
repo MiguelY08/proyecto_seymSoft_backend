@@ -298,6 +298,17 @@ model products {
   unit_measures         unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
 }
 
+model provider_categories {
+  id_provider Int
+  id_category Int
+  categories  categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_category")
+  providers   providers  @relation(fields: [id_provider], references: [id_provider], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_provider")
+
+  @@id([id_provider, id_category])
+  @@index([id_category], map: "idx_provider_categories_category")
+  @@index([id_provider], map: "idx_provider_categories_provider")
+}
+
 model providers {
   id_provider           Int                   @id(map: "proveedores_pkey") @default(autoincrement())
   person_type           String                @db.VarChar(25)
