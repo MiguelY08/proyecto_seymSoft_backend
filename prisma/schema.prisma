@@ -31,12 +31,10 @@ model assigned_permissions {
 model banner_img {
   id_img           Int              @id(map: "imagenes_carrusel_pkey") @default(autoincrement())
   img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
-  disposition      Int
   id_status        Int
-  id_user          Int
   creation_date    DateTime?        @db.Timestamp(6)
+  disposition      Int?             @unique
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
-  users            users            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_id_usuario_fkey")
 }
 
 model barcodes {
@@ -75,6 +73,8 @@ model clients {
   client_type           String?        @db.VarChar(20)
   credit                Decimal?       @db.Decimal(10, 2)
   credit_balance        Decimal?       @db.Decimal(10, 2)
+  doc_type              String?        @db.VarChar
+  doc_number            BigInt?
   users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
@@ -528,8 +528,6 @@ model unit_measures {
 
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  doc_type         String            @db.VarChar(6)
-  doc_number       BigInt            @unique(map: "usuarios_documento_key")
   full_name        String            @db.VarChar(255)
   email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
   pass_word        String            @db.VarChar(255)
@@ -537,8 +535,8 @@ model users {
   phone            BigInt?
   id_status        Int?
   token_version    Int               @default(0)
+  id_google        String?
   access           access[]
-  banner_img       banner_img[]
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
