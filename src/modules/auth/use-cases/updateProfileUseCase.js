@@ -7,10 +7,10 @@ import {
 import {
   comparePassword,
   hashPassword,
-} from "../../../../shared/utils/hashPassword.js";
-import { prisma } from "../../../../config/prisma.js";
+} from "../../../shared/utils/hashPassword.js";
+import { prisma } from "../../../config/prisma.js";
 import { AuthRepository } from "../repositories/authRepository.js";
-import { EmailService } from "../../../../shared/services/emailService.js";
+import { EmailService } from "../../../shared/services/emailService.js";
 
 export class UpdateProfileUseCase {
   static async execute(idUser, updateData) {

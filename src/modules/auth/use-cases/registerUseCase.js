@@ -3,11 +3,12 @@ import { UserMapper } from "../../users/mappers/usersMapper.js";
 import {
   generateAccessToken,
   generateRefreshToken,
-} from "../../../../config/jwt.js";
-import { hashPassword } from "../../../../shared/utils/hashPassword.js";
-import { ConflictError } from "../../../../shared/errors/index.js";
-import { prisma } from "../../../../config/prisma.js";
-import { EmailService } from "../../../../shared/services/emailService.js";
+} from "../../../config/jwt.js";
+import { hashPassword } from "../../../shared/utils/hashPassword.js";
+import { ConflictError } from "../../../shared/errors/index.js";
+import { prisma } from "../../../config/prisma.js";
+import { EmailService } from "../../../shared/services/emailService.js";
+
 
 export class RegisterUseCase {
   static async execute(userData) {

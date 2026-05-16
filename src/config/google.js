@@ -1,6 +1,6 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { UserRepository } from '../modules/users/users/repositories/userRepository.js';
+import { UserRepository } from '../modules/users/repositories/userRepository.js';
 import { EmailService } from '../shared/services/emailService.js';
 import { id } from 'zod/locales';
 

@@ -1,4 +1,6 @@
 import { prisma } from "../../../config/prisma.js";
+import { UserRepository } from "../../users/repositories/userRepository.js";
+
 
 export class AuthRepository {
   

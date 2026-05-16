@@ -1,5 +1,5 @@
 import express from "express";
-import passport from "../../../../config/google.js";
+import passport from "../../../config/google.js";
 import { LoginController } from "../controllers/loginController.js";
 import { RefreshTokenController } from "../controllers/refreshTokenController.js";
 import { LogoutController } from "../controllers/logoutController.js";
@@ -8,8 +8,9 @@ import { ProfileController } from "../controllers/profileController.js";
 import { UpdateProfileController } from "../controllers/updateProfileController.js";
 import { ForgotPasswordController } from "../controllers/forgotPasswordController.js";
 import { ResetPasswordController } from "../controllers/resetPasswordController.js";
-import { authMiddleware } from "../../../../shared/middlewares/authMiddleware.js";
+import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
 import { GoogleAuthController } from "../controllers/googleAuthController.js";
+
 
 const router = express.Router();
 
