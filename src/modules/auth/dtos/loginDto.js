@@ -1,6 +1,6 @@
 export class LoginDto {
-  constructor({ email, password }) {
-    this.email = email;
-    this.password = password;
+  constructor(data) {
+    this.email = data.email;
+    this.password = data.pass_word;
   }
 }

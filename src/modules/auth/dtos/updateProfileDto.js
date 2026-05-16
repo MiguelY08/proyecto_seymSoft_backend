@@ -1,8 +1,7 @@
 export class UpdateProfileDto {
-  constructor({ phone, address, currentPassword, newPassword }) {
+  constructor({ email, pass_word,  phone }) {
+    this.email = email;
+    this.pass_word = pass_word;
     this.phone = phone;
-    this.address = address;
-    this.currentPassword = currentPassword;
-    this.newPassword = newPassword;
   }
 }

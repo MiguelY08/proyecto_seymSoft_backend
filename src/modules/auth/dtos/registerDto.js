@@ -1,10 +1,29 @@
 export class RegisterDto {
-  constructor({ docType, docNumber, fullName, email, password, phone }) {
-    this.docType = docType;
-    this.docNumber = docNumber;
-    this.fullName = fullName;
-    this.email = email;
-    this.password = password;
-    this.phone = phone;
+  fullName;
+  email;
+  password;
+  phone;
+  idStatus;
+
+  constructor(data) {
+    console.log("REGISTER DTO DATA:", data);
+
+    // Compatibilidad snake_case / camelCase
+
+    this.fullName =
+      data.full_name || data.fullName;
+
+    this.email = data.email;
+
+    this.password =
+      data.pass_word ||
+      data.password;
+
+    this.phone = data.phone || null;
+
+    this.idStatus =
+      data.id_status ||
+      data.idStatus ||
+      1;
   }
 }

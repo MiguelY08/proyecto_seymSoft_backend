@@ -5,12 +5,15 @@ import cors from "cors";
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
+import session from "express-session";
+import passport from "./config/google.js";
 
 import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
 import { handleUploadError } from "./shared/middlewares/uploadMiddleware.js";
 
 import authRoutes from "./modules/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/routes/userRoutes.js";
+import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
 
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js"
@@ -60,6 +63,19 @@ app.use(
 /**
  * Health Check
  */
+/* Sesión (necesario para Passport) */
+app.use(session({
+  secret: process.env.JWT_ACCESS_SECRET,
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
+
+/* Inicializar Passport */
+app.use(passport.initialize());
+app.use(passport.session());
+
+/* Ruta health check */
 app.get("/api/health", (req, res) => {
   return res.status(200).json({
     success: true,
@@ -71,6 +87,8 @@ app.get("/api/health", (req, res) => {
  * Rutas de autenticación
  */
 app.use("/auth", authRoutes);
+/* Rutas de autenticación */
+app.use("/api/auth", authRoutes);  
 
 /**
  * Rutas de usuarios
@@ -93,6 +111,10 @@ app.use("/api/banners", bannerRoutes);
  * Middleware global de errores
  * SIEMPRE al final
  */
+/* Rutas de Roles */
+app.use("/api/roles", roleRoutes);
+
+/* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);
 
 export default app;
