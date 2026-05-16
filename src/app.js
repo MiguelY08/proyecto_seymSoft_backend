@@ -10,6 +10,7 @@ import userRoutes from "./modules/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js"
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
+import orderRoutes from "./modules/purchases/orders/routes/orderRoutes.js";
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
 
 /* Rutas de usuarios */
 app.use("/users", userRoutes);
