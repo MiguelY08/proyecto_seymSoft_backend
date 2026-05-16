@@ -1,4 +1,4 @@
-export class AnnulOrderDto {
+export class AnnulSupplierPurchaseDto {
   constructor(data) {
     this.cancellationReason = data.cancellationReason.trim();
   }

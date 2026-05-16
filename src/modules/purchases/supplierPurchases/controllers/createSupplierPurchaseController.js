@@ -1,13 +1,13 @@
-import { CreateOrderUseCase }  from '../use-cases/createOrderUsecase.js';
-import { CreateOrderDto }      from '../dtos/createOrder.dto.js';
-import { createOrderValidator } from '../validators/ordersValidator.js';
+import { CreateSupplierPurchaseUseCase }  from '../use-cases/createSupplierPurchaseUsecase.js';
+import { CreateSupplierPurchaseDto }      from '../dtos/createSupplierPurchase.dto.js';
+import { createSupplierPurchaseValidator } from '../validators/supplierPurchasesValidator.js';
 import { ZodError }             from 'zod';
 
-const createOrderUseCase = new CreateOrderUseCase();
+const createSupplierPurchaseUseCase = new CreateSupplierPurchaseUseCase();
 
-export const createOrderController = async (req, res, next) => {
+export const createSupplierPurchaseController = async (req, res, next) => {
   try {
-    const result = createOrderValidator.safeParse({ body: req.body });
+    const result = createSupplierPurchaseValidator.safeParse({ body: req.body });
 
     if (!result.success) {
       return res.status(400).json({
@@ -17,8 +17,8 @@ export const createOrderController = async (req, res, next) => {
       });
     }
 
-    const dto  = new CreateOrderDto(result.data.body);
-    const data = await createOrderUseCase.execute(dto);
+    const dto  = new CreateSupplierPurchaseDto(result.data.body);
+    const data = await createSupplierPurchaseUseCase.execute(dto);
 
     res.status(201).json({ success: true, message: 'Compra registrada exitosamente.', data });
   } catch (error) {

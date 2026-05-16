@@ -1,6 +1,5 @@
-export class OrderMapper {
+export class SupplierPurchaseMapper {
 
-  // ─── Detail mapper ──────────────────────────────────────────────────────────
   static detailToDTO(detail) {
     if (!detail) return null;
     return {
@@ -21,31 +20,28 @@ export class OrderMapper {
     };
   }
 
-  // ─── Purchase mapper (list view — no details) ───────────────────────────────
-  static toDTO(order) {
-    if (!order) return null;
+  static toDTO(purchase) {
+    if (!purchase) return null;
     return {
-      id:            order.id_purchase,
-      invoiceNumber: order.invoice_number,
-      purchaseDate:  order.purchase_date,
-      totalAmount:   Number(order.total_amount ?? 0),
-      providerId:    order.id_provider,
-      providerName:  order.providers?.name_provider          ?? null,
-      statusId:      order.id_purchase_status,
-      status:        order.purchase_statuses?.name_puchase_status ?? null,
+      id:            purchase.id_purchase,
+      invoiceNumber: purchase.invoice_number,
+      purchaseDate:  purchase.purchase_date,
+      totalAmount:   Number(purchase.total_amount ?? 0),
+      providerId:    purchase.id_provider,
+      providerName:  purchase.providers?.name_provider          ?? null,
+      statusId:      purchase.id_purchase_status,
+      status:        purchase.purchase_statuses?.name_puchase_status ?? null,
     };
   }
 
-  // ─── Purchase mapper with details ───────────────────────────────────────────
-  static toDTOWithDetails(order) {
-    if (!order) return null;
+  static toDTOWithDetails(purchase) {
+    if (!purchase) return null;
     return {
-      ...OrderMapper.toDTO(order),
-      details: (order.purchase_details ?? []).map(OrderMapper.detailToDTO),
+      ...SupplierPurchaseMapper.toDTO(purchase),
+      details: (purchase.purchase_details ?? []).map(SupplierPurchaseMapper.detailToDTO),
     };
   }
 
-  // ─── DB mappers ─────────────────────────────────────────────────────────────
   static toCreateDB(dto) {
     const totalAmount = dto.details.reduce((sum, d) => sum + d.netSubtotal, 0);
     return {
@@ -53,7 +49,7 @@ export class OrderMapper {
       purchase_date:      dto.purchaseDate,
       total_amount:       totalAmount,
       id_provider:        dto.idProvider,
-      id_purchase_status: 1, // 1 = Completada
+      id_purchase_status: 1,
     };
   }
 

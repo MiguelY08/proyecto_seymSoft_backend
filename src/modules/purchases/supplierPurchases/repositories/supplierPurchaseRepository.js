@@ -2,12 +2,12 @@ import { prisma } from '../../../../config/prisma.js';
 
 // ─── Reusable includes ────────────────────────────────────────────────────────
 
-const orderInclude = {
+const supplierPurchaseInclude = {
   providers:         { select: { name_provider: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
 };
 
-const orderWithDetailsInclude = {
+const supplierPurchaseWithDetailsInclude = {
   providers:         { select: { name_provider: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
   purchase_details: {
@@ -21,7 +21,7 @@ const orderWithDetailsInclude = {
   },
 };
 
-export class OrderRepository {
+export class SupplierPurchaseRepository {
 
   async findAll({ page, limit, search, startDate, endDate }) {
     const skip  = (page - 1) * limit;
@@ -40,24 +40,24 @@ export class OrderRepository {
       if (endDate)   where.purchase_date.lte = endDate;
     }
 
-    const [total, orders] = await Promise.all([
+    const [total, supplierPurchases] = await Promise.all([
       prisma.purchases.count({ where }),
       prisma.purchases.findMany({
         where,
         skip,
         take:    limit,
         orderBy: { purchase_date: 'desc' },
-        include: orderInclude,
+        include: supplierPurchaseInclude,
       }),
     ]);
 
-    return { orders: orders || [], total: total || 0 };
+    return { supplierPurchases: supplierPurchases || [], total: total || 0 };
   }
 
   async findById(id) {
     return prisma.purchases.findUnique({
       where:   { id_purchase: parseInt(id) },
-      include: orderWithDetailsInclude,
+      include: supplierPurchaseWithDetailsInclude,
     });
   }
 
@@ -81,17 +81,15 @@ export class OrderRepository {
     });
   }
 
-  async create(orderData, details) {
+  async create(purchaseData, details) {
     return prisma.$transaction(async (tx) => {
-      // 1 — Create purchase
-      const order = await tx.purchases.create({
-        data: orderData,
+      const purchase = await tx.purchases.create({
+        data: purchaseData,
       });
 
-      // 2 — Create details
       await tx.purchase_details.createMany({
         data: details.map((d) => ({
-          id_purchase:      order.id_purchase,
+          id_purchase:      purchase.id_purchase,
           id_barcode:       d.idBarcode,
           quantity:         d.quantity,
           gross_unit_price: d.grossUnitPrice,
@@ -105,7 +103,6 @@ export class OrderRepository {
         })),
       });
 
-      // 3 — Update stock in barcodes
       for (const d of details) {
         await tx.barcodes.update({
           where: { id_barcode: d.idBarcode },
@@ -113,35 +110,30 @@ export class OrderRepository {
         });
       }
 
-      // 4 — Return full order with details
       return tx.purchases.findUnique({
-        where:   { id_purchase: order.id_purchase },
-        include: orderWithDetailsInclude,
+        where:   { id_purchase: purchase.id_purchase },
+        include: supplierPurchaseWithDetailsInclude,
       });
     });
   }
 
   async annul(id, cancellationReason) {
     return prisma.$transaction(async (tx) => {
-      // 1 — Get details to revert stock
       const details = await tx.purchase_details.findMany({
         where: { id_purchase: parseInt(id) },
       });
 
-      // 2 — Update status to 3 (Anulada)
-      const order = await tx.purchases.update({
+      const purchase = await tx.purchases.update({
         where:   { id_purchase: parseInt(id) },
         data:    { id_purchase_status: 3 },
-        include: orderWithDetailsInclude,
+        include: supplierPurchaseWithDetailsInclude,
       });
 
-      // 3 — Save cancellation reason in each detail
       await tx.purchase_details.updateMany({
         where: { id_purchase: parseInt(id) },
         data:  { cancellation_reason: cancellationReason },
       });
 
-      // 4 — Revert stock
       for (const d of details) {
         await tx.barcodes.update({
           where: { id_barcode: d.id_barcode },
@@ -149,7 +141,7 @@ export class OrderRepository {
         });
       }
 
-      return order;
+      return purchase;
     });
   }
 }

@@ -1,11 +1,11 @@
-import { OrderRepository } from '../repositories/orderRepository.js';
-import { OrderMapper }     from '../mappers/orderMapper.js';
+import { SupplierPurchaseRepository } from '../repositories/supplierPurchaseRepository.js';
+import { SupplierPurchaseMapper }     from '../mappers/supplierPurchaseMapper.js';
 
-const orderRepository = new OrderRepository();
+const supplierPurchaseRepository = new SupplierPurchaseRepository();
 
-export class AnnulOrderUseCase {
+export class AnnulSupplierPurchaseUseCase {
   async execute(id, dto) {
-    const existing = await orderRepository.findById(id);
+    const existing = await supplierPurchaseRepository.findById(id);
 
     if (!existing) {
       const error = new Error('Compra no encontrada.');
@@ -13,7 +13,6 @@ export class AnnulOrderUseCase {
       throw error;
     }
 
-    // 1 = Completada | 2 = Proc. devolución | 3 = Anulada
     if (existing.id_purchase_status === 3) {
       const error = new Error('Esta compra ya se encuentra anulada.');
       error.statusCode = 409;
@@ -26,7 +25,7 @@ export class AnnulOrderUseCase {
       throw error;
     }
 
-    const updated = await orderRepository.annul(id, dto.cancellationReason);
-    return OrderMapper.toDTOWithDetails(updated);
+    const updated = await supplierPurchaseRepository.annul(id, dto.cancellationReason);
+    return SupplierPurchaseMapper.toDTOWithDetails(updated);
   }
 }

@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-// ─── Order statuses ───────────────────────────────────────────────────────────
+// ─── Purchase statuses ────────────────────────────────────────────────────────
 // 1 = Completada | 2 = Proc. devolución | 3 = Anulada
 
-// ─── Create order validator ───────────────────────────────────────────────────
+// ─── Create supplier purchase validator ───────────────────────────────────────
 
-export const createOrderValidator = z.object({
+export const createSupplierPurchaseValidator = z.object({
   body: z.object({
     invoiceNumber: z
       .string({ required_error: 'El número de factura es obligatorio.' })
@@ -57,9 +57,9 @@ export const createOrderValidator = z.object({
   }),
 });
 
-// ─── Annul order validator ────────────────────────────────────────────────────
+// ─── Annul supplier purchase validator ───────────────────────────────────────
 
-export const annulOrderValidator = z.object({
+export const annulSupplierPurchaseValidator = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, 'El ID debe ser un número válido.'),
   }),
@@ -72,9 +72,9 @@ export const annulOrderValidator = z.object({
   }),
 });
 
-// ─── Get orders validator (query filters) ─────────────────────────────────────
+// ─── List supplier purchases validator (query filters) ────────────────────────
 
-export const getOrdersValidator = z.object({
+export const getSupplierPurchasesValidator = z.object({
   query: z.object({
     page:      z.coerce.number().int().positive().default(1),
     limit:     z.coerce.number().int().positive().max(100).default(13),
@@ -84,9 +84,9 @@ export const getOrdersValidator = z.object({
   }),
 });
 
-// ─── Get order by id validator ────────────────────────────────────────────────
+// ─── Get supplier purchase by id validator ───────────────────────────────────
 
-export const getOrderByIdValidator = z.object({
+export const getSupplierPurchaseByIdValidator = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, 'El ID debe ser un número válido.'),
   }),

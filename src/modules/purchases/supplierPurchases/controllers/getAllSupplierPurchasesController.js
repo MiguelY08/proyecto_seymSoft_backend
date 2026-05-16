@@ -1,11 +1,11 @@
-import { GetAllOrdersUseCase } from '../use-cases/getAllOrdersUseCase.js';
-import { getOrdersValidator } from '../validators/ordersValidator.js';
+import { GetAllSupplierPurchasesUseCase } from '../use-cases/getAllSupplierPurchasesUsecase.js';
+import { getSupplierPurchasesValidator } from '../validators/supplierPurchasesValidator.js';
 
-const getAllOrdersUseCase = new GetAllOrdersUseCase();
+const getAllSupplierPurchasesUseCase = new GetAllSupplierPurchasesUseCase();
 
-export const getAllOrdersController = async (req, res, next) => {
+export const getAllSupplierPurchasesController = async (req, res, next) => {
   try {
-    const result = getOrdersValidator.safeParse({ query: req.query });
+    const result = getSupplierPurchasesValidator.safeParse({ query: req.query });
 
     if (!result.success) {
       return res.status(400).json({
@@ -20,7 +20,7 @@ export const getAllOrdersController = async (req, res, next) => {
 
     const { page, limit, search, startDate, endDate } = result.data.query;
 
-    const data = await getAllOrdersUseCase.execute({
+    const data = await getAllSupplierPurchasesUseCase.execute({
       page,
       limit,
       search,
