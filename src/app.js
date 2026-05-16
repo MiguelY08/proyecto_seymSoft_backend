@@ -10,7 +10,7 @@ import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
 import authRoutes from "./modules/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
-import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
+import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js"
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 const app = express();
 
@@ -44,6 +44,7 @@ app.use("/api/auth", authRoutes);
 
 /* Rutas de categorias */
 app.use("/api/categories", categoryRoutes);
+app.use("/api/providers", providerRoutes);
 app.use("/api/products", productRoutes);
 
 /* Rutas de usuarios */
