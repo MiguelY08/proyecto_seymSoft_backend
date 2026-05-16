@@ -1,19 +1,18 @@
+// src/services/imageProcessor.js
 import sharp from "sharp";
-import path from "path";
-import fs from "fs";
 import crypto from "crypto";
+import supabase from "../../config/supabaseClient.js";
 
 /**
- * ImageProcessor
+ * ImageProcessor con Supabase Storage
  *
  * Responsabilidades:
  * - Validar imágenes reales usando Sharp
  * - Validar dimensiones mínimas
  * - Procesar imágenes (resize, compresión, conversión)
- * - Generar nombres únicos
- * - Guardar imágenes en el sistema de archivos
- * - Eliminar imágenes
- * - Garantizar existencia del directorio de uploads
+ * - Subir buffer a Supabase Storage
+ * - Obtener URL pública
+ * - Eliminar imágenes del bucket
  *
  * Especificaciones:
  * - Dimensiones mínimas requeridas: 1280x720
@@ -27,101 +26,46 @@ import crypto from "crypto";
  * 2. Validar imagen real con Sharp
  * 3. Validar dimensiones mínimas
  * 4. Generar nombre único
- * 5. Redimensionar y convertir a WebP
- * 6. Guardar imagen
- * 7. Retornar URL relativa
+ * 5. Redimensionar y convertir a WebP → toBuffer()
+ * 6. Subir buffer a Supabase Storage
+ * 7. Obtener URL pública
+ * 8. Retornar URL pública
  */
 
-/**
- * Obtiene la ruta de uploads desde variables de entorno
- *
- * Prioridad:
- * 1. UPLOADS_BANNERS_DIR
- * 2. UPLOADS_DIR + /banners
- * 3. ./src/uploads/banners
- *
- * @returns {string}
- */
-const getUploadDir = () => {
-  // Directorio específico para banners
-  if (process.env.UPLOADS_BANNERS_DIR) {
-    return process.env.UPLOADS_BANNERS_DIR;
-  }
-
-  // Directorio genérico de uploads
-  if (process.env.UPLOADS_DIR) {
-    return path.join(process.env.UPLOADS_DIR, "banners");
-  }
-
-  // Default local
-  return path.join(process.cwd(), "src/uploads/banners");
-};
-
-const uploadDir = getUploadDir();
-
-/**
- * Configuración de procesamiento
- */
 const MIN_WIDTH = 1280;
 const MIN_HEIGHT = 720;
-
 const OUTPUT_WIDTH = 1280;
 const OUTPUT_HEIGHT = 720;
-
 const WEBP_QUALITY = 85;
 
-console.log(`[imageProcessor] Directorio configurado: ${uploadDir}`);
+// Bucket de Supabase (definido en .env)
+const BUCKET_NAME = process.env.SUPABASE_BUCKET;
+
+if (!BUCKET_NAME) {
+  throw new Error("Missing SUPABASE_BUCKET environment variable");
+}
 
 /**
- * Garantiza que el directorio exista
- *
- * @throws {Error}
- */
-const ensureUploadDirectory = () => {
-  try {
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-
-      console.log(
-        `[imageProcessor] Directorio creado: ${uploadDir}`
-      );
-    }
-  } catch (error) {
-    throw new Error(
-      `No se puede crear directorio de uploads: ${error.message}`
-    );
-  }
-};
-
-/**
- * Genera nombre único para imagen
- *
- * Formato:
- * banner_[random].webp
- *
+ * Genera nombre único para la imagen en el bucket
+ * Formato: banner_[random].webp
  * @returns {string}
  */
 const generateUniqueFilename = () => {
   const randomString = crypto.randomBytes(8).toString("hex");
-
   return `banner_${randomString}.webp`;
 };
 
 /**
- * Procesa y guarda imagen
- *
- * @param {Buffer} fileBuffer
- * @returns {Promise<string>}
- *
+ * Procesa y sube la imagen a Supabase Storage
+ * @param {Buffer} fileBuffer - Buffer de la imagen original
+ * @returns {Promise<string>} URL pública de la imagen subida
  * @throws {Error}
  */
 export const processAndSaveImage = async (fileBuffer) => {
   try {
     console.log(`[imageProcessor] Iniciando procesamiento de imagen`);
 
-    /**
-     * 1. Validar buffer
-     */
+    // 1. Validar buffer
     if (!fileBuffer || fileBuffer.length === 0) {
       throw new Error("Buffer de imagen vacío o inválido");
     }
@@ -130,22 +74,15 @@ export const processAndSaveImage = async (fileBuffer) => {
       `[imageProcessor] Tamaño original: ${(fileBuffer.length / 1024).toFixed(2)}KB`
     );
 
-    /**
-     * 2. Validar imagen real con Sharp
-     */
+    // 2. Validar imagen real con Sharp
     let metadata;
-
     try {
       metadata = await sharp(fileBuffer).metadata();
     } catch (error) {
-      throw new Error(
-        "El archivo proporcionado no es una imagen válida"
-      );
+      throw new Error("El archivo proporcionado no es una imagen válida");
     }
 
-    /**
-     * 3. Validar dimensiones mínimas
-     */
+    // 3. Validar dimensiones mínimas
     if (
       !metadata.width ||
       !metadata.height ||
@@ -161,164 +98,118 @@ export const processAndSaveImage = async (fileBuffer) => {
       `[imageProcessor] Dimensiones originales: ${metadata.width}x${metadata.height}`
     );
 
-    /**
-     * 4. Garantizar directorio
-     */
-    ensureUploadDirectory();
-
-    /**
-     * 5. Generar nombre único
-     */
+    // 4. Generar nombre único
     const filename = generateUniqueFilename();
+    console.log(`[imageProcessor] Nombre generado: ${filename}`);
 
-    const filePath = path.join(uploadDir, filename);
-
-    console.log(
-      `[imageProcessor] Nombre generado: ${filename}`
-    );
-
-    /**
-     * 6. Procesar imagen
-     */
+    // 5. Procesar imagen (redimensionar + convertir a WebP) y obtener buffer
     console.log(
       `[imageProcessor] Procesando imagen (${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}, WebP quality ${WEBP_QUALITY})`
     );
 
-    await sharp(fileBuffer)
+    const processedBuffer = await sharp(fileBuffer)
       .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
         fit: "cover",
         position: "center",
         withoutEnlargement: true,
       })
-      .webp({
-        quality: WEBP_QUALITY,
-      })
-      .toFile(filePath);
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer(); // ⬅️ Cambiamos toFile() por toBuffer()
 
-    /**
-     * 7. Verificar guardado
-     */
-    if (!fs.existsSync(filePath)) {
-      throw new Error(
-        "La imagen no se guardó correctamente"
-      );
+    console.log(
+      `[imageProcessor] Tamaño después de procesar: ${(processedBuffer.length / 1024).toFixed(2)}KB`
+    );
+
+    // 6. Subir buffer a Supabase Storage
+    const { data, error: uploadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(filename, processedBuffer, {
+        contentType: "image/webp",
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(`Error subiendo imagen a Supabase: ${uploadError.message}`);
     }
 
-    const finalFileSize = fs.statSync(filePath).size;
+    console.log(`[imageProcessor] Imagen subida exitosamente: ${filename}`);
 
-    console.log(
-      `[imageProcessor] Tamaño final: ${(finalFileSize / 1024).toFixed(2)}KB`
-    );
+    // 7. Obtener URL pública
+    const { data: publicUrlData } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(filename);
 
-    /**
-     * 8. Retornar URL relativa
-     */
-    const relativeUrl = `/uploads/banners/${filename}`;
+    const publicUrl = publicUrlData.publicUrl;
 
-    console.log(
-      `[imageProcessor] Procesamiento completado: ${relativeUrl}`
-    );
+    console.log(`[imageProcessor] URL pública generada: ${publicUrl}`);
 
-    return relativeUrl;
+    // 8. Retornar URL pública (se guardará en la BD)
+    return publicUrl;
 
   } catch (error) {
-    console.error(
-      `[imageProcessor] Error procesando imagen:`,
-      error.message
-    );
-
-    throw new Error(
-      `Error procesando imagen: ${error.message}`
-    );
+    console.error(`[imageProcessor] Error procesando imagen:`, error.message);
+    throw new Error(`Error procesando imagen: ${error.message}`);
   }
 };
 
 /**
- * Elimina una imagen del sistema de archivos
- *
- * @param {string} imgUrl
+ * Elimina una imagen del bucket de Supabase
+ * @param {string} imgUrl - URL pública de la imagen (o ruta dentro del bucket)
  * @returns {Promise<void>}
  */
 export const deleteImage = async (imgUrl) => {
   try {
-    /**
-     * 1. Obtener nombre de archivo
-     */
-    const filename = path.basename(imgUrl);
+    // Extraer el nombre del archivo (último segmento de la URL)
+    // Ejemplo: https://xxx.supabase.co/storage/v1/object/public/banners/banner_abc123.webp
+    const urlParts = imgUrl.split('/');
+    const filename = urlParts[urlParts.length - 1];
 
-    const filePath = path.join(uploadDir, filename);
-
-    console.log(
-      `[imageProcessor] Eliminando imagen: ${filename}`
-    );
-
-    /**
-     * 2. Verificar existencia
-     */
-    if (!fs.existsSync(filePath)) {
-      console.warn(
-        `[imageProcessor] Archivo no existe: ${filePath}`
-      );
-
-      return;
+    if (!filename) {
+      throw new Error("No se pudo extraer el nombre del archivo de la URL");
     }
 
-    /**
-     * 3. Eliminar archivo
-     */
-    fs.unlinkSync(filePath);
+    console.log(`[imageProcessor] Eliminando imagen del bucket: ${filename}`);
 
-    console.log(
-      `[imageProcessor] Imagen eliminada: ${filename}`
-    );
+    // Eliminar del bucket de Supabase
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove([filename]);
+
+    if (error) {
+      throw new Error(`Error eliminando imagen de Supabase: ${error.message}`);
+    }
+
+    console.log(`[imageProcessor] Imagen eliminada exitosamente: ${filename}`);
 
   } catch (error) {
-    console.error(
-      `[imageProcessor] Error eliminando imagen:`,
-      error.message
-    );
-
-    throw new Error(
-      `Error eliminando imagen: ${error.message}`
-    );
+    console.error(`[imageProcessor] Error eliminando imagen:`, error.message);
+    throw new Error(`Error eliminando imagen: ${error.message}`);
   }
 };
 
 /**
- * Obtiene información de una imagen
- *
- * @param {string} imgUrl
+ * Obtiene información de una imagen (opcional - adaptado para Supabase)
+ * Nota: Como ahora trabajamos con URLs públicas, esta función puede no ser necesaria.
+ * Se mantiene por compatibilidad, pero solo retorna información básica desde la URL.
+ * @param {string} imgUrl - URL pública de la imagen
  * @returns {Object|null}
  */
-const getImageInfo = (imgUrl) => {
+export const getImageInfo = async (imgUrl) => {
   try {
-    const filename = path.basename(imgUrl);
+    const urlParts = imgUrl.split('/');
+    const filename = urlParts[urlParts.length - 1];
 
-    const filePath = path.join(uploadDir, filename);
-
-    if (!fs.existsSync(filePath)) {
-      return null;
-    }
-
-    const stats = fs.statSync(filePath);
-
+    // Podríamos consultar metadata desde Supabase si es necesario, pero por ahora
+    // retornamos información mínima.
     return {
       filename,
-      path: filePath,
-      size: stats.size,
-      exists: true,
-      createdAt: stats.birthtime,
-      modifiedAt: stats.mtime,
+      url: imgUrl,
+      exists: true, // Asumimos que existe (la validación real requeriría head() del storage)
+      source: "supabase",
     };
-
   } catch (error) {
-    console.error(
-      `[imageProcessor] Error obteniendo info:`,
-      error.message
-    );
-
+    console.error(`[imageProcessor] Error obteniendo info:`, error.message);
     return null;
   }
 };
-
-export { getImageInfo };
