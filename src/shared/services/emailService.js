@@ -1,14 +1,23 @@
 import nodemailer from "nodemailer";
 
+// DEBUG: Ver qué variables se cargan
+console.log("🔍 EMAIL CONFIG DEBUG:");
+console.log("  USER:", process.env.EMAIL_USER);
+console.log("  PASS:", process.env.EMAIL_PASSWORD ? "✅ CARGADO" : "❌ FALTA");
+console.log("  HOST:", process.env.EMAIL_HOST);
+console.log("  PORT:", process.env.EMAIL_PORT);
+
 const mailConfig = {
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined,
-  secure: process.env.EMAIL_SECURE === "true",
+  secure: false,  // ← Cambia a false temporalmente para debug
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
   },
 };
+
+console.log("📧 Mail Config:", mailConfig);
 
 const transporter = nodemailer.createTransport(mailConfig);
 
@@ -132,4 +141,160 @@ export class EmailService {
       html,
     });
   }
+
+  static async sendLandingWelcomeEmail(
+  to,
+  fullName,
+  frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000"
+) {
+  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+
+  if (!from) {
+    throw new Error(
+      "EMAIL_FROM or EMAIL_USER must be configured to send emails"
+    );
+  }
+
+  const subject = "¡Bienvenido a SeymSoft!";
+  const name = fullName ? `${fullName}` : "usuario";
+  const loginPageUrl = `${frontendUrl}/login`;
+
+  const text = `
+Hola ${name},
+
+Tu cuenta ha sido creada exitosamente y ya está lista para usar.
+
+Ahora puedes iniciar sesión y comenzar a utilizar la plataforma.
+
+Accede aquí:
+${loginPageUrl}
+
+Por seguridad, recuerda no compartir tu contraseña con otras personas.
+
+Si tienes alguna duda o inconveniente, contacta al soporte de la plataforma.
+
+Bienvenido a Papeleria Magic.
+`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      
+      <h2 style="color: #333;">
+        ¡Bienvenido a Papeleria Magic, ${name}!
+      </h2>
+
+      <p>
+        Tu cuenta ha sido creada exitosamente y ya está lista para usar.
+      </p>
+
+      <p>
+        Ahora puedes iniciar sesión y comenzar a utilizar la plataforma.
+      </p>
+
+      <div style="margin: 30px 0;">
+        <a
+          href="${loginPageUrl}"
+          style="
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            display: inline-block;
+            font-weight: bold;
+          "
+        >
+          Iniciar sesión
+        </a>
+      </div>
+
+      <div
+        style="
+          background: #f8f9fa;
+          border-left: 4px solid #007bff;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+        "
+      >
+        <p style="margin: 0; color: #555;">
+          🔒 Por seguridad, recuerda mantener tu contraseña protegida y no compartirla con terceros.
+        </p>
+      </div>
+
+      <p>
+        Si tienes alguna duda o inconveniente, puedes contactar al soporte de la plataforma.
+      </p>
+
+      <p style="color: #666; font-size: 12px; margin-top: 40px;">
+        Saludos,<br />
+        <strong>Equipo SeymSoft</strong>
+      </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject,
+    text,
+    html,
+  });
+}
+
+/**
+ * Envía notificación cuando el usuario cambia su email
+ */
+static async sendEmailChangeNotification(
+  oldEmail,
+  newEmail,
+  fullName,
+  frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173"
+) {
+  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  if (!from) {
+    throw new Error("EMAIL_FROM or EMAIL_USER must be configured");
+  }
+
+  const subject = "Notificación: Tu email fue cambiado";
+  const name = fullName ? `${fullName}` : "usuario";
+
+  const text = `Hola ${name},\n\nTe notificamos que el email asociado a tu cuenta fue cambiado.\n\nEmail anterior: ${oldEmail}\nEmail nuevo: ${newEmail}\n\nSi no realizaste este cambio, contacta al soporte inmediatamente.\n\nGracias.`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">Notificación de Cambio de Email</h2>
+      
+      <p>Hola ${name},</p>
+      
+      <p>Te notificamos que el email asociado a tu cuenta fue cambiado.</p>
+      
+      <div style="background: #f8f9fa; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <p style="margin: 5px 0;"><strong>Email anterior:</strong> ${oldEmail}</p>
+        <p style="margin: 5px 0;"><strong>Email nuevo:</strong> ${newEmail}</p>
+      </div>
+      
+      <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #856404;">
+          <strong>⚠️ Seguridad:</strong> Si no realizaste este cambio, contacta al soporte inmediatamente para proteger tu cuenta.
+        </p>
+      </div>
+      
+      <p>Si tienes preguntas, contacta al soporte de la plataforma.</p>
+      
+      <p style="color: #666; font-size: 12px; margin-top: 30px;">
+        Saludos,<br>
+        <strong>El equipo de SeymSoft</strong>
+      </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from,
+    to: oldEmail,  // ← IMPORTANTE: Envía al email ANTERIOR
+    subject,
+    text,
+    html,
+  });
+}
 }

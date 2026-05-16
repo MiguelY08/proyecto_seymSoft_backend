@@ -1,17 +1,35 @@
 import { ProfileUseCase } from "../use-cases/profileUseCase.js";
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
+import { UserRepository } from "../../users/repositories/userRepository.js";
 
 export class ProfileController {
   static async getProfile(req, res, next) {
     try {
-      const { id_user } = req.user;
-
-      const user = await ProfileUseCase.execute(id_user);
-
-      res.status(200).json({
+      // El usuario viene del middleware authMiddleware
+      const idUser = req.user?.id_user;
+ 
+      if (!idUser) {
+        throw new NotFoundError("Usuario no autenticado");
+      }
+ 
+      // Obtener usuario con rol y permisos
+      const result = await UserRepository.getUserWithRole(idUser);
+ 
+      if (!result || !result.user) {
+        throw new NotFoundError("Usuario no encontrado");
+      }
+ 
+      // Retornar perfil del usuario
+      return res.status(200).json({
         success: true,
-        data: user,
+        message: "Perfil obtenido exitosamente",
+        data: {
+          user: result.user,
+          role: result.role,
+          permissions: result.permissions,
+        },
       });
+ 
     } catch (error) {
       next(error);
     }
