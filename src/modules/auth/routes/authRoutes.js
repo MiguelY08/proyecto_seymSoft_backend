@@ -1,14 +1,19 @@
 import express from "express";
+import passport from "../../../config/google.js";
 import { LoginController } from "../controllers/loginController.js";
 import { RefreshTokenController } from "../controllers/refreshTokenController.js";
 import { LogoutController } from "../controllers/logoutController.js";
 import { RegisterController } from "../controllers/registerController.js";
 import { ProfileController } from "../controllers/profileController.js";
 import { UpdateProfileController } from "../controllers/updateProfileController.js";
-import { ChangePasswordController } from "../controllers/changePasswordController.js";
 import { ForgotPasswordController } from "../controllers/forgotPasswordController.js";
 import { ResetPasswordController } from "../controllers/resetPasswordController.js";
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
+<<<<<<< HEAD
+=======
+import { GoogleAuthController } from "../controllers/googleAuthController.js";
+
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
 
 const router = express.Router();
 
@@ -27,20 +32,32 @@ router.post("/logout", LogoutController.logout);
 // GET /auth/me (protected)
 router.get("/me", authMiddleware, ProfileController.getProfile);
 
-// PUT /auth/profile (protected) - Actualizar perfil y/o cambiar contraseña
+// PUT /auth/profile (protected)
 router.put("/profile", authMiddleware, UpdateProfileController.updateProfile);
-
-// PUT /auth/change-password (protected)
-router.put(
-  "/change-password",
-  authMiddleware,
-  ChangePasswordController.changePassword,
-);
 
 // POST /auth/forgot-password
 router.post("/forgot-password", ForgotPasswordController.forgotPassword);
 
 // POST /auth/reset-password
 router.post("/reset-password", ResetPasswordController.resetPassword);
+
+// ===== GOOGLE OAUTH =====
+// GET /auth/google - Redirige a Google para autorizar
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  }),
+);
+
+// GET /auth/google/callback - Google redirige aquí después de autorizar
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "/login",
+    session: false,
+  }),
+  GoogleAuthController.googleCallback,
+);
 
 export default router;

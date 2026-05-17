@@ -1,20 +1,5 @@
 import { z } from "zod";
 
-/**
- * Schema de validación para UPDATE USER
- * 
- * Reglas:
- * - TODOS los campos son OPCIONALES (actualización parcial)
- * - Si están presentes, se validan con las mismas reglas que CREATE
- * - fullName: Texto 1-255 caracteres
- * - email: Email válido (validación de duplicado en use-case)
- * - phone: Número opcional y positivo
- * 
- * Nota: 
- * - password NO se actualiza aquí (manejo en módulo auth)
- * - idStatus NO se actualiza aquí (tiene endpoint /status)
- * - docType y docNumber: Responsabilidad del módulo de Clientes
- */
 
 export const updateUserSchema = z.object({
   fullName: z
@@ -38,30 +23,24 @@ export const updateUserSchema = z.object({
     .positive("El teléfono debe ser un número positivo")
     .optional()
     .nullable(),
+
+  id_role: z
+    .number()
+    .int()
+    .positive("El ID del rol debe ser un número positivo")
+    .optional()
+    .nullable(),
 }).strict();
 
-/**
- * Validador de UpdateUser
- * 
- * @param {Object} data - Datos a validar
- * @returns {Object} { success: boolean, data: Object|null, errors: Object|null }
- * 
- * Uso:
- * const validation = validateUpdateUser(req.body);
- * if (!validation.success) {
- *   return res.status(400).json({ errors: validation.errors });
- * }
- * const validatedData = validation.data;
- * 
- * Nota: Retorna solo los campos que fueron enviados (excluyendo campos undefined)
- */
+
 export const validateUpdateUser = (data) => {
   try {
     const validatedData = updateUserSchema.parse(data);
 
-    // Filtrar campos undefined/null para solo enviar lo que se actualizó
+    // Filtrar campos undefined para solo enviar lo que se actualizó
+    // PERO permitir null (especialmente para id_role)
     const cleanData = Object.entries(validatedData)
-      .filter(([, value]) => value !== undefined && value !== null)
+      .filter(([, value]) => value !== undefined)  // ← Permitir null
       .reduce((acc, [key, value]) => {
         acc[key] = value;
         return acc;
