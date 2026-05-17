@@ -32,7 +32,6 @@ model banner_img {
   id_img           Int              @id(map: "imagenes_carrusel_pkey") @default(autoincrement())
   img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
   id_status        Int
-  creation_date    DateTime?        @db.Timestamp(6)
   disposition      Int?             @unique
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
 }
@@ -288,6 +287,8 @@ model products {
   bulk_price            Decimal?                @db.Decimal(10, 2)
   id_category           Int
   iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
+  description           String?                 @db.VarChar(500)
+  quantity_per_pack     Int?                    @default(0)
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]
@@ -296,6 +297,17 @@ model products {
   categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
   unit_measures         unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
+}
+
+model provider_categories {
+  id_provider Int
+  id_category Int
+  categories  categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_category")
+  providers   providers  @relation(fields: [id_provider], references: [id_provider], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_provider")
+
+  @@id([id_provider, id_category])
+  @@index([id_category], map: "idx_provider_categories_category")
+  @@index([id_provider], map: "idx_provider_categories_provider")
 }
 
 model providers {
@@ -529,15 +541,4 @@ model users {
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model provider_categories {
-  id_provider Int
-  id_category Int
-  categories  categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_category")
-  providers   providers  @relation(fields: [id_provider], references: [id_provider], onDelete: Cascade, onUpdate: NoAction, map: "fk_provider_categories_provider")
-
-  @@id([id_provider, id_category])
-  @@index([id_category], map: "idx_provider_categories_category")
-  @@index([id_provider], map: "idx_provider_categories_provider")
 }
