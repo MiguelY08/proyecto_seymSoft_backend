@@ -4,3 +4,4 @@ export { updateStatusBannerUseCase } from "./updateStatus.usecase.js";
 export { uploadBannerUseCase } from "./upload.usecase.js";
 export { getActiveBannersUseCase } from "./getActiveBanners.usecase.js";
 export { deleteBannerUseCase } from "./delete.usecase.js";
+export { updateDispositionBannerUseCase } from "./updateDispositionBanner.usecase.js";

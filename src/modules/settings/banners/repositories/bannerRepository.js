@@ -5,78 +5,82 @@ import { BannerMapper } from "../mappers/bannerMapper.js";
  * BannerRepository
  * 
  * Responsabilidades:
- * - Acceso exclusivo a datos de banners en BD
- * - Ejecutar operaciones CRUD con Prisma
- * - Manejar errores de BD (duplicados, no encontrado, etc)
- * - Transformar datos con BannerMapper
- * - Garantizar integridad de datos
+ * - Gestionar acceso exclusivo a BD para banners
+ * - Crear banners con disposición automática
+ * - Reorganizar banners automáticamente
+ * - Gestionar activación/desactivación
+ * - Garantizar integridad de disposiciones
+ * - Transformar respuestas mediante BannerMapper
  * 
- * Métodos públicos:
- * - create(): Crear nuevo banner
- * - findById(): Obtener banner por ID
- * - findAll(): Obtener todos los banners
- * - findActive(): Obtener banners activos (tienda)
- * - update(): Actualizar banner
- * - delete(): Eliminar banner
+ * Arquitectura actual:
+ * - Los banners nuevos nacen ACTIVOS
+ * - La disposición se genera automáticamente
+ * - Los banners inactivos tienen disposition = null
+ * - No pueden existir huecos entre disposiciones activas
+ * - El frontend NO controla disposition inicial
  * 
- * Métodos privados (validación):
- * - #existsByDisposition(): Validar disposición única
- * - #existsByImgUrl(): Validar URL única
+ * Métodos principales:
+ * - create()
+ * - findById()
+ * - findAll()
+ * - findActive()
+ * - updateStatus()
+ * - updateDisposition()
+ * - delete()
  * 
- * Nota: Solo el repository lanza excepciones detalladas
- * Los use-cases las capturan y convierten en errorCode
+ * Helpers privados:
+ * - #getNextDisposition()
+ * - #reorderDispositionsAfterDelete()
+ * - #shiftDispositionsForReorder()
+ * - #existsByImgUrl()
  */
 
 export class BannerRepository {
+
   /**
-   * Crea un nuevo banner en la BD
+   * Crea un nuevo banner
    * 
-   * @param {Object} bannerData - Datos del banner en camelCase
-   * @param {string} bannerData.imgUrl - URL de la imagen
-   * @param {number} bannerData.idStatus - ID del estado
-   * @param {number} bannerData.disposition - Orden del carrusel
-   * @returns {Promise<Object>} Banner creado (camelCase)
-   * @throws {Error} Si fallan validaciones o BD
+   * Comportamiento:
+   * - Siempre nace ACTIVO
+   * - Obtiene disposición automática
+   * - Inserta al final del carrusel
    * 
-   * @example
-   * await bannerRepository.create({
-   *   imgUrl: "/uploads/banner.webp",
-   *   idStatus: 1,
-   *   disposition: 1
-   * })
+   * @param {Object} bannerData
+   * @param {string} bannerData.imgUrl
+   * 
+   * @returns {Promise<Object>}
    */
   async create(bannerData) {
     try {
-      // Validar que URL no exista
+
+      // Validar URL única
       if (await this.#existsByImgUrl(bannerData.imgUrl)) {
         throw new Error("DUPLICATE_IMG_URL");
       }
 
-      // Validar que disposición no exista
-      if (await this.#existsByDisposition(bannerData.disposition)) {
-        throw new Error("DUPLICATE_DISPOSITION");
-      }
+      // Obtener siguiente disposición automática
+      const nextDisposition = await this.#getNextDisposition();
 
-      // Transformar a snake_case y crear
-      const dataForDB = BannerMapper.toPersistence(bannerData);
+      // Transformar para BD
+      const dataForDB = BannerMapper.toPersistence({
+        imgUrl: bannerData.imgUrl,
+        idStatus: 1, // Activo automático
+        disposition: nextDisposition,
+      });
 
+      // Crear banner
       const banner = await prisma.banner_img.create({
         data: dataForDB,
       });
 
-      // Transformar respuesta a camelCase
       return BannerMapper.toResponse(banner);
 
     } catch (error) {
+
       if (error.message === "DUPLICATE_IMG_URL") {
         throw new Error("DUPLICATE_IMG_URL");
       }
 
-      if (error.message === "DUPLICATE_DISPOSITION") {
-        throw new Error("DUPLICATE_DISPOSITION");
-      }
-
-      // Error de BD (Prisma)
       if (error.code === "P2002") {
         throw new Error("UNIQUE_CONSTRAINT_FAILED");
       }
@@ -86,19 +90,18 @@ export class BannerRepository {
   }
 
   /**
-   * Obtiene un banner por su ID
+   * Obtener banner por ID
    * 
-   * @param {number} id - ID del banner (id_img)
-   * @returns {Promise<Object|null>} Banner en camelCase o null si no existe
-   * @throws {Error} Si hay error en BD
-   * 
-   * @example
-   * const banner = await bannerRepository.findById(1);
+   * @param {number} id
+   * @returns {Promise<Object|null>}
    */
   async findById(id) {
     try {
+
       const banner = await prisma.banner_img.findUnique({
-        where: { id_img: id },
+        where: {
+          id_img: id,
+        },
       });
 
       if (!banner) {
@@ -113,22 +116,32 @@ export class BannerRepository {
   }
 
   /**
-   * Obtiene todos los banners (para panel administrativo)
-   * Ordenados por disposición
+   * Obtener todos los banners
    * 
-   * @returns {Promise<Array>} Array de banners en camelCase
-   * @throws {Error} Si hay error en BD
+   * Orden:
+   * - Activos primero
+   * - Inactivos después
    * 
-   * @example
-   * const banners = await bannerRepository.findAll();
+   * @returns {Promise<Array>}
    */
   async findAll() {
     try {
+
       const banners = await prisma.banner_img.findMany({
-        orderBy: { disposition: "asc" },
+        orderBy: [
+          {
+            id_status: "asc",
+          },
+          {
+            disposition: "asc",
+          },
+        ],
       });
 
-      return BannerMapper.toResponseArray(banners, "response");
+      return BannerMapper.toResponseArray(
+        banners,
+        "response"
+      );
 
     } catch (error) {
       throw new Error(`ERROR_FINDING_ALL_BANNERS: ${error.message}`);
@@ -136,25 +149,32 @@ export class BannerRepository {
   }
 
   /**
-   * Obtiene solo banners activos (para tienda/landing)
-   * Respuesta simplificada (público)
+   * Obtener banners activos
    * 
-   * @returns {Promise<Array>} Array de banners activos (datos públicos)
-   * @throws {Error} Si hay error en BD
+   * Utilizado por:
+   * - Landing
+   * - Tienda virtual
+   * - Carrusel frontend
    * 
-   * @example
-   * const activeBanners = await bannerRepository.findActive();
+   * @returns {Promise<Array>}
    */
   async findActive() {
     try {
+
       const banners = await prisma.banner_img.findMany({
         where: {
-          id_status: 1, // 1 = Activo
+          id_status: 1,
         },
-        orderBy: { disposition: "asc" },
+
+        orderBy: {
+          disposition: "asc",
+        },
       });
 
-      return BannerMapper.toResponseArray(banners, "public");
+      return BannerMapper.toResponseArray(
+        banners,
+        "public"
+      );
 
     } catch (error) {
       throw new Error(`ERROR_FINDING_ACTIVE_BANNERS: ${error.message}`);
@@ -162,137 +182,386 @@ export class BannerRepository {
   }
 
   /**
-   * Actualiza datos de un banner
+   * Actualizar estado de banner
    * 
-   * @param {number} id - ID del banner (id_img)
-   * @param {Object} updateData - Campos a actualizar (camelCase)
-   * @param {number} [updateData.idStatus] - Nuevo estado
-   * @param {number} [updateData.disposition] - Nuevo orden
-   * @returns {Promise<Object>} Banner actualizado (camelCase)
-   * @throws {Error} Si banner no existe o hay validación fallida
+   * Reglas:
    * 
-   * @example
-   * await bannerRepository.update(1, {
-   *   idStatus: 2,
-   *   disposition: 2
-   * })
+   * ACTIVAR:
+   * - Obtiene siguiente disposición
+   * - Entra al final del carrusel
+   * 
+   * DESACTIVAR:
+   * - Libera disposición
+   * - Reorganiza banners restantes
+   * 
+   * @param {number} id
+   * @param {number} idStatus
+   * 
+   * @returns {Promise<Object>}
    */
-  async update(id, updateData) {
+  async updateStatus(id, idStatus) {
     try {
-      // Validar que banner existe
-      const existingBanner = await prisma.banner_img.findUnique({
-        where: { id_img: id },
-      });
+
+      const existingBanner =
+        await prisma.banner_img.findUnique({
+          where: {
+            id_img: id,
+          },
+        });
 
       if (!existingBanner) {
         throw new Error("BANNER_NOT_FOUND");
       }
 
-      // Si cambia disposición, validar unicidad (excepto la propia)
-      if (updateData.disposition && updateData.disposition !== existingBanner.disposition) {
-        const dispositionExists = await prisma.banner_img.findUnique({
-          where: { disposition: updateData.disposition },
+      let disposition = existingBanner.disposition;
+
+      /**
+       * ACTIVAR BANNER
+       */
+      if (
+        idStatus === 1 &&
+        existingBanner.id_status === 2
+      ) {
+        disposition = await this.#getNextDisposition();
+      }
+
+      /**
+       * DESACTIVAR BANNER
+       */
+      if (
+        idStatus === 2 &&
+        existingBanner.id_status === 1
+      ) {
+
+        const oldDisposition =
+          existingBanner.disposition;
+
+        disposition = null;
+
+        await this.#reorderDispositionsAfterDelete(
+          oldDisposition
+        );
+      }
+
+      // Actualizar
+      const updatedBanner =
+        await prisma.banner_img.update({
+          where: {
+            id_img: id,
+          },
+
+          data: {
+            id_status: idStatus,
+            disposition,
+          },
         });
-
-        if (dispositionExists) {
-          throw new Error("DUPLICATE_DISPOSITION");
-        }
-      }
-
-      // Transformar a snake_case
-      const dataForDB = {};
-      if (updateData.idStatus !== undefined) {
-        dataForDB.id_status = updateData.idStatus;
-      }
-      if (updateData.disposition !== undefined) {
-        dataForDB.disposition = updateData.disposition;
-      }
-
-      const updatedBanner = await prisma.banner_img.update({
-        where: { id_img: id },
-        data: dataForDB,
-      });
 
       return BannerMapper.toResponse(updatedBanner);
 
     } catch (error) {
+
       if (error.message === "BANNER_NOT_FOUND") {
         throw new Error("BANNER_NOT_FOUND");
       }
 
-      if (error.message === "DUPLICATE_DISPOSITION") {
-        throw new Error("DUPLICATE_DISPOSITION");
-      }
-
-      throw new Error(`ERROR_UPDATING_BANNER: ${error.message}`);
+      throw new Error(
+        `ERROR_UPDATING_BANNER_STATUS: ${error.message}`
+      );
     }
   }
 
   /**
-   * Elimina un banner de la BD
-   * También elimina el archivo físico (responsibility del use-case)
+   * Reorganizar disposición de banner
    * 
-   * @param {number} id - ID del banner a eliminar
-   * @returns {Promise<Object>} Banner eliminado (camelCase)
-   * @throws {Error} Si banner no existe
+   * Ejemplo:
+   * 5 → posición 2
    * 
-   * @example
-   * const deleted = await bannerRepository.delete(1);
+   * El resto de banners se reorganizan automáticamente
+   * 
+   * @param {number} id
+   * @param {number} newDisposition
+   * 
+   * @returns {Promise<Object>}
    */
-  async delete(id) {
+  async updateDisposition(id, newDisposition) {
     try {
-      // Obtener banner antes de eliminar (para retornar datos)
-      const banner = await prisma.banner_img.findUnique({
-        where: { id_img: id },
-      });
+
+      const banner =
+        await prisma.banner_img.findUnique({
+          where: {
+            id_img: id,
+          },
+        });
 
       if (!banner) {
         throw new Error("BANNER_NOT_FOUND");
       }
 
-      // Eliminar de BD
-      await prisma.banner_img.delete({
-        where: { id_img: id },
-      });
+      if (banner.id_status !== 1) {
+        throw new Error("INACTIVE_BANNER");
+      }
 
-      // Retornar datos del eliminado
-      return BannerMapper.toResponse(banner);
+      const oldDisposition =
+        banner.disposition;
+
+      // No hacer nada si es igual
+      if (oldDisposition === newDisposition) {
+        return BannerMapper.toResponse(banner);
+      }
+
+      // Reorganizar posiciones
+      await this.#shiftDispositionsForReorder(
+        oldDisposition,
+        newDisposition
+      );
+
+      // Actualizar banner
+      const updatedBanner =
+        await prisma.banner_img.update({
+          where: {
+            id_img: id,
+          },
+
+          data: {
+            disposition: newDisposition,
+          },
+        });
+
+      return BannerMapper.toResponse(updatedBanner);
 
     } catch (error) {
+
       if (error.message === "BANNER_NOT_FOUND") {
         throw new Error("BANNER_NOT_FOUND");
       }
 
-      throw new Error(`ERROR_DELETING_BANNER: ${error.message}`);
+      if (error.message === "INACTIVE_BANNER") {
+        throw new Error("INACTIVE_BANNER");
+      }
+
+      throw new Error(
+        `ERROR_UPDATING_DISPOSITION: ${error.message}`
+      );
     }
   }
 
   /**
-   * MÉTODO PRIVADO: Verifica si una disposición ya existe
+   * Eliminar banner
    * 
-   * @private
-   * @param {number} disposition - Disposición a validar
-   * @returns {Promise<boolean>} true si existe, false si no
+   * Reglas:
+   * - Si estaba activo:
+   *   reorganizar disposiciones
+   * 
+   * @param {number} id
+   * @returns {Promise<Object>}
    */
-  async #existsByDisposition(disposition) {
-    const banner = await prisma.banner_img.findUnique({
-      where: { disposition },
-    });
+  async delete(id) {
+    try {
 
-    return !!banner;
+      const banner =
+        await prisma.banner_img.findUnique({
+          where: {
+            id_img: id,
+          },
+        });
+
+      if (!banner) {
+        throw new Error("BANNER_NOT_FOUND");
+      }
+
+      // Si estaba activo
+      if (
+        banner.id_status === 1 &&
+        banner.disposition
+      ) {
+        await this.#reorderDispositionsAfterDelete(
+          banner.disposition
+        );
+      }
+
+      // Eliminar
+      await prisma.banner_img.delete({
+        where: {
+          id_img: id,
+        },
+      });
+
+      return BannerMapper.toResponse(banner);
+
+    } catch (error) {
+
+      if (error.message === "BANNER_NOT_FOUND") {
+        throw new Error("BANNER_NOT_FOUND");
+      }
+
+      throw new Error(
+        `ERROR_DELETING_BANNER: ${error.message}`
+      );
+    }
   }
 
   /**
-   * MÉTODO PRIVADO: Verifica si una URL de imagen ya existe
+   * Obtener siguiente disposición disponible
+   * 
+   * Ejemplo:
+   * 1,2,3 → retorna 4
    * 
    * @private
-   * @param {string} imgUrl - URL a validar
-   * @returns {Promise<boolean>} true si existe, false si no
+   * @returns {Promise<number>}
+   */
+  async #getNextDisposition() {
+
+    const lastBanner =
+      await prisma.banner_img.findFirst({
+        where: {
+          id_status: 1,
+        },
+
+        orderBy: {
+          disposition: "desc",
+        },
+      });
+
+    if (!lastBanner) {
+      return 1;
+    }
+
+    return lastBanner.disposition + 1;
+  }
+
+  /**
+   * Reorganiza disposiciones
+   * después de eliminar/desactivar
+   * 
+   * Ejemplo:
+   * 1,2,4,5 → 1,2,3,4
+   * 
+   * @private
+   * @param {number} deletedDisposition
+   */
+  async #reorderDispositionsAfterDelete(
+    deletedDisposition
+  ) {
+
+    const banners =
+      await prisma.banner_img.findMany({
+        where: {
+          id_status: 1,
+          disposition: {
+            gt: deletedDisposition,
+          },
+        },
+      });
+
+    for (const banner of banners) {
+
+      await prisma.banner_img.update({
+        where: {
+          id_img: banner.id_img,
+        },
+
+        data: {
+          disposition: banner.disposition - 1,
+        },
+      });
+    }
+  }
+
+  /**
+   * Desplaza banners durante reorganización
+   * 
+   * Ejemplo:
+   * mover 5 → 2
+   * 
+   * @private
+   * @param {number} oldDisposition
+   * @param {number} newDisposition
+   */
+  async #shiftDispositionsForReorder(
+    oldDisposition,
+    newDisposition
+  ) {
+
+    /**
+     * SUBIR EN EL CARRUSEL
+     * 5 → 2
+     */
+    if (newDisposition < oldDisposition) {
+
+      const affectedBanners =
+        await prisma.banner_img.findMany({
+          where: {
+            id_status: 1,
+
+            disposition: {
+              gte: newDisposition,
+              lt: oldDisposition,
+            },
+          },
+        });
+
+      for (const banner of affectedBanners) {
+
+        await prisma.banner_img.update({
+          where: {
+            id_img: banner.id_img,
+          },
+
+          data: {
+            disposition: banner.disposition + 1,
+          },
+        });
+      }
+    }
+
+    /**
+     * BAJAR EN EL CARRUSEL
+     * 2 → 5
+     */
+    if (newDisposition > oldDisposition) {
+
+      const affectedBanners =
+        await prisma.banner_img.findMany({
+          where: {
+            id_status: 1,
+
+            disposition: {
+              gt: oldDisposition,
+              lte: newDisposition,
+            },
+          },
+        });
+
+      for (const banner of affectedBanners) {
+
+        await prisma.banner_img.update({
+          where: {
+            id_img: banner.id_img,
+          },
+
+          data: {
+            disposition: banner.disposition - 1,
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Validar URL única
+   * 
+   * @private
+   * @param {string} imgUrl
+   * @returns {Promise<boolean>}
    */
   async #existsByImgUrl(imgUrl) {
-    const banner = await prisma.banner_img.findUnique({
-      where: { img_url: imgUrl },
-    });
+
+    const banner =
+      await prisma.banner_img.findUnique({
+        where: {
+          img_url: imgUrl,
+        },
+      });
 
     return !!banner;
   }

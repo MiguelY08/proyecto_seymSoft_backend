@@ -9,6 +9,7 @@ import { uploadBannerController } from "../controllers/uploadBannerController.js
 import { getBannersController } from "../controllers/getBannersController.js";
 import { getBannerByIdController } from "../controllers/getBannerByIdController.js";
 import { updateBannerStatusController } from "../controllers/updateBannerStatusController.js";
+import { updateBannerDispositionController } from "../controllers/updateBannerDispositionController.js";
 import { deleteBannerController } from "../controllers/deleteBannerController.js";
 import { getActiveBannersController } from "../controllers/getActiveBannersController.js";
 
@@ -18,15 +19,16 @@ import { getActiveBannersController } from "../controllers/getActiveBannersContr
  * Rutas administrativas para gestión de banners
  * Todas requieren autenticación (JWT) y rol de administrador
  * 
- * Rutas:
- * - POST   /                 → Cargar nuevo banner
- * - GET    /                 → Obtener todos los banners (admin)
- * - GET    /:id              → Obtener banner específico
- * - PATCH  /:id/status       → Actualizar estado del banner
- * - DELETE /:id              → Eliminar banner
+ * Rutas administrativas:
+ * - POST   /                      → Cargar nuevo banner
+ * - GET    /                      → Obtener todos los banners (admin)
+ * - GET    /:id                   → Obtener banner específico
+ * - PATCH  /:id/status            → Actualizar estado del banner
+ * - PATCH  /:id/disposition       → Actualizar orden en carrusel ⭐ NUEVO
+ * - DELETE /:id                   → Eliminar banner
  * 
  * Rutas públicas (ver en main router):
- * - GET    /                 → Obtener banners activos (sin auth)
+ * - GET    /banners               → Obtener banners activos (sin auth)
  * 
  * Middleware:
  * - upload.single("imagen") → Multer para subidas de archivo
@@ -169,6 +171,56 @@ router.patch(
 );
 
 /**
+ * PATCH /api/admin/banners/:id/disposition
+ * Actualizar la disposición (orden) de un banner en el carrusel
+ * 
+ * ⭐ NUEVO: Reordena automáticamente otros banners si es necesario
+ * 
+ * Requiere:
+ * - Autenticación: ✅ JWT token
+ * - Rol: ✅ Administrador
+ * - Params:
+ *   - id: ID del banner (número entero positivo)
+ * - Body:
+ *   - disposition: nueva posición (número entero positivo)
+ * 
+ * Respuesta: 200 OK
+ * {
+ *   "message": "Disposición del banner actualizada exitosamente",
+ *   "data": {banner actualizado},
+ *   "updatedBanners": [{...}, {...}],
+ *   "info": "Banner movido exitosamente. X banners reordenados."
+ * }
+ * 
+ * Ejemplo de cambio automático:
+ * 
+ * Inicial:  [1: A, 2: B, 3: C, 4: D, 5: E]
+ * Request:  PATCH /api/admin/banners/3/disposition
+ *           Body: {disposition: 1}
+ * 
+ * Resultado: [1: C, 2: A, 3: B, 4: D, 5: E]
+ * - C se mueve a posición 1
+ * - A y B se desplazan automáticamente
+ * 
+ * Flujo OPCIÓN B (Smart Reordering):
+ * - Si mueve hacia ARRIBA: incrementar banners intermedios
+ * - Si mueve hacia ABAJO: decrementar banners intermedios
+ * - Nunca hay conflictos de disposición duplicada
+ * 
+ * Errores:
+ * - 400: Validación falló (ID o disposition inválido)
+ * - 404: Banner no encontrado
+ * - 500: Error servidor (BD o reordenamiento)
+ */
+router.patch(
+  "/:id/disposition",
+  // TODO: agregar middleware de autenticación
+  // verifyToken,
+  // verifyAdmin,
+  updateBannerDispositionController
+);
+
+/**
  * DELETE /api/admin/banners/:id
  * Eliminar un banner
  * 
@@ -222,13 +274,34 @@ export default router;
  */
 
 /**
+ * ORDEN DE ESPECIFICIDAD EN RUTAS
+ * 
+ * Importante: Las rutas más específicas deben ir ANTES de las genéricas
+ * 
+ * Orden actual (CORRECTO):
+ * 1. POST   /                      ← Crear
+ * 2. GET    /                      ← Listar
+ * 3. GET    /:id                   ← Obtener (genérico)
+ * 4. PATCH  /:id/status            ← Específico (status)
+ * 5. PATCH  /:id/disposition       ← Específico (disposition)
+ * 6. DELETE /:id                   ← Eliminar (genérico)
+ * 
+ * ✅ Las rutas específicas (:id/status, :id/disposition)
+ *    van ANTES de la genérica (:id)
+ */
+
+/**
  * MIDDLEWARE DE AUTENTICACIÓN A AGREGAR
  * 
  * Ejemplo:
  * 
+ * import jwt from "jsonwebtoken";
+ * 
  * const verifyToken = (req, res, next) => {
  *   const token = req.headers.authorization?.split(" ")[1];
- *   if (!token) return res.status(401).json({message: "No autorizado"});
+ *   if (!token) {
+ *     return res.status(401).json({message: "No autorizado"});
+ *   }
  *   
  *   try {
  *     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -245,4 +318,7 @@ export default router;
  *   }
  *   next();
  * };
+ * 
+ * Uso en rutas:
+ * router.post("/", verifyToken, verifyAdmin, (req, res, next) => {...});
  */

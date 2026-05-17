@@ -32,7 +32,6 @@ model banner_img {
   id_img           Int              @id(map: "imagenes_carrusel_pkey") @default(autoincrement())
   img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
   id_status        Int
-  creation_date    DateTime?        @db.Timestamp(6)
   disposition      Int?             @unique
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
 }

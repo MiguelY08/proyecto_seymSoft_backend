@@ -5,118 +5,199 @@ import { GENERAL_STATUSES } from "../../../../shared/constants/generalStatuses.j
  * 
  * Responsabilidades:
  * - Transformar datos de BD (snake_case) a formato interno (camelCase)
- * - Transformar datos internos a formato de respuesta API
- * - Mapear id_status a objeto status completo
- * - Limpiar datos sensibles para respuestas públicas
+ * - Transformar datos internos al formato de respuesta API
+ * - Mapear id_status a objeto status legible
+ * - Generar respuestas públicas simplificadas
  * 
  * Métodos:
- * - toPersistence(): Convierte camelCase → snake_case (para guardar en BD)
- * - toResponse(): Convierte BD → camelCase (respuesta completa para admin)
- * - toPublicResponse(): Convierte BD → respuesta pública (solo lo necesario)
+ * - toPersistence(): camelCase → snake_case (para Prisma/BD)
+ * - toResponse(): BD → respuesta administrativa
+ * - toPublicResponse(): BD → respuesta pública
+ * - toResponseArray(): Transformar arrays de banners
  * 
- * Flujo de transformación:
- * BD (snake_case) → toPersistence/toResponse → API (camelCase)
+ * Arquitectura actual:
+ * - id_status se gestiona automáticamente desde backend
+ * - disposition se gestiona automáticamente desde backend
+ * - disposition puede ser null en banners inactivos
+ * - No existe creation_date en el nuevo modelo
+ * 
+ * Flujo:
+ * Frontend → camelCase → toPersistence → BD
+ * BD → snake_case → toResponse → API
  */
 
 export class BannerMapper {
+
   /**
-   * Transforma datos de entrada (camelCase) al formato de BD (snake_case)
+   * Transforma datos internos (camelCase)
+   * al formato de persistencia (snake_case)
    * 
-   * @param {Object} bannerData - Datos en camelCase
-   * @param {string} [bannerData.imgUrl] - URL de la imagen
-   * @param {number} [bannerData.idStatus] - ID del estado
-   * @param {number} [bannerData.disposition] - Orden de disposición
-   * @returns {Object} Datos transformados a snake_case
+   * Uso principal:
+   * - Crear banners
+   * - Actualizar estado
+   * - Actualizar disposición
+   * 
+   * @param {Object} bannerData - Datos internos
+   * @param {string} [bannerData.imgUrl] - URL pública de la imagen
+   * @param {number} [bannerData.idStatus] - Estado del banner
+   * @param {number|null} [bannerData.disposition] - Orden del banner
+   * 
+   * @returns {Object} Datos listos para BD
    * 
    * @example
    * BannerMapper.toPersistence({
-   *   imgUrl: "/uploads/banner.webp",
+   *   imgUrl: "https://xxx.supabase.co/storage/v1/object/public/banners/banner.webp",
    *   idStatus: 1,
-   *   disposition: 1
-   * })
-   * // Retorna: { img_url: "...", id_status: 1, disposition: 1 }
+   *   disposition: 2
+   * });
+   * 
+   * // Retorna:
+   * // {
+   * //   img_url: "...",
+   * //   id_status: 1,
+   * //   disposition: 2
+   * // }
    */
   static toPersistence(bannerData) {
     return {
       img_url: bannerData.imgUrl,
       id_status: bannerData.idStatus,
       disposition: bannerData.disposition,
-      creation_date: bannerData.creationDate,
     };
   }
 
   /**
-   * Transforma datos de BD (snake_case) a formato interno (camelCase)
-   * Incluye información completa del estado
+   * Transforma datos de BD (snake_case)
+   * a respuesta administrativa (camelCase)
    * 
-   * @param {Object} bannerFromDB - Datos de la BD con snake_case
-   * @param {number} bannerFromDB.id_img - ID de la imagen
-   * @param {string} bannerFromDB.img_url - URL de la imagen
-   * @param {number} bannerFromDB.id_status - ID del estado
-   * @param {number} bannerFromDB.disposition - Orden
-   * @param {string} bannerFromDB.creation_date - Fecha de creación
-   * @param {Object} [bannerFromDB.general_statuses] - Relación con estados
-   * @returns {Object} Banner en camelCase con status mapeado
+   * Incluye:
+   * - Estado legible
+   * - Información completa del banner
+   * 
+   * Usado en:
+   * - GET admin
+   * - POST response
+   * - PATCH response
+   * - DELETE response
+   * 
+   * @param {Object} bannerFromDB - Registro desde BD
+   * @param {number} bannerFromDB.id_img - ID del banner
+   * @param {string} bannerFromDB.img_url - URL pública imagen
+   * @param {number} bannerFromDB.id_status - Estado
+   * @param {number|null} bannerFromDB.disposition - Orden
+   * 
+   * @returns {Object} Banner transformado
    * 
    * @example
    * BannerMapper.toResponse({
    *   id_img: 1,
-   *   img_url: "/uploads/banner.webp",
+   *   img_url: "https://...",
    *   id_status: 1,
-   *   disposition: 1,
-   *   creation_date: "2025-05-13T10:30:00"
-   * })
-   * // Retorna: { idImg: 1, imgUrl: "...", status: {id: 1, name: "Activo"}, ... }
+   *   disposition: 3
+   * });
+   * 
+   * // Retorna:
+   * // {
+   * //   idImg: 1,
+   * //   imgUrl: "...",
+   * //   disposition: 3,
+   * //   status: {
+   * //     id: 1,
+   * //     name: "Activo"
+   * //   }
+   * // }
    */
   static toResponse(bannerFromDB) {
     return {
       idImg: bannerFromDB.id_img,
+
       imgUrl: bannerFromDB.img_url,
+
       disposition: bannerFromDB.disposition,
+
       status: {
         id: bannerFromDB.id_status,
-        name: GENERAL_STATUSES[bannerFromDB.id_status]?.name || "Desconocido",
+        name:
+          GENERAL_STATUSES[bannerFromDB.id_status]?.name ||
+          "Desconocido",
       },
-      creationDate: bannerFromDB.creation_date,
     };
   }
 
   /**
-   * Transforma datos para respuesta pública (tienda/landing)
-   * Solo incluye información necesaria para mostrar el carrusel
-   * Oculta metadata administrativa
+   * Transforma datos para respuesta pública
    * 
-   * @param {Object} bannerFromDB - Datos de la BD
-   * @returns {Object} Banner simplificado para público
+   * Esta respuesta es utilizada por:
+   * - Landing page
+   * - Tienda virtual
+   * - Carrusel frontend
+   * 
+   * Solo expone:
+   * - id
+   * - imagen
+   * - disposición
+   * 
+   * No expone:
+   * - estado
+   * - metadata administrativa
+   * 
+   * @param {Object} bannerFromDB - Registro desde BD
+   * 
+   * @returns {Object} Banner público simplificado
    * 
    * @example
    * BannerMapper.toPublicResponse({
    *   id_img: 1,
-   *   img_url: "/uploads/banner.webp",
+   *   img_url: "https://...",
    *   disposition: 1
-   * })
-   * // Retorna: { idImg: 1, imgUrl: "...", disposition: 1 }
+   * });
+   * 
+   * // Retorna:
+   * // {
+   * //   idImg: 1,
+   * //   imgUrl: "...",
+   * //   disposition: 1
+   * // }
    */
   static toPublicResponse(bannerFromDB) {
     return {
       idImg: bannerFromDB.id_img,
+
       imgUrl: bannerFromDB.img_url,
+
       disposition: bannerFromDB.disposition,
     };
   }
 
   /**
-   * Transforma un array de banners
+   * Transforma arrays completos de banners
    * 
-   * @param {Array} banners - Array de banners de BD
-   * @param {string} [responseType="response"] - Tipo de respuesta: "response" o "public"
-   * @returns {Array} Array de banners transformados
+   * Tipos soportados:
+   * - response → respuesta administrativa
+   * - public → respuesta pública
+   * 
+   * @param {Array<Object>} banners - Lista de banners
+   * @param {"response"|"public"} [responseType="response"]
+   * 
+   * @returns {Array<Object>} Array transformado
+   * 
+   * @example
+   * BannerMapper.toResponseArray(banners);
+   * 
+   * @example
+   * BannerMapper.toResponseArray(banners, "public");
    */
-  static toResponseArray(banners, responseType = "response") {
-    const mapper = responseType === "public" 
-      ? this.toPublicResponse 
-      : this.toResponse;
+  static toResponseArray(
+    banners,
+    responseType = "response"
+  ) {
+    const mapper =
+      responseType === "public"
+        ? this.toPublicResponse
+        : this.toResponse;
 
-    return banners.map((banner) => mapper.call(this, banner));
+    return banners.map((banner) =>
+      mapper.call(this, banner)
+    );
   }
 }
