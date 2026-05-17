@@ -9,8 +9,11 @@ import { UpdateProfileController } from "../controllers/updateProfileController.
 import { ForgotPasswordController } from "../controllers/forgotPasswordController.js";
 import { ResetPasswordController } from "../controllers/resetPasswordController.js";
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
+<<<<<<< HEAD
+=======
 import { GoogleAuthController } from "../controllers/googleAuthController.js";
 
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
 
 const router = express.Router();
 

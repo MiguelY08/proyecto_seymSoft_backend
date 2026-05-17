@@ -1,7 +1,14 @@
+<<<<<<< HEAD
+import { AuthRepository } from "../repositories/authRepository.js";
+import { UserMapper } from "../../users/mappers/usersMapper.js";
+import {
+  NotFoundError,
+=======
 import { UserMapper } from "../../users/mappers/usersMapper.js";
 import {
   NotFoundError,
   ConflictError,
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
   UnauthorizedError,
 } from "../../../shared/errors/index.js";
 import {
@@ -9,8 +16,11 @@ import {
   hashPassword,
 } from "../../../shared/utils/hashPassword.js";
 import { prisma } from "../../../config/prisma.js";
+<<<<<<< HEAD
+=======
 import { AuthRepository } from "../repositories/authRepository.js";
 import { EmailService } from "../../../shared/services/emailService.js";
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
 
 export class UpdateProfileUseCase {
   static async execute(idUser, updateData) {
@@ -24,6 +34,24 @@ export class UpdateProfileUseCase {
     }
 
     const dataToUpdate = {};
+<<<<<<< HEAD
+
+    // Si se proporciona información de perfil
+    if (updateData.phone || updateData.address) {
+      if (updateData.phone) {
+        dataToUpdate.phone = updateData.phone;
+      }
+      if (updateData.address) {
+        dataToUpdate.address = updateData.address;
+      }
+    }
+
+    // Si se proporciona cambio de contraseña
+    if (updateData.currentPassword && updateData.newPassword) {
+      // Verificar contraseña actual
+      const isCurrentPasswordValid = await comparePassword(
+        updateData.currentPassword,
+=======
     let invalidateSession = false;
     let emailChanged = false;  // ← AGREGAR ESTO
     let oldEmail = null;       // ← AGREGAR ESTO
@@ -57,6 +85,7 @@ export class UpdateProfileUseCase {
 
       const isCurrentPasswordValid = await comparePassword(
         updateData.current_password,
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
         existingUser.pass_word,
       );
 
@@ -64,6 +93,14 @@ export class UpdateProfileUseCase {
         throw new UnauthorizedError("Current password is incorrect");
       }
 
+<<<<<<< HEAD
+      // Hashear nueva contraseña
+      const hashedNewPassword = await hashPassword(updateData.newPassword);
+      dataToUpdate.pass_word = hashedNewPassword;
+
+      // Invalidar todos los refresh tokens por seguridad
+      await AuthRepository.deleteRefreshTokensByUserId(idUser);
+=======
       const hashedPassword = await hashPassword(updateData.pass_word);
       dataToUpdate.pass_word = hashedPassword;
       invalidateSession = true;
@@ -76,6 +113,7 @@ export class UpdateProfileUseCase {
 
     if (invalidateSession) {
       dataToUpdate.token_version = existingUser.token_version + 1;
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
     }
 
     // Actualizar usuario
@@ -84,6 +122,12 @@ export class UpdateProfileUseCase {
       data: dataToUpdate,
     });
 
+<<<<<<< HEAD
+    // Retornar usuario actualizado mapeado
+    return UserMapper.toCleanUser(updatedUser);
+  }
+}
+=======
     //  Enviar email si cambió
     if (emailChanged && oldEmail) {
       try {
@@ -109,3 +153,4 @@ export class UpdateProfileUseCase {
     };
   }
 }
+>>>>>>> 9c78c36f6047a654cf9c83306f577fa37f5d9c6e
