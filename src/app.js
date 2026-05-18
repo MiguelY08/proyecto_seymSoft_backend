@@ -12,6 +12,9 @@ import userRoutes from "./modules/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js"
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
+import clientRoutes from './modules/sales/clients/routes/clientRoutes.js';
+import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
+
 const app = express();
 
 /* Middlewares globales */
@@ -54,6 +57,9 @@ app.use("/users", userRoutes);
 
 /* Rutas de Roles */
 app.use("/api/roles", roleRoutes);
+
+/* Rutas de clientes */
+app.use("/api/clients", clientRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);
