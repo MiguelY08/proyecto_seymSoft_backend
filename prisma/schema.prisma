@@ -287,6 +287,8 @@ model products {
   bulk_price            Decimal?                @db.Decimal(10, 2)
   id_category           Int
   iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
+  description           String?                 @db.VarChar(500)
+  quantity_per_pack     Int?                    @default(0)
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]

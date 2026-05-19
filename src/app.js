@@ -9,7 +9,6 @@ import session from "express-session";
 import passport from "./config/google.js";
 
 import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
-import { handleUploadError } from "./shared/middlewares/uploadMiddleware.js";
 
 import authRoutes from "./modules/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/routes/userRoutes.js";
@@ -20,6 +19,7 @@ import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
+import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 
 const app = express();
 
@@ -38,27 +38,6 @@ app.use(cors());
 app.use(express.json());
 
 app.use(morgan("dev"));
-
-/**
- * Middleware de errores de upload
- */
-app.use(handleUploadError);
-
-/**
- * Servir imágenes estáticas
- *
- * URL pública:
- * http://localhost:3000/uploads/banners/banner_xxx.webp
- *
- * Carpeta física:
- * src/uploads
- */
-app.use(
-  "/uploads",
-  express.static(
-    path.join(__dirname, "uploads")
-  )
-);
 
 /**
  * Health Check
@@ -99,6 +78,8 @@ app.use("/api/users", userRoutes);
  * Rutas de categorías y productos
  */
 app.use("/api/categories", categoryRoutes);
+
+/* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
 app.use("/api/products", productRoutes);
 
@@ -106,6 +87,11 @@ app.use("/api/products", productRoutes);
  * Rutas de banners
  */
 app.use("/api/banners", bannerRoutes);
+
+/**
+ * Rutas de clientes
+ */
+app.use("/api/clients", clientRoutes)
 
 /**
  * Middleware global de errores
