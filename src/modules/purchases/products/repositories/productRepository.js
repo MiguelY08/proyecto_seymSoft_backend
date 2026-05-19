@@ -71,22 +71,29 @@ export class ProductRepository {
   }
 
   async create(data) {
-    return prisma.$transaction(async (tx) => {
-      // Crear producto
-      const product = await tx.products.create({
-        data: {
-          name: data.name,
-          reference: data.reference,
-          retail_price: parseFloat(data.retailPrice),
-          wholesale_price: parseFloat(data.wholesalePrice),
-          partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
-          bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
-          iva_percentage: parseFloat(data.ivaPercentage) || 0,
-          id_unit_measure: parseInt(data.idUnitMeasure),
-          id_category: parseInt(data.idCategory),
-          id_status: data.idStatus || 1,
-        },
-      });
+  return prisma.$transaction(async (tx) => {
+const product = await tx.products.create({
+  data: {
+    name: data.name,
+    reference: data.reference,
+    retail_price: parseFloat(data.retailPrice),
+    wholesale_price: parseFloat(data.wholesalePrice),
+    partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
+    bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
+    iva_percentage: parseFloat(data.ivaPercentage) || 0,
+    description: data.description || null,
+    quantity_per_pack: parseInt(data.quantityPerPack) || 0,
+    categories: {
+      connect: { id_category: parseInt(data.idCategorie) }
+    },
+    general_statuses: {
+      connect: { id_status: data.idStatus || 1 }
+    },
+    unit_measures: {
+      connect: { id_unit_measure: parseInt(data.idUnitMeasure) }
+    }
+  },
+});
 
       // Crear barcodes asociados
       if (data.barcodes && data.barcodes.length > 0) {
