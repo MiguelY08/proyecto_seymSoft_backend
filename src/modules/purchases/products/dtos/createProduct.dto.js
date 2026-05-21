@@ -14,25 +14,21 @@ export class CreateProductDto {
     this.idStatus = data.idStatus ?? data.id_status ?? 1;
 
     // Barcodes
-    this.barcodes = data.barcodes ?? [];
+this.barcodes = data.barcodes ?? [];
     if (!Array.isArray(this.barcodes)) {
       this.barcodes = [];
     }
 
-    if (data.codBarras && !this.barcodes.length) {
-      this.barcodes.push({
-        barcode: data.codBarras,
-        barcode_type: "EAN13",
-        stock: data.stock ?? 0,
-      });
+    // Validar que haya al menos 1 barcode
+    if (this.barcodes.length === 0) {
+      throw new Error('Debes proporcionar al menos un código de barras');
     }
 
-    if (data.codBarras2 && !this.barcodes.find((b) => b.barcode === data.codBarras2)) {
-      this.barcodes.push({
-        barcode: data.codBarras2,
-        barcode_type: "SKU",
-        stock: 0,
-      });
+    // Validar que TODOS los barcodes tengan mínimo 8 caracteres
+    for (const barcode of this.barcodes) {
+      if (!barcode.barcode || barcode.barcode.length < 8) {
+        throw new Error(`Todos los códigos de barras deben tener mínimo 8 caracteres. Recibido: "${barcode.barcode}"`);
+      }
     }
   }
 }

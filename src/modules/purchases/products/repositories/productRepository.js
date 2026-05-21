@@ -2,8 +2,22 @@ import { prisma } from "../../../../config/prisma.js";
 
 // ─── Reusable includes ────────────────────────────────────────────────────────
 
+const productSelect = {
+  id_product: true,
+  name: true,
+  reference: true,
+  retail_price: true,
+  wholesale_price: true,
+  partner_price: true,
+  bulk_price: true,
+  iva_percentage: true,
+  description: true,
+  quantity_per_pack: true,  // ← Agregar esto
+};
+
 const productInclude = {
-  include: {
+  select: {
+    ...productSelect,
     categories: { select: { id_category: true, category_name: true } },
     unit_measures: { select: { id_unit_measure: true, name_unit_measure: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
@@ -72,7 +86,7 @@ export class ProductRepository {
 
   async create(data) {
   return prisma.$transaction(async (tx) => {
-const product = await tx.products.create({
+  const product = await tx.products.create({
   data: {
     name: data.name,
     reference: data.reference,
@@ -160,17 +174,18 @@ const product = await tx.products.create({
   }
 
   async toggleStatus(id) {
-    const product = await this.findById(id);
-    if (!product) throw new Error("Producto no encontrado");
+  const product = await this.findById(id);
+  if (!product) throw new Error("Producto no encontrado");
 
-    const newStatus = product.id_status === 1 ? 2 : 1;
+  // Cambiar: product.id_status → product.general_statuses.id_status
+  const newStatus = product.general_statuses.id_status === 1 ? 2 : 1;
 
-    return prisma.products.update({
-      where: { id_product: parseInt(id) },
-      data: { id_status: newStatus },
-      ...productInclude,
-    });
-  }
+  return prisma.products.update({
+    where: { id_product: parseInt(id) },
+    data: { id_status: newStatus },
+    ...productInclude,
+  });
+}
 
   async delete(id) {
     return prisma.$transaction(async (tx) => {
@@ -199,4 +214,15 @@ const product = await tx.products.create({
 
     return barcodes.reduce((total, b) => total + (b.stock || 0), 0);
   }
+
+  async createProductImages(productId, imageUrls) {
+  return prisma.product_images.createMany({
+    data: imageUrls.map((url, idx) => ({
+      id_product: productId,
+      image_url: url,
+      is_primary: idx === 0,  // Primera imagen es principal
+    })),
+  });
 }
+}
+

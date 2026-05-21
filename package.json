@@ -6,7 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "repository": {
     "type": "git",
@@ -22,14 +26,18 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@supabase/supabase-js": "^2.105.4",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "prisma": "^6.19.3",
     "sharp": "^0.34.5",
     "zod": "^4.3.6"

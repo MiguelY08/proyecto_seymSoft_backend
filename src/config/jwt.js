@@ -3,11 +3,12 @@ import jwt from "jsonwebtoken";
 /**
  * GENERAR ACCESS TOKEN (15 minutos)
  */
-export const generateAccessToken = (id_user, email) => {
+export const generateAccessToken = (id_user, email, tokenVersion = 0) => {
   return jwt.sign(
     {
       id_user, // Payload: datos dentro del token
       email,
+      tokenVersion,
     },
     process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET, // Secret para firmar
     {

@@ -256,6 +256,17 @@ model privileges {
   assigned_permissions assigned_permissions[]
 }
 
+model product_images {
+  id_image   Int       @id @default(autoincrement())
+  id_product Int
+  image_url  String    @db.VarChar(500)
+  is_primary Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  products   products  @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([id_product], map: "idx_product_images")
+}
+
 model product_providers {
   id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
   id_product          Int
@@ -292,6 +303,7 @@ model products {
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]
+  product_images        product_images[]
   product_providers     product_providers[]
   product_unit_measures product_unit_measures[]
   categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")

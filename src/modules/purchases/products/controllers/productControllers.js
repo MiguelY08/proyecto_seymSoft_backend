@@ -14,10 +14,22 @@ const repo = new ProductRepository();
 // ─── Create Product ───────────────────────────────────────────────────────────
 export const createProduct = async (req, res, next) => {
   try {
+    console.log('📁 Files recibidos:', req.files?.length || 0);
+    console.log('📝 Body:', req.body);
+    
+    const files = req.files || [];
     const dto = new CreateProductDto(req.body);
-    const data = await new CreateProductUseCase(repo).execute(dto, null);
+    
+    console.log('✅ DTO creado:', dto);
+    
+    const data = await new CreateProductUseCase(repo).execute(dto, files);
+    
+    console.log('✅ Producto creado:', data);
+    
     res.status(httpCodes.CREATED).json({ success: true, data });
   } catch (err) {
+    console.error('❌ Error en createProduct:', err.message);
+    console.error('Stack:', err.stack);
     next(err);
   }
 };

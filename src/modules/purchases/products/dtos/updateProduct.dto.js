@@ -1,27 +1,31 @@
 export class UpdateProductDto {
   constructor(data) {
-    if (data.name !== undefined) this.name = data.name ?? data.nombre;
-    if (data.reference !== undefined) this.reference = data.reference ?? data.referencia;
-    if (data.retailPrice !== undefined) this.retailPrice = data.retailPrice ?? data.precioDetalle;
-    if (data.wholesalePrice !== undefined) this.wholesalePrice = data.wholesalePrice ?? data.precioMayorista;
-    if (data.partnerPrice !== undefined) this.partnerPrice = data.partnerPrice ?? data.precioColegas;
-    if (data.bulkPrice !== undefined) this.bulkPrice = data.bulkPrice ?? data.precioPacas;
-    if (data.ivaPercentage !== undefined) this.ivaPercentage = data.ivaPercentage ?? data.iva_percentage;
-    if (data.idUnitMeasure !== undefined) this.idUnitMeasure = data.idUnitMeasure ?? data.id_unit_measure;
-    if (
-      data.idCategory !== undefined ||
-      data.id_category !== undefined ||
-      data.id_categorie !== undefined ||
-      data.idCategorie !== undefined
-    ) {
-      this.idCategory = data.idCategory ?? data.id_category ?? data.id_categorie ?? data.idCategorie;
-    }
-    if (data.idSubcategory !== undefined) this.idSubcategory = data.idSubcategory ?? data.id_subcategory;
-    if (data.idStatus !== undefined) this.idStatus = data.idStatus ?? data.id_status;
+    this.name = data.name ?? data.nombre;
+    this.reference = data.reference ?? data.referencia;
+    this.retailPrice = data.retailPrice ?? data.precioDetalle;
+    this.wholesalePrice = data.wholesalePrice ?? data.precioMayorista;
+    this.partnerPrice = data.partnerPrice ?? data.precioColegas;
+    this.bulkPrice = data.bulkPrice ?? data.precioPacas;
+    this.ivaPercentage = data.ivaPercentage ?? data.iva_percentage;
+    this.idUnitMeasure = data.idUnitMeasure ?? data.id_unit_measure;
+    this.idCategorie = data.idCategorie ?? data.id_category;
+    this.description = data.description ?? data.descripcion;
+    this.quantityPerPack = data.quantityPerPack ?? data.cantidadXPaca;
+    this.idStatus = data.idStatus ?? data.id_status;
 
-    // Barcodes para actualizar
-    if (data.barcodes !== undefined) {
-      this.barcodes = Array.isArray(data.barcodes) ? data.barcodes : [];
+    // Barcodes (opcional en actualización)
+    this.barcodes = data.barcodes ?? [];
+    if (!Array.isArray(this.barcodes)) {
+      this.barcodes = [];
+    }
+
+    // Validar que TODOS los barcodes tengan mínimo 8 caracteres
+    if (this.barcodes.length > 0) {
+      for (const barcode of this.barcodes) {
+        if (!barcode.barcode || barcode.barcode.length < 8) {
+          throw new Error(`Todos los códigos de barras deben tener mínimo 8 caracteres. Recibido: "${barcode.barcode}"`);
+        }
+      }
     }
   }
 }
