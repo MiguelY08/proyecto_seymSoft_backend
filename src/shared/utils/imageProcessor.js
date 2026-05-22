@@ -4,65 +4,117 @@ import crypto from "crypto";
 import supabase from "../../config/supabaseClient.js";
 
 /**
- * ImageProcessor con Supabase Storage
+ * ImageProcessor reutilizable con Supabase Storage
  *
  * Responsabilidades:
  * - Validar imágenes reales usando Sharp
- * - Validar dimensiones mínimas
- * - Procesar imágenes para banners 16:9
- * - Crear fondo desenfocado para evitar barras blancas/laterales
- * - Subir buffer a Supabase Storage
+ * - Validar dimensiones mínimas configurables
+ * - Procesar imágenes según el caso de uso
+ * - Convertir a WebP
+ * - Subir buffer al bucket indicado
  * - Obtener URL pública
- * - Eliminar imágenes del bucket
+ * - Eliminar imágenes del bucket indicado
  *
- * Especificaciones:
- * - Dimensiones mínimas requeridas: 1280x720
- * - Dimensiones finales: 1280x720
- * - Formato final: WebP
- * - Calidad WebP: 85
- * - Ajuste:
- *   1. Fondo: cover + blur
- *   2. Imagen principal: contain + center
- *
- * Flujo:
- * 1. Validar buffer
- * 2. Validar imagen real con Sharp
- * 3. Validar dimensiones mínimas
- * 4. Generar nombre único
- * 5. Crear fondo desenfocado
- * 6. Crear imagen principal completa
- * 7. Componer fondo + imagen principal
- * 8. Subir buffer a Supabase Storage
- * 9. Obtener URL pública
- * 10. Retornar URL pública
+ * Casos de uso posibles:
+ * - Banners: 1280x720, fondo desenfocado, relación 16:9
+ * - Productos: 800x800, imagen cuadrada, sin fondo desenfocado
  */
 
-const MIN_WIDTH = 1280;
-const MIN_HEIGHT = 720;
+const DEFAULT_CONFIG = {
+  minWidth: 300,
+  minHeight: 300,
 
-const OUTPUT_WIDTH = 1280;
-const OUTPUT_HEIGHT = 720;
+  outputWidth: 800,
+  outputHeight: 800,
 
-const WEBP_QUALITY = 85;
-const BACKGROUND_BLUR = 24;
-const BACKGROUND_BRIGHTNESS = 0.75;
+  fit: "contain",
+  position: "center",
 
-// Bucket de Supabase (definido en .env)
-const BUCKET_NAME = process.env.SUPABASE_BUCKET;
+  webpQuality: 85,
 
-if (!BUCKET_NAME) {
-  throw new Error("Missing SUPABASE_BUCKET environment variable");
-}
+  withBlurBackground: false,
+  backgroundBlur: 24,
+  backgroundBrightness: 0.75,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "image",
+};
 
 /**
- * Genera nombre único para la imagen en el bucket.
- * Formato: banner_[random].webp
+ * Configuración recomendada para banners/carrusel.
+ */
+export const BANNER_IMAGE_CONFIG = {
+  minWidth: 1280,
+  minHeight: 720,
+
+  outputWidth: 1280,
+  outputHeight: 720,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: true,
+  backgroundBlur: 24,
+  backgroundBrightness: 0.75,
+
+  prefix: "banner",
+};
+
+/**
+ * Configuración recomendada para productos.
+ */
+export const PRODUCT_IMAGE_CONFIG = {
+  minWidth: 300,
+  minHeight: 300,
+
+  outputWidth: 800,
+  outputHeight: 800,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: false,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "product",
+};
+
+/**
+ * Genera nombre único para la imagen.
  *
+ * @param {string} prefix
  * @returns {string}
  */
-const generateUniqueFilename = () => {
+const generateUniqueFilename = (prefix = "image") => {
   const randomString = crypto.randomBytes(8).toString("hex");
-  return `banner_${randomString}.webp`;
+  return `${prefix}_${randomString}.webp`;
+};
+
+/**
+ * Valida que el bucket exista.
+ *
+ * @param {string} bucketName
+ */
+const validateBucketName = (bucketName) => {
+  if (!bucketName) {
+    throw new Error("El nombre del bucket de Supabase es obligatorio");
+  }
 };
 
 /**
@@ -94,42 +146,63 @@ const extractFilenameFromUrl = (imgUrl) => {
 };
 
 /**
- * Crea una imagen 16:9 con fondo desenfocado.
- *
- * - El fondo usa fit cover para cubrir todo el lienzo.
- * - La imagen principal usa fit contain para evitar recortes.
+ * Valida que el archivo sea una imagen real y cumpla dimensiones mínimas.
  *
  * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Object>} metadata de Sharp
+ */
+const validateImage = async (fileBuffer, config) => {
+  if (!fileBuffer || fileBuffer.length === 0) {
+    throw new Error("Buffer de imagen vacío o inválido");
+  }
+
+  let metadata;
+
+  try {
+    metadata = await sharp(fileBuffer).metadata();
+  } catch {
+    throw new Error("El archivo proporcionado no es una imagen válida");
+  }
+
+  if (
+    !metadata.width ||
+    !metadata.height ||
+    metadata.width < config.minWidth ||
+    metadata.height < config.minHeight
+  ) {
+    throw new Error(
+      `La imagen debe tener mínimo ${config.minWidth}x${config.minHeight}px`
+    );
+  }
+
+  return metadata;
+};
+
+/**
+ * Crea una imagen con fondo desenfocado.
+ * Útil para banners cuando se quiere evitar recortes y barras laterales.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
  * @returns {Promise<Buffer>}
  */
-const createBannerImageBuffer = async (fileBuffer) => {
-  /**
-   * Fondo:
-   * - Cubre todo 1280x720
-   * - Se desenfoca
-   * - Se oscurece ligeramente para que no compita visualmente
-   */
+const createImageWithBlurBackground = async (fileBuffer, config) => {
   const backgroundBuffer = await sharp(fileBuffer)
-    .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
+    .resize(config.outputWidth, config.outputHeight, {
       fit: "cover",
-      position: "center",
+      position: config.position,
     })
-    .blur(BACKGROUND_BLUR)
+    .blur(config.backgroundBlur)
     .modulate({
-      brightness: BACKGROUND_BRIGHTNESS,
+      brightness: config.backgroundBrightness,
     })
     .toBuffer();
 
-  /**
-   * Imagen principal:
-   * - Se muestra completa
-   * - No recorta bordes
-   * - Queda centrada sobre el fondo
-   */
   const foregroundBuffer = await sharp(fileBuffer)
-    .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
+    .resize(config.outputWidth, config.outputHeight, {
       fit: "contain",
-      position: "center",
+      position: config.position,
       background: {
         r: 0,
         g: 0,
@@ -139,12 +212,6 @@ const createBannerImageBuffer = async (fileBuffer) => {
     })
     .toBuffer();
 
-  /**
-   * Composición final:
-   * - Fondo desenfocado
-   * - Imagen principal centrada
-   * - Conversión final a WebP
-   */
   return sharp(backgroundBuffer)
     .composite([
       {
@@ -152,87 +219,96 @@ const createBannerImageBuffer = async (fileBuffer) => {
         gravity: "center",
       },
     ])
-    .webp({ quality: WEBP_QUALITY })
+    .webp({ quality: config.webpQuality })
     .toBuffer();
+};
+
+/**
+ * Crea una imagen estándar.
+ * Útil para productos, categorías, miniaturas, etc.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createStandardImage = async (fileBuffer, config) => {
+  return sharp(fileBuffer)
+    .resize(config.outputWidth, config.outputHeight, {
+      fit: config.fit,
+      position: config.position,
+      background: config.background,
+    })
+    .webp({ quality: config.webpQuality })
+    .toBuffer();
+};
+
+/**
+ * Procesa una imagen según configuración.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createProcessedImageBuffer = async (fileBuffer, config) => {
+  if (config.withBlurBackground) {
+    return createImageWithBlurBackground(fileBuffer, config);
+  }
+
+  return createStandardImage(fileBuffer, config);
 };
 
 /**
  * Procesa y sube la imagen a Supabase Storage.
  *
  * @param {Buffer} fileBuffer - Buffer de la imagen original
+ * @param {Object} options
+ * @param {string} options.bucketName - Bucket destino en Supabase
+ * @param {Object} [options.config] - Configuración de procesamiento
  * @returns {Promise<string>} URL pública de la imagen subida
- * @throws {Error}
  */
-export const processAndSaveImage = async (fileBuffer) => {
+export const processAndSaveImage = async (
+  fileBuffer,
+  { bucketName, config = {} } = {}
+) => {
   try {
-    console.log("[imageProcessor] Iniciando procesamiento de imagen");
+    validateBucketName(bucketName);
 
-    /**
-     * 1. Validar buffer
-     */
-    if (!fileBuffer || fileBuffer.length === 0) {
-      throw new Error("Buffer de imagen vacío o inválido");
-    }
+    const finalConfig = {
+      ...DEFAULT_CONFIG,
+      ...config,
+    };
+
+    console.log("[imageProcessor] Iniciando procesamiento de imagen");
 
     console.log(
       `[imageProcessor] Tamaño original: ${(fileBuffer.length / 1024).toFixed(2)}KB`
     );
 
-    /**
-     * 2. Validar imagen real con Sharp
-     */
-    let metadata;
-
-    try {
-      metadata = await sharp(fileBuffer).metadata();
-    } catch {
-      throw new Error("El archivo proporcionado no es una imagen válida");
-    }
-
-    /**
-     * 3. Validar dimensiones mínimas
-     */
-    if (
-      !metadata.width ||
-      !metadata.height ||
-      metadata.width < MIN_WIDTH ||
-      metadata.height < MIN_HEIGHT
-    ) {
-      throw new Error(
-        `La imagen debe tener mínimo ${MIN_WIDTH}x${MIN_HEIGHT}px`
-      );
-    }
+    const metadata = await validateImage(fileBuffer, finalConfig);
 
     console.log(
       `[imageProcessor] Dimensiones originales: ${metadata.width}x${metadata.height}`
     );
 
-    /**
-     * 4. Generar nombre único
-     */
-    const filename = generateUniqueFilename();
+    const filename = generateUniqueFilename(finalConfig.prefix);
 
+    console.log(`[imageProcessor] Bucket destino: ${bucketName}`);
     console.log(`[imageProcessor] Nombre generado: ${filename}`);
-
-    /**
-     * 5. Procesar imagen final:
-     * fondo desenfocado + imagen completa centrada.
-     */
     console.log(
-      `[imageProcessor] Procesando imagen (${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}, WebP quality ${WEBP_QUALITY})`
+      `[imageProcessor] Procesando imagen (${finalConfig.outputWidth}x${finalConfig.outputHeight}, WebP quality ${finalConfig.webpQuality})`
     );
 
-    const processedBuffer = await createBannerImageBuffer(fileBuffer);
+    const processedBuffer = await createProcessedImageBuffer(
+      fileBuffer,
+      finalConfig
+    );
 
     console.log(
       `[imageProcessor] Tamaño después de procesar: ${(processedBuffer.length / 1024).toFixed(2)}KB`
     );
 
-    /**
-     * 6. Subir buffer a Supabase Storage
-     */
     const { error: uploadError } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucketName)
       .upload(filename, processedBuffer, {
         contentType: "image/webp",
         cacheControl: "3600",
@@ -243,22 +319,15 @@ export const processAndSaveImage = async (fileBuffer) => {
       throw new Error(`Error subiendo imagen a Supabase: ${uploadError.message}`);
     }
 
-    console.log(`[imageProcessor] Imagen subida exitosamente: ${filename}`);
-
-    /**
-     * 7. Obtener URL pública
-     */
     const { data: publicUrlData } = supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucketName)
       .getPublicUrl(filename);
 
     const publicUrl = publicUrlData.publicUrl;
 
+    console.log(`[imageProcessor] Imagen subida exitosamente: ${filename}`);
     console.log(`[imageProcessor] URL pública generada: ${publicUrl}`);
 
-    /**
-     * 8. Retornar URL pública
-     */
     return publicUrl;
   } catch (error) {
     console.error("[imageProcessor] Error procesando imagen:", error.message);
@@ -270,16 +339,21 @@ export const processAndSaveImage = async (fileBuffer) => {
  * Elimina una imagen del bucket de Supabase.
  *
  * @param {string} imgUrl - URL pública de la imagen
+ * @param {Object} options
+ * @param {string} options.bucketName - Bucket donde está almacenada la imagen
  * @returns {Promise<void>}
  */
-export const deleteImage = async (imgUrl) => {
+export const deleteImage = async (imgUrl, { bucketName } = {}) => {
   try {
+    validateBucketName(bucketName);
+
     const filename = extractFilenameFromUrl(imgUrl);
 
+    console.log(`[imageProcessor] Bucket origen: ${bucketName}`);
     console.log(`[imageProcessor] Eliminando imagen del bucket: ${filename}`);
 
     const { error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucketName)
       .remove([filename]);
 
     if (error) {
@@ -295,10 +369,6 @@ export const deleteImage = async (imgUrl) => {
 
 /**
  * Obtiene información básica de una imagen.
- *
- * Nota:
- * Como ahora trabajamos con URLs públicas,
- * esta función solo retorna información mínima.
  *
  * @param {string} imgUrl - URL pública de la imagen
  * @returns {Object|null}

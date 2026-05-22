@@ -41,7 +41,7 @@ export const mapProduct = (product) => {
       stock: b.stock || 0,
     })),
 
-    images: (product.images || []).map((img) => ({
+    images: (product.product_images || []).map((img) => ({
       id: img.id_image,
       url: img.image_url,
       isPrimary: img.is_primary,

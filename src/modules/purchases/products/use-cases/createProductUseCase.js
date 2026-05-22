@@ -1,7 +1,6 @@
-import sharp from 'sharp';
-import supabase from '../../../../config/supabaseClient.js';
 import { AppError } from '../../../../shared/errors/AppError.js';
 import { mapProduct } from '../mappers/productMapper.js';
+import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from '../../../../shared/utils/imageProcessor.js';
 
 export class CreateProductUseCase {
   constructor(repo) {
@@ -9,6 +8,8 @@ export class CreateProductUseCase {
   }
 
   async execute(dto, files = []) {
+    console.log('📋 [CreateProductUseCase] Iniciando con', files.length, 'archivos');
+
     // Validar que la referencia sea única
     const existingRef = await this.repo.findByReference(dto.reference);
     if (existingRef) {
@@ -35,54 +36,57 @@ export class CreateProductUseCase {
 
     // Crear el producto
     const product = await this.repo.create(dto);
+    console.log('✅ Producto creado:', product.id_product);
 
     // Procesar imágenes si existen
     if (files && files.length > 0) {
+      console.log(`📁 [CreateProductUseCase] Procesando ${files.length} imágenes...`);
       const imageUrls = [];
 
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         try {
-          // Convertir a webp
-          const webpBuffer = await sharp(file.buffer)
-            .webp({ quality: 80 })
-            .toBuffer();
-
-          // Generar nombre único
-          const filename = `${product.id}-${Date.now()}.webp`;
-          const filepath = `products/${filename}`;
-
-          // Subir a Supabase
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('products')
-            .upload(filepath, webpBuffer, {
-              contentType: 'image/webp',
-            });
-
-          if (uploadError) {
-            console.error('Error Supabase:', uploadError);
-            throw uploadError;
-          }
-
-          // Obtener URL pública
-          const { data: publicUrl } = supabase.storage
-            .from('products')
-            .getPublicUrl(filepath);
-
-          imageUrls.push(publicUrl.publicUrl);
+          console.log(`📸 [CreateProductUseCase] Imagen ${i + 1}/${files.length}: procesando...`);
+          
+            const imageUrl = await processAndSaveImage(file.buffer, {
+              bucketName: process.env.SUPABASE_BUCKET_PRODUCTS || 'products',
+              config: {
+                ...PRODUCT_IMAGE_CONFIG,
+                prefix: `product_${product.id_product}`,
+               },
+                });       
+                   
+          console.log(`✅ [CreateProductUseCase] Imagen ${i + 1} subida: ${imageUrl}`);
+          imageUrls.push(imageUrl);
         } catch (error) {
-          console.error('Error procesando imagen:', error);
-          throw new AppError(`Error al procesar imagen: ${error.message}`, 500);
+          console.error(`❌ [CreateProductUseCase] Error en imagen ${i + 1}:`, error.message);
+          throw new AppError(`Error al procesar imagen ${i + 1}: ${error.message}`, 500);
         }
       }
 
+      console.log(`🖼️ [CreateProductUseCase] Total imágenes procesadas: ${imageUrls.length}`);
+      console.log(`📝 [CreateProductUseCase] URLs: ${JSON.stringify(imageUrls)}`);
+
       // Guardar URLs en la BD
       if (imageUrls.length > 0) {
-        await this.repo.createProductImages(product.id, imageUrls);
+        console.log(`💾 [CreateProductUseCase] Guardando ${imageUrls.length} imágenes en BD...`);
+        try {
+          const result = await this.repo.createProductImages(product.id_product, imageUrls);
+          console.log(`✅ [CreateProductUseCase] Imágenes guardadas en BD`, result);
+        } catch (error) {
+          console.error(`❌ [CreateProductUseCase] Error guardando imágenes:`, error.message);
+          throw new AppError(`Error guardando imágenes: ${error.message}`, 500);
+        }
       }
+    } else {
+      console.log('⚠️ [CreateProductUseCase] No hay imágenes para procesar');
     }
 
-    // Retornar producto con imágenes
-    const productWithImages = await this.repo.findById(product.id);
+    // Obtener el producto con las imágenes incluidas
+    console.log(`🔍 [CreateProductUseCase] Obteniendo producto ${product.id_product} con imágenes...`);
+    const productWithImages = await this.repo.findById(product.id_product);
+    console.log(`🎯 [CreateProductUseCase] product_images:`, JSON.stringify(productWithImages.product_images));
+    
     return mapProduct(productWithImages);
   }
 }

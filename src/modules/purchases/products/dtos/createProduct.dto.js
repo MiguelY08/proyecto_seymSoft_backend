@@ -1,34 +1,32 @@
 export class CreateProductDto {
   constructor(data) {
-    this.name = data.name ?? data.nombre;
-    this.reference = data.reference ?? data.referencia;
-    this.retailPrice = data.retailPrice ?? data.precioDetalle ?? data.retail_price;
-    this.wholesalePrice = data.wholesalePrice ?? data.precioMayorista ?? data.wholesale_price;
-    this.partnerPrice = data.partnerPrice ?? data.precioColegas ?? data.partner_price;
-    this.bulkPrice = data.bulkPrice ?? data.precioPacas ?? data.bulk_price;
-    this.ivaPercentage = data.ivaPercentage ?? data.iva_percentage ?? 0;
-    this.idUnitMeasure = data.idUnitMeasure ?? data.id_unit_measure ?? 1;
-    this.idCategorie = data.idCategorie ?? data.idCategory ?? data.id_categorie ?? data.id_category;
-    this.description = data.description ?? data.descripcion ?? null;
-    this.quantityPerPack = data.quantityPerPack ?? data.cantidadXPaca ?? 0;
-    this.idStatus = data.idStatus ?? data.id_status ?? 1;
+    this.name = data.nombre;
+    this.reference = data.referencia;
+    this.retailPrice = parseFloat(data.precioDetalle);
+    this.wholesalePrice = parseFloat(data.precioMayorista);
+    this.partnerPrice = data.precioColegas ? parseFloat(data.precioColegas) : null;
+    this.bulkPrice = data.precioPacas ? parseFloat(data.precioPacas) : null;
+    this.ivaPercentage = parseFloat(data.ivaPercentage) || 0;
+    this.idUnitMeasure = parseInt(data.idUnitMeasure) || 1;
+    this.idCategorie = parseInt(data.idCategorie);
+    this.description = data.description || null;
+    this.quantityPerPack = parseInt(data.quantityPerPack) || 0;
+    this.idStatus = data.idStatus || 1;
 
-    // Barcodes
-this.barcodes = data.barcodes ?? [];
-    if (!Array.isArray(this.barcodes)) {
-      this.barcodes = [];
+    // Construir barcodes desde FormData
+    this.barcodes = [];
+    
+    if (data.codBarras) {
+      this.barcodes.push({
+        barcode: data.codBarras,
+        barcode_type: 'EAN13',
+        stock: parseInt(data.stock) || 0,
+      });
     }
 
-    // Validar que haya al menos 1 barcode
+    // Si hay validación de barcodes
     if (this.barcodes.length === 0) {
       throw new Error('Debes proporcionar al menos un código de barras');
-    }
-
-    // Validar que TODOS los barcodes tengan mínimo 8 caracteres
-    for (const barcode of this.barcodes) {
-      if (!barcode.barcode || barcode.barcode.length < 8) {
-        throw new Error(`Todos los códigos de barras deben tener mínimo 8 caracteres. Recibido: "${barcode.barcode}"`);
-      }
     }
   }
 }

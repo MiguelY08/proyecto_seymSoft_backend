@@ -12,7 +12,7 @@ const productSelect = {
   bulk_price: true,
   iva_percentage: true,
   description: true,
-  quantity_per_pack: true,  // ← Agregar esto
+  quantity_per_pack: true,
 };
 
 const productInclude = {
@@ -25,9 +25,12 @@ const productInclude = {
       select: { id_barcode: true, barcode: true, barcode_type: true, stock: true },
       orderBy: { id_barcode: "asc" },
     },
+    product_images: {  // ← AGREGAR ESTO
+      select: { id_image: true, image_url: true, is_primary: true },
+      orderBy: { is_primary: 'desc' },
+    },
   },
 };
-
 // ─── Product repository ────────────────────────────────────────────────────────
 
 export class ProductRepository {
@@ -129,49 +132,51 @@ export class ProductRepository {
     });
   }
 
-  async update(id, data) {
-    return prisma.$transaction(async (tx) => {
-      const updateData = {};
+async update(id, data) {
+  return prisma.$transaction(async (tx) => {
+    const updateData = {};
 
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.reference !== undefined) updateData.reference = data.reference;
-      if (data.retailPrice !== undefined) updateData.retail_price = parseFloat(data.retailPrice);
-      if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
-      if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
-      if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
-      if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
-      if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
-      if (data.idCategory !== undefined) updateData.id_category = parseInt(data.idCategory);
-      if (data.idStatus !== undefined) updateData.id_status = data.idStatus;
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.reference !== undefined) updateData.reference = data.reference;
+    if (data.retailPrice !== undefined) updateData.retail_price = parseFloat(data.retailPrice);
+    if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
+    if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
+    if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
+    if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
+    if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
+    if (data.idCategorie !== undefined) updateData.id_category = parseInt(data.idCategorie);  // ← Cambiar idCategory a idCategorie
+    if (data.idStatus !== undefined) updateData.id_status = data.idStatus;
+    if (data.description !== undefined) updateData.description = data.description;  // ← AGREGAR ESTO
+    if (data.quantityPerPack !== undefined) updateData.quantity_per_pack = parseInt(data.quantityPerPack);  // ← AGREGAR ESTO
 
-      // Actualizar producto
-      const updated = await tx.products.update({
-        where: { id_product: parseInt(id) },
-        data: updateData,
-      });
-
-      // Si vienen barcodes, reemplazar completamente
-      if (data.barcodes !== undefined) {
-        await tx.barcodes.deleteMany({ where: { id_product: parseInt(id) } });
-
-        if (data.barcodes.length > 0) {
-          await tx.barcodes.createMany({
-            data: data.barcodes.map((b) => ({
-              barcode: b.barcode,
-              barcode_type: b.barcode_type || "EAN13",
-              stock: parseInt(b.stock) || 0,
-              id_product: parseInt(id),
-            })),
-          });
-        }
-      }
-
-      return tx.products.findUnique({
-        where: { id_product: parseInt(id) },
-        ...productInclude,
-      });
+    // Actualizar producto
+    const updated = await tx.products.update({
+      where: { id_product: parseInt(id) },
+      data: updateData,
     });
-  }
+
+    // Si vienen barcodes, reemplazar completamente
+    if (data.barcodes !== undefined) {
+      await tx.barcodes.deleteMany({ where: { id_product: parseInt(id) } });
+
+      if (data.barcodes.length > 0) {
+        await tx.barcodes.createMany({
+          data: data.barcodes.map((b) => ({
+            barcode: b.barcode,
+            barcode_type: b.barcode_type || "EAN13",
+            stock: parseInt(b.stock) || 0,
+            id_product: parseInt(id),
+          })),
+        });
+      }
+    }
+
+    return tx.products.findUnique({
+      where: { id_product: parseInt(id) },
+      ...productInclude,
+    });
+  });
+}
 
   async toggleStatus(id) {
   const product = await this.findById(id);
