@@ -1,37 +1,41 @@
 import { prisma } from "../../../config/prisma.js";
+import { UserRepository } from "../../users/repositories/userRepository.js";
+
 
 export class AuthRepository {
+  
+  /**
+   * MÉTODOS QUE DELEGAN A UserRepository
+   * (Solo para lectura/búsqueda de usuarios)
+   */
+  
   static async findUserById(idUser) {
-    return await prisma.users.findUnique({
-      where: { id_user: idUser },
-      include: {
-        employees: {
-          include: {
-            employee_roles: {
-              include: {
-                roles: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    return await UserRepository.findById(idUser);
   }
 
   static async findUserByEmail(email) {
-    return await prisma.users.findUnique({
-      where: { email },
-      include: {
-        employees: {
-          include: {
-            employee_roles: {
-              include: {
-                roles: true,
-              },
-            },
-          },
-        },
-      },
+    return await UserRepository.findByEmail(email);
+  }
+
+  // static async findUserByDocNumber(docNumber) {
+  //   return await UserRepository.findByDocNumber(docNumber);
+  // }
+
+  /**
+   * MÉTODOS ESPECÍFICOS DE AUTH
+   * (No se delegan, son exclusivos de Auth)
+   */
+
+  static async createUser(userData) {
+    // Se queda aquí porque es parte del flujo de registro (Auth)
+    return await UserRepository.create(userData);
+  }
+
+  static async updatePassword(idUser, hashedPassword) {
+    //  SE QUEDA AQUÍ - Solo Auth puede cambiar contraseña
+    return await prisma.users.update({
+      where: { id_user: idUser },
+      data: { pass_word: hashedPassword }
     });
   }
 
@@ -63,14 +67,8 @@ export class AuthRepository {
     });
   }
 
-  static async updatePassword(idUser, hashedPassword) {
-    return await prisma.users.update({
-      where: { id_user: idUser },
-      data: { pass_word: hashedPassword },
-    });
-  }
-
   static async createPasswordReset(idUser, token, expirationDate) {
+    //  SE QUEDA AQUÍ - Específico de Auth
     return await prisma.password_resets.create({
       data: {
         id_user: idUser,
@@ -81,12 +79,14 @@ export class AuthRepository {
   }
 
   static async findPasswordReset(token) {
+    // SE QUEDA AQUÍ - Específico de Auth
     return await prisma.password_resets.findUnique({
       where: { token },
     });
   }
 
   static async markPasswordResetUsed(token) {
+    //  SE QUEDA AQUÍ - Específico de Auth
     return await prisma.password_resets.update({
       where: { token },
       data: { used: true },
