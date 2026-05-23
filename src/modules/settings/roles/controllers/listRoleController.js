@@ -1,24 +1,29 @@
 import { ListRolesUseCase } from "../use-cases/listRoleUseCase.js";
 
 export class ListRolesController {
-  static async listRoles(req, res, next) {
-    try {
-      //  Obtener parámetro include_admin de query
-      const includeAdmin = req.query.include_admin === "true";
 
-      //  Ejecutar use case
-      const result = await ListRolesUseCase.execute(includeAdmin);
+  static async listRoles(req,res,next){
 
-      //  Responder
-      res.status(200).json({
-        success: true,
-        message: "Roles listados correctamente",
-        data: result,
-        total: result.length,
+    try{
+
+      const includeAdmin =
+        req.query.include_admin === "true";
+
+      const roles =
+        await ListRolesUseCase.execute(includeAdmin);
+
+      return res.status(200).json({
+        success:true,
+        message:"Roles listados correctamente",
+        data:roles,
+        total:roles.length
       });
 
-    } catch (error) {
+    }
+    catch(error){
       next(error);
     }
+
   }
+
 }

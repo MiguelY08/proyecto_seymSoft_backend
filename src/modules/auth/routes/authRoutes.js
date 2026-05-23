@@ -35,6 +35,9 @@ router.put("/profile", authMiddleware, UpdateProfileController.updateProfile);
 // POST /auth/forgot-password
 router.post("/forgot-password", ForgotPasswordController.forgotPassword);
 
+// NUEVA RUTA: Validar código en tiempo real
+router.post("/validate-code", ResetPasswordController.validateCode);
+
 // POST /auth/reset-password
 router.post("/reset-password", ResetPasswordController.resetPassword);
 

@@ -95,6 +95,9 @@ app.use('/api/clients', clientRoutes);
 /* Rutas de Roles */
 app.use("/api/roles", roleRoutes);
 
+/* Rutas de clientes */
+app.use("/api/clients", clientRoutes);
+
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);
 
