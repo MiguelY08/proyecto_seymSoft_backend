@@ -37,7 +37,9 @@ export const deleteBannerUseCase = async ({ id }) => {
   /**
    * 3. Eliminar imagen del bucket de Supabase
    */
-  await deleteImage(banner.imageUrl);
+  await deleteImage(banner.imageUrl, {
+    bucketName: process.env.SUPABASE_BUCKET_BANNERS,
+  });
 
   /**
    * 4. Eliminar registro en base de datos

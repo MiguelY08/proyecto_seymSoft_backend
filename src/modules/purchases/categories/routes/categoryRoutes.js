@@ -10,23 +10,27 @@ import { createSubcategory } from "../controllers/createSubcategoryController.js
 import { updateSubcategory } from "../controllers/updateSubcategoryController.js";
 import { deleteSubcategory } from "../controllers/deleteSubcategoryController.js";
 import { toggleSubcategoryStatus } from "../controllers/toggleSubcategoryStatusController.js";
+import { getAllSubcategories } from "../controllers/getallsubCategoriesController.js";
+import { getSubcategoryById } from "../controllers/getSubCategoryByIdController.js";
 
 const router = Router();
 
-//router.use(authMiddleware);
+// router.use(authMiddleware);
 
-// ─── Categories ───────────────────────────────────────────────────────────────
-router.get   ("/",                  getAllCategories);
-router.post  ("/",                  createCategory);
-router.get   ("/:id",               getCategoryById);
-router.patch ("/:id",               updateCategory);
-router.patch ("/:id/toggle-status", toggleCategoryStatus);
-router.delete("/:id",               deleteCategory);
+// ─── Rutas estáticas primero ──────────────────────────────────────────────────
+router.get("/subcategories",              getAllSubcategories);
+router.post("/subcategories",             createSubcategory);
+router.get("/subcategories/:id",          getSubcategoryById);
+router.patch("/subcategories/:id",        updateSubcategory);
+router.patch("/subcategories/:id/toggle-status", toggleSubcategoryStatus);
+router.delete("/subcategories/:id",       deleteSubcategory);
 
-// ─── Subcategories ────────────────────────────────────────────────────────────
-router.post  ("/subcategories",     createSubcategory);
-router.patch ("/subcategories/:id", updateSubcategory);
-router.patch ("/subcategories/:id/toggle-status", toggleSubcategoryStatus)
-router.delete("/subcategories/:id", deleteSubcategory);
+// ─── Rutas dinámicas después ──────────────────────────────────────────────────
+router.get("/",                  getAllCategories);
+router.post("/",                 createCategory);
+router.get("/:id",               getCategoryById);       // ← SIEMPRE al final
+router.patch("/:id",             updateCategory);
+router.patch("/:id/toggle-status", toggleCategoryStatus);
+router.delete("/:id",            deleteCategory);
 
 export default router;

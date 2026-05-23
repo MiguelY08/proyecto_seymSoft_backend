@@ -1,7 +1,8 @@
 import { bannerRepository } from "../repositories/bannerRepository.js";
 import {
   processAndSaveImage,
-  deleteImage,
+  BANNER_IMAGE_CONFIG,
+  deleteImage
 } from "../../../../shared/utils/imageProcessor.js";
 
 /**
@@ -31,7 +32,10 @@ export const createBannerUseCase = async ({ file }) => {
      * 1. Procesar imagen y subirla a Supabase.
      * imageProcessor retorna la URL pública.
      */
-    imageUrl = await processAndSaveImage(file.buffer);
+    const imageUrl = await processAndSaveImage(file.buffer, {
+      bucketName: process.env.SUPABASE_BUCKET_BANNERS,
+      config: BANNER_IMAGE_CONFIG,
+    });
 
     /**
      * 2. Obtener la última disposición usada entre banners activos.
