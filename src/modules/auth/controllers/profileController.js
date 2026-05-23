@@ -1,5 +1,6 @@
 import { ProfileUseCase } from "../use-cases/profileUseCase.js";
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
+import { UserRepository } from "../../users/repositories/userRepository.js";
 
 export class ProfileController {
   static async getProfile(req, res, next) {
