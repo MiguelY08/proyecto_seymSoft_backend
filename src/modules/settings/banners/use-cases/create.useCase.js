@@ -1,7 +1,8 @@
 import { bannerRepository } from "../repositories/bannerRepository.js";
 import {
   processAndSaveImage,
-  deleteImage,
+  BANNER_IMAGE_CONFIG,
+  deleteImage
 } from "../../../../shared/utils/imageProcessor.js";
 
 /**
@@ -33,7 +34,7 @@ export const createBannerUseCase = async ({ file }) => {
      */
     const imageUrl = await processAndSaveImage(file.buffer, {
       bucketName: process.env.SUPABASE_BUCKET_BANNERS,
-      prefix: "banner",
+      config: BANNER_IMAGE_CONFIG,
     });
 
     /**
