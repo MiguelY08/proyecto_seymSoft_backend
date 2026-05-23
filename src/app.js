@@ -10,8 +10,12 @@ import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
 import authRoutes from "./modules/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/routes/userRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
-import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js"
+import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js";
+import clientRoutes from './modules/sales/clients/routes/clientRoutes.js';
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
+import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
+
+
 const app = express();
 
 /* Middlewares globales */
@@ -40,6 +44,7 @@ app.get("/api/health", (req, res) => {
 });
 
 /* Rutas de autenticación */
+app.use("/auth", authRoutes);
 app.use("/api/auth", authRoutes);  
 
 /* Rutas de categorias */
@@ -52,6 +57,8 @@ app.use("/api/products", productRoutes);
 /* Rutas de usuarios */
 app.use("/users", userRoutes);
 
+/* Rutas de proveedores */
+app.use('/api/clients', clientRoutes);
 /* Rutas de Roles */
 app.use("/api/roles", roleRoutes);
 
