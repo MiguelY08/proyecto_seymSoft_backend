@@ -21,7 +21,7 @@ export const createClientSchema = z.object({
     required_error: 'El tipo de cliente es obligatorio'
   }),
   rut: z.enum(['si', 'no'], { required_error: 'Indique si tiene RUT' }),
-  ciuCode: z.string().optional(),
+  ciuCode: z.string().nullable().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
   clientCredit: z.string().optional(),
@@ -48,7 +48,7 @@ export const updateClientSchema = z.object({
   email: z.string().email('Correo inválido').optional(),
   clientType: z.enum(['Detal', 'Mayorista', 'Colegas', 'Por paca']).optional(),
   rut: z.enum(['si', 'no']).optional(),
-  ciuCode: z.string().optional(),
+  ciuCode: z.string().nullable().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
   clientCredit: z.string().optional(),
@@ -56,22 +56,31 @@ export const updateClientSchema = z.object({
 });
 
 export const validateCreateClient = (data) => {
+  console.log('📥 Datos a validar:', JSON.stringify(data, null, 2));
+  
   const result = createClientSchema.safeParse(data);
+  
   if (!result.success) {
+    console.error('❌ Errores de validación:', JSON.stringify(result.error.issues, null, 2));
     const errors = result.error.issues.map(issue => ({
       field: issue.path.join('.'),
       message: issue.message
     }));
     return { success: false, errors };
   }
+  
+  console.log('✅ Validación exitosa');
   return { success: true, data: result.data };
 };
 
 export const validateUpdateClient = (data) => {
+  console.log('📥 Datos a validar en update:', JSON.stringify(data, null, 2));
+  
   const forbiddenFields = ['personType', 'documentType', 'document', 'firstName', 'lastName'];
   const receivedForbidden = forbiddenFields.filter(field => data[field] !== undefined);
   
   if (receivedForbidden.length > 0) {
+    console.log('❌ Campos prohibidos:', receivedForbidden);
     return {
       success: false,
       errors: receivedForbidden.map(field => ({
@@ -83,11 +92,13 @@ export const validateUpdateClient = (data) => {
 
   const result = updateClientSchema.safeParse(data);
   if (!result.success) {
+    console.error('❌ Errores Zod en update:', JSON.stringify(result.error.issues, null, 2));
     const errors = result.error.issues.map(issue => ({
       field: issue.path.join('.'),
       message: issue.message
     }));
     return { success: false, errors };
   }
+  console.log('✅ Validación update exitosa');
   return { success: true, data: result.data };
 };
