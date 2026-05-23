@@ -73,7 +73,7 @@ model clients {
   credit                Decimal?       @db.Decimal(10, 2)
   credit_balance        Decimal?       @db.Decimal(10, 2)
   doc_type              String?        @db.VarChar
-  doc_number            BigInt?
+  doc_number            String?        @db.VarChar(20)
   users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
