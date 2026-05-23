@@ -4,27 +4,96 @@ import crypto from "crypto";
 import supabase from "../../config/supabaseClient.js";
 
 /**
- * ImageProcessor con Supabase Storage
+ * ImageProcessor reutilizable con Supabase Storage
  *
  * Responsabilidades:
  * - Validar imágenes reales usando Sharp
- * - Validar dimensiones mínimas
- * - Procesar imágenes 16:9
- * - Crear fondo desenfocado para evitar barras blancas/laterales
- * - Subir buffer al bucket indicado de Supabase Storage
+ * - Validar dimensiones mínimas configurables
+ * - Procesar imágenes según el caso de uso
+ * - Convertir a WebP
+ * - Subir buffer al bucket indicado
  * - Obtener URL pública
  * - Eliminar imágenes del bucket indicado
+ *
+ * Casos de uso posibles:
+ * - Banners: 1280x720, fondo desenfocado, relación 16:9
+ * - Productos: 800x800, imagen cuadrada, sin fondo desenfocado
  */
 
-const MIN_WIDTH = 1280;
-const MIN_HEIGHT = 720;
+const DEFAULT_CONFIG = {
+  minWidth: 300,
+  minHeight: 300,
 
-const OUTPUT_WIDTH = 1280;
-const OUTPUT_HEIGHT = 720;
+  outputWidth: 800,
+  outputHeight: 800,
 
-const WEBP_QUALITY = 85;
-const BACKGROUND_BLUR = 24;
-const BACKGROUND_BRIGHTNESS = 0.75;
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: false,
+  backgroundBlur: 24,
+  backgroundBrightness: 0.75,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "image",
+};
+
+/**
+ * Configuración recomendada para banners/carrusel.
+ */
+export const BANNER_IMAGE_CONFIG = {
+  minWidth: 1280,
+  minHeight: 720,
+
+  outputWidth: 1280,
+  outputHeight: 720,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: true,
+  backgroundBlur: 24,
+  backgroundBrightness: 0.75,
+
+  prefix: "banner",
+};
+
+/**
+ * Configuración recomendada para productos.
+ */
+export const PRODUCT_IMAGE_CONFIG = {
+  minWidth: 300,
+  minHeight: 300,
+
+  outputWidth: 800,
+  outputHeight: 800,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: false,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "product",
+};
 
 /**
  * Genera nombre único para la imagen.
@@ -77,27 +146,63 @@ const extractFilenameFromUrl = (imgUrl) => {
 };
 
 /**
- * Crea una imagen 16:9 con fondo desenfocado.
+ * Valida que el archivo sea una imagen real y cumpla dimensiones mínimas.
  *
  * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Object>} metadata de Sharp
+ */
+const validateImage = async (fileBuffer, config) => {
+  if (!fileBuffer || fileBuffer.length === 0) {
+    throw new Error("Buffer de imagen vacío o inválido");
+  }
+
+  let metadata;
+
+  try {
+    metadata = await sharp(fileBuffer).metadata();
+  } catch {
+    throw new Error("El archivo proporcionado no es una imagen válida");
+  }
+
+  if (
+    !metadata.width ||
+    !metadata.height ||
+    metadata.width < config.minWidth ||
+    metadata.height < config.minHeight
+  ) {
+    throw new Error(
+      `La imagen debe tener mínimo ${config.minWidth}x${config.minHeight}px`
+    );
+  }
+
+  return metadata;
+};
+
+/**
+ * Crea una imagen con fondo desenfocado.
+ * Útil para banners cuando se quiere evitar recortes y barras laterales.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
  * @returns {Promise<Buffer>}
  */
-const createImageBuffer = async (fileBuffer) => {
+const createImageWithBlurBackground = async (fileBuffer, config) => {
   const backgroundBuffer = await sharp(fileBuffer)
-    .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
+    .resize(config.outputWidth, config.outputHeight, {
       fit: "cover",
-      position: "center",
+      position: config.position,
     })
-    .blur(BACKGROUND_BLUR)
+    .blur(config.backgroundBlur)
     .modulate({
-      brightness: BACKGROUND_BRIGHTNESS,
+      brightness: config.backgroundBrightness,
     })
     .toBuffer();
 
   const foregroundBuffer = await sharp(fileBuffer)
-    .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
+    .resize(config.outputWidth, config.outputHeight, {
       fit: "contain",
-      position: "center",
+      position: config.position,
       background: {
         r: 0,
         g: 0,
@@ -114,8 +219,42 @@ const createImageBuffer = async (fileBuffer) => {
         gravity: "center",
       },
     ])
-    .webp({ quality: WEBP_QUALITY })
+    .webp({ quality: config.webpQuality })
     .toBuffer();
+};
+
+/**
+ * Crea una imagen estándar.
+ * Útil para productos, categorías, miniaturas, etc.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createStandardImage = async (fileBuffer, config) => {
+  return sharp(fileBuffer)
+    .resize(config.outputWidth, config.outputHeight, {
+      fit: config.fit,
+      position: config.position,
+      background: config.background,
+    })
+    .webp({ quality: config.webpQuality })
+    .toBuffer();
+};
+
+/**
+ * Procesa una imagen según configuración.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createProcessedImageBuffer = async (fileBuffer, config) => {
+  if (config.withBlurBackground) {
+    return createImageWithBlurBackground(fileBuffer, config);
+  }
+
+  return createStandardImage(fileBuffer, config);
 };
 
 /**
@@ -124,55 +263,45 @@ const createImageBuffer = async (fileBuffer) => {
  * @param {Buffer} fileBuffer - Buffer de la imagen original
  * @param {Object} options
  * @param {string} options.bucketName - Bucket destino en Supabase
- * @param {string} [options.prefix="image"] - Prefijo del archivo generado
+ * @param {Object} [options.config] - Configuración de procesamiento
  * @returns {Promise<string>} URL pública de la imagen subida
  */
 export const processAndSaveImage = async (
   fileBuffer,
-  { bucketName, prefix = "image" } = {}
+  { bucketName, config = {} } = {}
 ) => {
   try {
     validateBucketName(bucketName);
 
-    console.log("[imageProcessor] Iniciando procesamiento de imagen");
+    const finalConfig = {
+      ...DEFAULT_CONFIG,
+      ...config,
+    };
 
-    if (!fileBuffer || fileBuffer.length === 0) {
-      throw new Error("Buffer de imagen vacío o inválido");
-    }
+    console.log("[imageProcessor] Iniciando procesamiento de imagen");
 
     console.log(
       `[imageProcessor] Tamaño original: ${(fileBuffer.length / 1024).toFixed(2)}KB`
     );
 
-    let metadata;
-
-    try {
-      metadata = await sharp(fileBuffer).metadata();
-    } catch {
-      throw new Error("El archivo proporcionado no es una imagen válida");
-    }
-
-    if (
-      !metadata.width ||
-      !metadata.height ||
-      metadata.width < MIN_WIDTH ||
-      metadata.height < MIN_HEIGHT
-    ) {
-      throw new Error(
-        `La imagen debe tener mínimo ${MIN_WIDTH}x${MIN_HEIGHT}px`
-      );
-    }
+    const metadata = await validateImage(fileBuffer, finalConfig);
 
     console.log(
       `[imageProcessor] Dimensiones originales: ${metadata.width}x${metadata.height}`
     );
 
-    const filename = generateUniqueFilename(prefix);
+    const filename = generateUniqueFilename(finalConfig.prefix);
 
     console.log(`[imageProcessor] Bucket destino: ${bucketName}`);
     console.log(`[imageProcessor] Nombre generado: ${filename}`);
+    console.log(
+      `[imageProcessor] Procesando imagen (${finalConfig.outputWidth}x${finalConfig.outputHeight}, WebP quality ${finalConfig.webpQuality})`
+    );
 
-    const processedBuffer = await createImageBuffer(fileBuffer);
+    const processedBuffer = await createProcessedImageBuffer(
+      fileBuffer,
+      finalConfig
+    );
 
     console.log(
       `[imageProcessor] Tamaño después de procesar: ${(processedBuffer.length / 1024).toFixed(2)}KB`
