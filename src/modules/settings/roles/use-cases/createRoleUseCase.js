@@ -1,73 +1,86 @@
 import { RoleRepository } from "../repositories/roleRepository.js";
 import { RoleResponseDto } from "../dtos/roleDtos.js";
-import { ConflictError, BadRequestError } from "../../../../shared/errors/index.js";
+import {
+  ConflictError,
+  BadRequestError
+} from "../../../../shared/errors/index.js";
+import { validateRolePermissions } 
+from "../helpers/validateRolePermissions.js";
 
-/**
- * CREATE ROLE USE CASE
- * 
- * Responsabilidades:
- * 1. Validar que el nombre del rol NO exista
- * 2. Crear el rol en BD
- * 3. Asignar permisos (módulo + privilegio) al rol
- * 4. Retornar rol con permisos incluidos
- */
 export class CreateRoleUseCase {
+
   static async execute(roleData) {
-    try {
-      //  Validar que el nombre del rol NO exista
-      const existingRole = await RoleRepository.findRoleByName(
+
+    // Validar nombre duplicado
+    const existingRole =
+      await RoleRepository.findRoleByName(
         roleData.name_role
       );
-      if (existingRole) {
-        throw new ConflictError(
-          "Ya existe un rol con este nombre"
-        );
-      }
 
-      //  Crear el rol
-      const newRole = await RoleRepository.createRole(roleData);
+    if (existingRole) {
+      throw new ConflictError(
+        "Ya existe un rol con este nombre"
+      );
+    }
 
-      //  Asignar permisos al rol
-      for (const perm of roleData.permissions) {
-        // Verificar que el módulo exista
-        const modules = await RoleRepository.findAllModules();
-        const moduleExists = modules.some((m) => m.id_module === perm.id_module);
+    // Crear rol
+    const newRole =
+      await RoleRepository.createRole(roleData);
 
-        if (!moduleExists) {
-          throw new BadRequestError(
-            `El módulo con ID ${perm.id_module} no existe`
-          );
-        }
+    // Obtener IDs únicos
+    const moduleIds = [
+      ...new Set(
+        roleData.permissions.map(
+          p => p.id_module
+        )
+      )
+    ];
 
-        // Verificar que el privilegio exista
-        const privileges = await RoleRepository.findAllPrivileges();
-        const privilegeExists = privileges.some(
-          (p) => p.id_privilege === perm.id_privilege
-        );
+    const privilegeIds = [
+      ...new Set(
+        roleData.permissions.map(
+          p => p.id_privilege
+        )
+      )
+    ];
 
-        if (!privilegeExists) {
-          throw new BadRequestError(
-            `El privilegio con ID ${perm.id_privilege} no existe`
-          );
-        }
+    // Consultar una sola vez
+    const modules =
+      await RoleRepository.findModulesByIds(
+        moduleIds
+      );
 
-        // Crear permiso asignado
-        await RoleRepository.createAssignedPermission({
-          id_role: newRole.id_role,
-          id_module: perm.id_module,
-          id_privilege: perm.id_privilege,
-        });
-      }
+    const privileges =
+      await RoleRepository.findPrivilegesByIds(
+        privilegeIds
+      );
 
-      // Obtener rol actualizado con permisos
-      const roleWithPermissions = await RoleRepository.findRoleById(
+    // Validar módulos
+    validateRolePermissions(
+      roleData.permissions,
+      modules,
+      privileges
+    );
+
+
+    // Crear todos los permisos juntos
+    await RoleRepository.createManyAssignedPermissions(
+
+      roleData.permissions.map(permission => ({
+        id_role: newRole.id_role,
+        id_module: permission.id_module,
+        id_privilege: permission.id_privilege
+      }))
+
+    );
+
+    // Obtener rol completo
+    const role =
+      await RoleRepository.findRoleById(
         newRole.id_role
       );
 
-      return new RoleResponseDto(roleWithPermissions);
+    return new RoleResponseDto(role);
 
-    } catch (error) {
-      throw error;
-    }
   }
 }

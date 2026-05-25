@@ -11,6 +11,10 @@ export class ForgotPasswordUseCase {
       return { message: "If the email exists, a reset link has been sent" };
     }
 
+    // FIX: Invalida todos los tokens anteriores antes de crear uno nuevo
+    // Esto evita que códigos viejos sigan siendo válidos tras un reenvío
+    await AuthRepository.invalidatePreviousResets(user.id_user);
+
     const verificationCode = crypto.randomInt(100000, 1000000).toString();
     const expirationDate = new Date();
     expirationDate.setHours(expirationDate.getHours() + 1);
