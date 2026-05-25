@@ -2,7 +2,7 @@ import { prisma } from "../../../config/prisma.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { UserMapper } from "../mappers/usersMapper.js";
 
-const SYSTEM_ID_USER = 1; // Ajustar según tu configuración
+const SYSTEM_ID_USER = 999999999; // Ajustar según tu configuración
 const INACTIVE_ID_STATUS = 2; // Ajustar según tu configuración
 
 /**
@@ -58,6 +58,7 @@ const INACTIVE_ID_STATUS = 2; // Ajustar según tu configuración
  * - USER_NOT_FOUND: Usuario no existe
  * - USER_STILL_ACTIVE: Usuario no está inactivo
  * - CANNOT_DELETE_SYSTEM_USER: No se puede eliminar usuario del sistema
+ * - USER_HAS_ASSIGNED_ROLES: Usuario tiene roles asignados
  * - TRANSFER_ERROR: Error al transferir relaciones
  * - DATABASE_ERROR: Error en BD
  * 
@@ -102,6 +103,29 @@ export const deleteUserUseCase = async (idUser) => {
     // Mappear usuario
     const mappedUser = UserMapper.toDomain(existingUser);
 
+    // Prevenir eliminación del usuario del sistema
+    if (parsedIdUser === SYSTEM_ID_USER) {
+      return {
+        success: false,
+        data: null,
+        error: "No se puede eliminar el usuario del sistema",
+        errorCode: "CANNOT_DELETE_SYSTEM_USER",
+      };
+    }
+
+    // Validar si el usuario tiene roles asignados
+    const hasAssignedRoles =
+      await UserRepository.hasAssignedRoles(parsedIdUser);
+
+    if (hasAssignedRoles) {
+      return {
+        success: false,
+        data: null,
+        error: "No se puede eliminar el usuario porque tiene roles asignados",
+        errorCode: "USER_HAS_ASSIGNED_ROLES",
+      };
+    }
+
     // Validar que usuario está INACTIVO
     if (mappedUser.idStatus !== INACTIVE_ID_STATUS) {
       return {
@@ -126,7 +150,6 @@ export const deleteUserUseCase = async (idUser) => {
       clients: 0,
       employees: 0,
       access: 0,
-      bannerImages: 0,
     };
 
     // TRANSACCIÓN - Operación crítica: transferir y eliminar
@@ -154,13 +177,6 @@ export const deleteUserUseCase = async (idUser) => {
           data: { id_user: SYSTEM_ID_USER },
         });
         relationsTransferred.access = accessResult.count;
-
-        // Contar y transferir imágenes de banner
-        const bannerImgResult = await tx.banner_img.updateMany({
-          where: { id_user: parsedIdUser },
-          data: { id_user: SYSTEM_ID_USER },
-        });
-        relationsTransferred.bannerImages = bannerImgResult.count;
 
         // Eliminar usuario
         await tx.users.delete({

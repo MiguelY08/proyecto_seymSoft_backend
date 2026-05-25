@@ -1,6 +1,8 @@
 import { UserRepository } from "../repositories/userRepository.js";
 import { prisma } from "../../../config/prisma.js";
 
+const SYSTEM_ID_USER = 999999999;
+
 /**
  * Use-Case: Actualizar usuario
  * 
@@ -61,6 +63,16 @@ export const updateUserUseCase = async (params) => {
         data: null,
         error: "Usuario no encontrado",
         errorCode: "USER_NOT_FOUND",
+      };
+    }
+
+    // Prevenir actualización del usuario del sistema
+    if (parsedIdUser === SYSTEM_ID_USER) {
+      return {
+        success: false,
+        data: null,
+        error: "No se puede actualizar el usuario del sistema",
+        errorCode: "CANNOT_UPDATE_SYSTEM_USER",
       };
     }
 

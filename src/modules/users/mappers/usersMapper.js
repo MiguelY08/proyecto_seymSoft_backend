@@ -50,6 +50,7 @@ export class UserMapper {
       phone: user.phone,
       creationDate: user.creationDate,
       status: statusInfo,
+      role: user.role || null,
     };
   }
 }

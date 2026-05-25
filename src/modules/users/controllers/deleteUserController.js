@@ -1,102 +1,42 @@
-import { UserRepository } from "../repositories/userRepository.js";
-import { prisma } from "../../../config/prisma.js";
+import { deleteUserUseCase } from "../use-cases/index.js";
 
-/**
- * DELETE USER CONTROLLER - ACTUALIZADO
- * 
- * Validaciones:
- * - Usuario debe existir
- * - Usuario NO puede ser empleado (no puede tener employee_roles)
- * - Si todo está bien, elimina el usuario
- * 
- * Códigos de error:
- * - USER_NOT_FOUND: Usuario no existe
- * - USER_IS_EMPLOYEE: Usuario es empleado y no se puede eliminar
- * - DATABASE_ERROR: Error en BD
- */
 export const DeleteUserController = async (req, res) => {
   try {
+    // Obtener el id del usuario desde los parametros de la ruta
     const { id } = req.params;
 
-    // Validar ID
-    if (!id || isNaN(id)) {
-      return res.status(400).json({
+    // Ejecutar el caso de uso encargado de validar y eliminar el usuario
+    const result = await deleteUserUseCase(id);
+
+    if (!result.success) {
+      // Asociar cada error del caso de uso con su codigo HTTP correspondiente
+      const statusCodeByError = {
+        VALIDATION_ERROR: 400,
+        USER_NOT_FOUND: 404,
+        USER_STILL_ACTIVE: 409,
+        CANNOT_DELETE_SYSTEM_USER: 403,
+        USER_HAS_ASSIGNED_ROLES: 409,
+        TRANSFER_ERROR: 409,
+        DATABASE_ERROR: 500,
+      };
+
+      // Responder con el estado adecuado cuando la eliminacion no fue exitosa
+      return res.status(statusCodeByError[result.errorCode] || 500).json({
         success: false,
-        message: "ID de usuario inválido.",
+        message: result.error,
+        errorCode: result.errorCode,
       });
     }
 
-    const idUser = Number(id);
-
-    // Verificar que el usuario existe
-    const user = await UserRepository.findById(idUser);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuario no encontrado.",
-        errorCode: "USER_NOT_FOUND",
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // VALIDAR QUE NO SEA EMPLEADO
-    // ═══════════════════════════════════════════════════════════
-
-    const employee = await prisma.employees.findUnique({
-      where: { id_user: idUser },
-      include: { employee_roles: true },
+    // Confirmar la eliminacion cuando el caso de uso finaliza correctamente
+    return res.status(200).json({
+      success: true,
+      message: "Usuario eliminado exitosamente.",
+      data: result.data,
     });
 
-    // Si tiene employee_roles, es un empleado y NO se puede eliminar
-    if (employee && employee.employee_roles && employee.employee_roles.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No se puede eliminar un usuario que es empleado. Primero debe remover el rol.",
-        errorCode: "USER_IS_EMPLOYEE",
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // ELIMINAR USUARIO
-    // ═══════════════════════════════════════════════════════════
-
-    try {
-      // Primero eliminar tokens de sesión asociados
-      await prisma.refresh_tokens.deleteMany({
-        where: { id_user: idUser },
-      });
-
-      // Eliminar password resets asociados
-      await prisma.password_resets.deleteMany({
-        where: { id_user: idUser },
-      });
-
-      // Eliminar access logs del usuario (opcional, para auditoría)
-      // await prisma.access_logs.deleteMany({
-      //   where: { id_user: idUser },
-      // });
-
-      // Finalmente, eliminar el usuario
-      await UserRepository.delete(idUser);
-
-      return res.status(200).json({
-        success: true,
-        message: "Usuario eliminado exitosamente.",
-      });
-
-    } catch (error) {
-      console.error("[DeleteUserController] Error al eliminar:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Error al eliminar el usuario.",
-        errorCode: "DATABASE_ERROR",
-        error: error.message,
-      });
-    }
-
   } catch (error) {
+    // Capturar errores inesperados del controlador
     console.error("[DeleteUserController] Error:", error);
 
     return res.status(500).json({
