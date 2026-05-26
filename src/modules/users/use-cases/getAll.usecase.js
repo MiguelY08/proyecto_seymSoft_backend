@@ -111,6 +111,7 @@ export const getAllUsersUseCase = async (filters = {}) => {
         return {
           ...mappedUser,
           role: user.role || null,
+          isClient: user.isClient || false,
         };
 
       } catch (mapError) {

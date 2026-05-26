@@ -31,103 +31,87 @@ export class UserRepository {
   /**
    * Asignar rol a usuario
    */
-  static async assignRole(
-    idUser,
-    idRole
-  ) {
-
+  static async assignRole(idUser, idRole) {
     // Validar rol
-    const role =
-      await prisma.roles.findUnique({
-        where: {
-          id_role: idRole
-        }
-      });
+    const role = await prisma.roles.findUnique({
+      where: {
+        id_role: idRole,
+      },
+    });
 
     if (!role) {
-      throw new Error(
-        "Rol no encontrado"
-      );
-    }
-
-    // Obtener cualquier permiso del rol
-    const assignedPermission =
-      await prisma.assigned_permissions.findFirst({
-        where: {
-          id_role: idRole
-        },
-        orderBy: {
-          id_permission: "asc"
-        }
-      });
-
-    if (!assignedPermission) {
-      throw new Error(
-        "El rol no tiene permisos asignados"
-      );
+      throw new Error("Rol no encontrado");
     }
 
     // Buscar empleado asociado
-    let employee =
-      await prisma.employees.findUnique({
-        where: {
-          id_user: idUser
-        }
-      });
+    let employee = await prisma.employees.findUnique({
+      where: {
+        id_user: idUser,
+      },
+    });
 
-    // Si no existe lo crea
     if (!employee) {
-      employee =
-        await prisma.employees.create({
-          data: {
-            id_user: idUser
-          }
-        });
+      employee = await prisma.employees.create({
+        data: {
+          id_user: idUser,
+        },
+      });
     }
 
-    // Buscar si ya tiene rol
-    const existingRole =
-      await prisma.employee_roles.findFirst({
-        where: {
-          id_employee:
-            employee.id_employee
-        }
-      });
+    // Obtener cualquier permiso del rol
+    const assignedPermission = await prisma.assigned_permissions.findFirst({
+      where: {
+        id_role: idRole,
+      },
+      orderBy: {
+        id_permission: "asc",
+      },
+    });
 
-    // Actualizar rol existente
+    // Si el rol no tiene permisos, NO se crea employee_roles
+    // porque employee_roles depende de assigned_permissions.
+    if (!assignedPermission) {
+      return {
+        employee,
+        role,
+        assignedPermission: null,
+      };
+    }
+
+    const existingRole = await prisma.employee_roles.findFirst({
+      where: {
+        id_employee: employee.id_employee,
+      },
+    });
+
     if (existingRole) {
       return await prisma.employee_roles.update({
         where: {
-          id_employee_role:
-            existingRole.id_employee_role
+          id_employee_role: existingRole.id_employee_role,
         },
         data: {
           assigned_permissions: {
             connect: {
-              id_permission:
-                assignedPermission.id_permission
-            }
-          }
-        }
+              id_permission: assignedPermission.id_permission,
+            },
+          },
+        },
       });
     }
 
-    // Crear relación nueva
     return await prisma.employee_roles.create({
       data: {
         employees: {
           connect: {
-            id_employee:
-              employee.id_employee
-          }
+            id_employee: employee.id_employee,
+          },
         },
         assigned_permissions: {
           connect: {
-            id_permission:
-              assignedPermission.id_permission
-          }
-        }
-      }
+            id_permission: assignedPermission.id_permission,
+          },
+        },
+      },
     });
   }
 
@@ -166,6 +150,15 @@ export class UserRepository {
               mode: "insensitive",
             },
           },
+
+          // Buscar por teléfono solo si es numérico
+          ...(!isNaN(search)
+            ? [
+                {
+                  phone: BigInt(search),
+                },
+              ]
+            : []),
         ],
       }),
     };
@@ -202,6 +195,12 @@ export class UserRepository {
             phone: true,
             id_status: true,
 
+            clients: {
+              select: {
+                id_client: true,
+              },
+            },
+
             employees: {
               select: {
                 employee_roles: {
@@ -235,14 +234,17 @@ export class UserRepository {
     const usersWithRole = users.map((user) => {
       const roleData =
         user.employees
-          ?.employee_roles
+          ?.employee_roles?.[0]
           ?.assigned_permissions
           ?.roles || null;
 
-      const { employees, ...cleanUser } = user;
+      const { employees, clients, ...cleanUser } = user;
 
       return {
         ...cleanUser,
+        isClient: Array.isArray(clients)
+          ? clients.length > 0
+          : Boolean(clients),
         role: roleData
           ? {
               idRole: roleData.id_role,
@@ -302,7 +304,7 @@ export class UserRepository {
       },
     });
 
-    return Boolean(employee?.employee_roles);
+    return employee?.employee_roles?.length > 0;
   }
 
   static async findById(id) {

@@ -6,23 +6,19 @@ export const CreateUserController = async (
   req,
   res
 ) => {
-
   try {
-
     const validation =
       validateCreateUser(
         req.body
       );
 
     if (!validation.success) {
-
       return res.status(400).json({
         message:
           "Errores de validación",
         errors:
           validation.errors
       });
-
     }
 
     const validatedData =
@@ -43,29 +39,33 @@ if (!result.success) {
 }
 
 // ✅ Obtener usuario completo con rol
-const userWithRole = await UserRepository.getUserWithRole(
-  result.data.idUser  // ← CAMBIAR DE .id A .idUser
-);
+const userWithRole =
+  await UserRepository.getUserWithRole(
+    result.data.idUser
+  );
+
+return res.status(201).json({
+  message: "Usuario creado exitosamente",
+  user: userWithRole || {
+    user: result.data,
+    role: null,
+    permissions: [],
+  },
+});
 
 return res.status(201).json({
   message: "Usuario creado exitosamente",
   user: userWithRole
 });
-
   } catch(error){
-
     console.error(
       "[CreateUserController]",
       error
     );
 
     return res.status(500).json({
-
       message:
         "Error creando usuario"
-
     });
-
   }
-
 };

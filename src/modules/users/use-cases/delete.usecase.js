@@ -2,80 +2,21 @@ import { prisma } from "../../../config/prisma.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { UserMapper } from "../mappers/usersMapper.js";
 
-const SYSTEM_ID_USER = 999999999; // Ajustar según tu configuración
-const INACTIVE_ID_STATUS = 2; // Ajustar según tu configuración
+const SYSTEM_ID_USER = 999999999;
+const INACTIVE_ID_STATUS = 2;
 
 /**
  * Use-Case: Eliminar usuario
- * 
- * Responsabilidades:
- * - Aplicar lógica de negocio
- * - Validar que el usuario existe
- * - Validar que el usuario está INACTIVO
- * - Prevenir eliminación del usuario del sistema
- * - Transferir relaciones del usuario a usuario del sistema
- * - Eliminar usuario de forma segura con transacciones
- * 
+ *
  * Reglas de negocio:
- * - El usuario DEBE existir
- * - El usuario DEBE estar INACTIVO (idStatus = 2)
- * - NO se puede eliminar el usuario del sistema (id = 1)
- * - Antes de eliminar, se transfieren todas sus relaciones:
- *   • clients
- *   • employees
- *   • access
- *   • banner_img
- * - La operación completa es una TRANSACCIÓN (todo o nada)
- * - Si algo falla, se revierte todo
- * 
- * Nota sobre usuario del sistema:
- * - Es el usuario especial que recibe todas las relaciones de usuarios eliminados
- * - ID = 1 (ajustar si es diferente en tu sistema)
- * - Status = 1 (activo)
- * 
- * @param {number} idUser - ID del usuario a eliminar
- * 
- * @returns {Promise<Object>} Resultado con estructura:
- * {
- *   success: boolean,
- *   data: {
- *     deletedIdUser: number,
- *     relationsTransferred: {
- *       clients: number,
- *       employees: number,
- *       access: number,
- *       bannerImages: number
- *     }
- *   }|null,
- *   error: string|null,
- *   errorCode: string|null
- * }
- * 
- * @throws No lanza excepciones, retorna objeto de resultado
- * 
- * Códigos de error:
- * - VALIDATION_ERROR: Parámetro inválido
- * - USER_NOT_FOUND: Usuario no existe
- * - USER_STILL_ACTIVE: Usuario no está inactivo
- * - CANNOT_DELETE_SYSTEM_USER: No se puede eliminar usuario del sistema
- * - USER_HAS_ASSIGNED_ROLES: Usuario tiene roles asignados
- * - TRANSFER_ERROR: Error al transferir relaciones
- * - DATABASE_ERROR: Error en BD
- * 
- * Ejemplo de uso:
- * const result = await deleteUserUseCase(5);
- * 
- * if (result.success) {
- *   console.log("Usuario eliminado, relaciones transferidas:", result.data);
- * } else if (result.errorCode === "USER_STILL_ACTIVE") {
- *   console.log("Usuario debe estar inactivo");
- * } else {
- *   console.error("Error:", result.error);
- * }
+ * - El usuario DEBE existir.
+ * - El usuario DEBE estar INACTIVO.
+ * - NO se puede eliminar el usuario del sistema.
+ * - NO se puede eliminar un usuario con roles asignados.
+ * - Antes de eliminar, se transfieren relaciones permitidas.
  */
 export const deleteUserUseCase = async (idUser) => {
   try {
-    // Validar idUser
     if (!idUser || isNaN(idUser) || idUser < 1) {
       return {
         success: false,
@@ -87,10 +28,8 @@ export const deleteUserUseCase = async (idUser) => {
 
     const parsedIdUser = Number(idUser);
 
-    // Buscar usuario existente
     const existingUser = await UserRepository.findById(parsedIdUser);
 
-    // Usuario no existe
     if (!existingUser) {
       return {
         success: false,
@@ -100,10 +39,8 @@ export const deleteUserUseCase = async (idUser) => {
       };
     }
 
-    // Mappear usuario
     const mappedUser = UserMapper.toDomain(existingUser);
 
-    // Prevenir eliminación del usuario del sistema
     if (parsedIdUser === SYSTEM_ID_USER) {
       return {
         success: false,
@@ -113,7 +50,6 @@ export const deleteUserUseCase = async (idUser) => {
       };
     }
 
-    // Validar si el usuario tiene roles asignados
     const hasAssignedRoles =
       await UserRepository.hasAssignedRoles(parsedIdUser);
 
@@ -126,7 +62,6 @@ export const deleteUserUseCase = async (idUser) => {
       };
     }
 
-    // Validar que usuario está INACTIVO
     if (mappedUser.idStatus !== INACTIVE_ID_STATUS) {
       return {
         success: false,
@@ -136,61 +71,46 @@ export const deleteUserUseCase = async (idUser) => {
       };
     }
 
-    // Prevenir eliminación del usuario del sistema
-    if (parsedIdUser === SYSTEM_ID_USER) {
-      return {
-        success: false,
-        data: null,
-        error: "No se puede eliminar el usuario del sistema",
-        errorCode: "CANNOT_DELETE_SYSTEM_USER",
-      };
-    }
-
-    let relationsTransferred = {
+    const relationsTransferred = {
       clients: 0,
       employees: 0,
       access: 0,
     };
 
-    // TRANSACCIÓN - Operación crítica: transferir y eliminar
     try {
       await prisma.$transaction(async (tx) => {
-        // Transferir relaciones a usuario del sistema
-
-        // Contar y transferir clientes
         const clientsResult = await tx.clients.updateMany({
           where: { id_user: parsedIdUser },
           data: { id_user: SYSTEM_ID_USER },
         });
+
         relationsTransferred.clients = clientsResult.count;
 
-        // Contar y transferir empleados
         const employeesResult = await tx.employees.updateMany({
           where: { id_user: parsedIdUser },
           data: { id_user: SYSTEM_ID_USER },
         });
+
         relationsTransferred.employees = employeesResult.count;
 
-        // Contar y transferir accesos
         const accessResult = await tx.access.updateMany({
           where: { id_user: parsedIdUser },
           data: { id_user: SYSTEM_ID_USER },
         });
+
         relationsTransferred.access = accessResult.count;
 
-        // Eliminar usuario
         await tx.users.delete({
           where: { id_user: parsedIdUser },
         });
       });
+
     } catch (txError) {
-      // Error en transacción
       console.error("[DeleteUserUseCase] Transaction error:", txError.message);
 
       let errorCode = "TRANSFER_ERROR";
       let errorMsg = "Error al transferir relaciones: " + txError.message;
 
-      // Intentar identificar tipo específico de error
       if (txError.code === "P2025") {
         errorCode = "DATABASE_ERROR";
         errorMsg = "Registro no encontrado durante la eliminación";
@@ -207,7 +127,6 @@ export const deleteUserUseCase = async (idUser) => {
       };
     }
 
-    // Retornar resultado exitoso con información de transferencias
     return {
       success: true,
       data: {
@@ -219,7 +138,6 @@ export const deleteUserUseCase = async (idUser) => {
     };
 
   } catch (error) {
-    // Capturar errores no esperados
     console.error("[DeleteUserUseCase] Error:", error.message);
 
     return {
@@ -231,7 +149,4 @@ export const deleteUserUseCase = async (idUser) => {
   }
 };
 
-/**
- * Alias (exportación alternativa para compatibilidad)
- */
 export const delete_ = deleteUserUseCase;
