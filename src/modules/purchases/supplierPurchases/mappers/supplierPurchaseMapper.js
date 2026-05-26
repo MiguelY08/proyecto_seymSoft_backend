@@ -1,11 +1,20 @@
 export class SupplierPurchaseMapper {
 
+  // ─── Detail mapper ──────────────────────────────────────────────────────────
   static detailToDTO(detail) {
     if (!detail) return null;
+
+    // Todos los barcodes del producto (principal + extras)
+    const allBarcodes = detail.barcodes?.products?.barcodes ?? [];
+    const extraBarcodes = allBarcodes
+      .filter((b) => b.id_barcode !== detail.id_barcode)
+      .map((b) => b.barcode);
+
     return {
       id:             detail.id_purchase_detail,
       idBarcode:      detail.id_barcode,
       barcode:        detail.barcodes?.barcode        ?? null,
+      productId:      detail.barcodes?.id_product     ?? null,
       productName:    detail.barcodes?.products?.name ?? null,
       quantity:       detail.quantity,
       grossUnitPrice: Number(detail.gross_unit_price),
@@ -17,9 +26,11 @@ export class SupplierPurchaseMapper {
       taxPercentage:  Number(detail.tax_percentage),
       batchCode:      detail.batch_code,
       cancellationReason: detail.cancellation_reason ?? null,
+      extraBarcodes,
     };
   }
 
+  // ─── Purchase mapper (list) ─────────────────────────────────────────────────
   static toDTO(purchase) {
     if (!purchase) return null;
     return {
@@ -28,12 +39,13 @@ export class SupplierPurchaseMapper {
       purchaseDate:  purchase.purchase_date,
       totalAmount:   Number(purchase.total_amount ?? 0),
       providerId:    purchase.id_provider,
-      providerName:  purchase.providers?.name_provider          ?? null,
+      providerName:  purchase.providers?.name_provider              ?? null,
       statusId:      purchase.id_purchase_status,
       status:        purchase.purchase_statuses?.name_puchase_status ?? null,
     };
   }
 
+  // ─── Purchase mapper with details ───────────────────────────────────────────
   static toDTOWithDetails(purchase) {
     if (!purchase) return null;
     return {
@@ -42,30 +54,14 @@ export class SupplierPurchaseMapper {
     };
   }
 
+  // ─── DB mappers ─────────────────────────────────────────────────────────────
   static toCreateDB(dto) {
-    const totalAmount = dto.details.reduce((sum, d) => sum + d.netSubtotal, 0);
     return {
       invoice_number:     dto.invoiceNumber,
       purchase_date:      dto.purchaseDate,
-      total_amount:       totalAmount,
+      total_amount:       dto.details.reduce((sum, d) => sum + d.netSubtotal, 0),
       id_provider:        dto.idProvider,
-      id_purchase_status: 1,
-    };
-  }
-
-  static detailToCreateDB(detail, purchaseId) {
-    return {
-      id_purchase:      purchaseId,
-      id_barcode:       detail.idBarcode,
-      quantity:         detail.quantity,
-      gross_unit_price: detail.grossUnitPrice,
-      tax_unit_price:   detail.taxUnitPrice,
-      net_unit_price:   detail.netUnitPrice,
-      gross_subtotal:   detail.grossSubtotal,
-      iva_subtotal:     detail.ivaSubtotal,
-      net_subtotal:     detail.netSubtotal,
-      tax_percentage:   detail.taxPercentage,
-      batch_code:       detail.batchCode,
+      id_purchase_status: 1, // 1 = Completada
     };
   }
 }

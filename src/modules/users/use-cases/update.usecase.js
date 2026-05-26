@@ -1,4 +1,5 @@
 import { UserRepository } from "../repositories/userRepository.js";
+import { prisma } from "../../../config/prisma.js";
 
 /**
  * Use-Case: Actualizar usuario
@@ -8,73 +9,22 @@ import { UserRepository } from "../repositories/userRepository.js";
  * - Validar que el usuario existe
  * - Validar duplicados de email (si se actualiza)
  * - Actualizar solo los campos especificados
- * - Retornar usuario actualizado
+ * - Manejar asignación/eliminación de roles
+ * - Retornar usuario actualizado con rol y permisos
  * 
  * Reglas de negocio:
- * - El usuario DEBE existir
- * - Si se actualiza email, DEBE ser único (pero se permite si es el mismo)
- * - Solo se actualizan los campos que vienen en updateData (parcial)
- * - No se puede actualizar: id, idStatus, creationDate, password
- * - Retorna el usuario actualizado con todos sus datos
+ * - Si id_role es número: crear/actualizar employee y asignar rol
+ * - Si id_role es null: eliminar employee y employee_roles
+ * - Si id_role NO viene: no cambiar el rol
+ * - No se puede actualizar: id, creationDate, password
  * 
- * Campos que se pueden actualizar:
- * - fullName
- * - email (con validación de unicidad)
- * - phone
- * 
- * Campos que NO se pueden actualizar:
- * - idUser (inmutable)
- * - creationDate (inmutable)
- * - idStatus (usar updateStatus.usecase.js)
- * - password (usar módulo auth)
- * 
- * @param {Object} params - Parámetros
+ * @param {Object} params
  * @param {number} params.idUser - ID del usuario a actualizar
- * @param {Object} params.updateData - Datos a actualizar (todos opcionales)
- * @param {string} params.updateData.fullName - Nombre completo
- * @param {string} params.updateData.email - Email
- * @param {number} params.updateData.phone - Teléfono
- * 
- * @returns {Promise<Object>} Resultado con estructura:
- * {
- *   success: boolean,
- *   data: {
- *     idUser: number,
- *     fullName: string,
- *     email: string,
- *     phone: number|null,
- *     creationDate: Date,
- *     idStatus: number
- *   }|null,
- *   error: string|null,
- *   errorCode: string|null
- * }
- * 
- * @throws No lanza excepciones, retorna objeto de resultado
- * 
- * Códigos de error:
- * - USER_NOT_FOUND: Usuario no existe
- * - DUPLICATE_EMAIL: Email ya existe en otro usuario
- * - NO_DATA_TO_UPDATE: updateData está vacío
- * - DATABASE_ERROR: Error en BD
- * 
- * Ejemplo de uso:
- * const result = await updateUserUseCase({
- *   idUser: 5,
- *   updateData: {
- *     fullName: "Juan Carlos Pérez",
- *     email: "juancarlos@example.com",
- *     phone: 3009876543
- *   }
- * });
- * 
- * if (result.success) {
- *   console.log("Usuario actualizado:", result.data);
- * } else if (result.errorCode === "DUPLICATE_EMAIL") {
- *   console.log("Email ya existe");
- * } else {
- *   console.error("Error:", result.error);
- * }
+ * @param {Object} params.updateData - Datos a actualizar
+ * @param {string} params.updateData.fullName - Nombre completo (opcional)
+ * @param {string} params.updateData.email - Email (opcional)
+ * @param {number} params.updateData.phone - Teléfono (opcional)
+ * @param {number} params.updateData.id_role - ID del rol (opcional, null para eliminar)
  */
 export const updateUserUseCase = async (params) => {
   try {
@@ -105,7 +55,6 @@ export const updateUserUseCase = async (params) => {
     // Buscar usuario existente
     const existingUser = await UserRepository.findById(parsedIdUser);
 
-    // Usuario no existe
     if (!existingUser) {
       return {
         success: false,
@@ -119,8 +68,7 @@ export const updateUserUseCase = async (params) => {
     if (updateData.email) {
       const existingEmail = await UserRepository.findByEmail(updateData.email);
 
-      // Permitir si es el mismo usuario, rechazar si pertenece a otro
-      if (existingEmail && existingEmail.id !== parsedIdUser) {
+      if (existingEmail && existingEmail.id_user !== parsedIdUser) {
         return {
           success: false,
           data: null,
@@ -130,55 +78,136 @@ export const updateUserUseCase = async (params) => {
       }
     }
 
-    // Actualizar usuario en BD
-    const updatedUser = await UserRepository.update(parsedIdUser, updateData);
+    // Separar datos de usuario y rol
+    const { id_role, ...userUpdateData } = updateData;
 
-    // Validar resultado de la actualización
+    // Actualizar datos del usuario
+    const updatedUser = await UserRepository.update(parsedIdUser, userUpdateData);
+
     if (!updatedUser) {
       return {
         success: false,
         data: null,
-        error: "Error al actualizar el usuario en la base de datos",
+        error: "Error al actualizar el usuario",
         errorCode: "DATABASE_ERROR",
       };
     }
 
-    // Validar que el usuario actualizado tenga los campos requeridos
-    const requiredFields = [
-      "idUser",
-      "fullName",
-      "email",
-      "creationDate",
-      "idStatus",
-    ];
+    // ═══════════════════════════════════════════════════════════
+    // MANEJAR CAMBIOS DE ROL
+    // ═══════════════════════════════════════════════════════════
 
-    for (const field of requiredFields) {
-      if (updatedUser[field] === undefined) {
+    if (id_role !== undefined) {
+      try {
+        // Obtener employee actual
+        let employee = await prisma.employees.findUnique({
+          where: { id_user: parsedIdUser },
+          include: { employee_roles: true },
+        });
+
+        if (id_role === null) {
+          // ✅ CASO 1: Eliminar rol (id_role = null)
+          // Eliminar employee_roles primero (FK constraint)
+          if (employee && employee.employee_roles) {
+            await prisma.employee_roles.deleteMany({
+              where: { id_employee: employee.id_employee },
+            });
+          }
+
+          // Luego eliminar employee
+          if (employee) {
+            await prisma.employees.delete({
+              where: { id_employee: employee.id_employee },
+            });
+          }
+
+        } else {
+          // ✅ CASO 2: Asignar nuevo rol (id_role = número)
+
+          // Validar que el rol existe
+          const roleExists = await prisma.roles.findUnique({
+            where: { id_role },
+          });
+
+          if (!roleExists) {
+            return {
+              success: false,
+              data: null,
+              error: `El rol con ID ${id_role} no existe`,
+              errorCode: "ROLE_NOT_FOUND",
+            };
+          }
+
+          // Crear employee si no existe
+          if (!employee) {
+            employee = await prisma.employees.create({
+              data: {
+                id_user: parsedIdUser,
+                id_status: 1, // Activo por defecto
+              },
+              include: { employee_roles: true },
+            });
+          }
+
+          // Eliminar employee_roles anteriores
+          await prisma.employee_roles.deleteMany({
+            where: { id_employee: employee.id_employee },
+          });
+
+          // Obtener el PRIMER assigned_permission del nuevo rol
+          // (Según la estructura: 1 employee_role → 1 assigned_permission)
+          const rolePermission = await prisma.assigned_permissions.findFirst({
+            where: { id_role },
+          });
+
+          if (!rolePermission) {
+            return {
+              success: false,
+              data: null,
+              error: `El rol con ID ${id_role} no tiene permisos asignados`,
+              errorCode: "ROLE_NO_PERMISSIONS",
+            };
+          }
+
+          // Crear nuevo employee_roles con ese assigned_permission
+          await prisma.employee_roles.create({
+            data: {
+              id_employee: employee.id_employee,
+              id_assigned_permission: rolePermission.id_permission,
+            },
+          });
+        }
+
+      } catch (error) {
+        console.error("[UpdateUserUseCase] Error al manejar rol:", error);
         return {
           success: false,
           data: null,
-          error: `Error: usuario actualizado falta campo requerido: ${field}`,
-          errorCode: "DATABASE_ERROR",
+          error: `Error al actualizar el rol: ${error.message}`,
+          errorCode: "ROLE_UPDATE_ERROR",
         };
       }
     }
 
-    // Retornar usuario actualizado
+    // Obtener usuario actualizado con rol y permisos
+    const userWithRole = await UserRepository.getUserWithRole(parsedIdUser);
+
     return {
       success: true,
-      data: updatedUser,
+      data: {
+        ...userWithRole.user,
+        role: userWithRole.role,
+        permissions: userWithRole.permissions,
+      },
       error: null,
       errorCode: null,
     };
 
   } catch (error) {
-    // Capturar errores no esperados
     console.error("[UpdateUserUseCase] Error:", error.message);
 
-    // Intentar identificar tipo de error
     let errorCode = "DATABASE_ERROR";
     if (error.code === "P2002") {
-      // Error de constraint único en Prisma
       const field = error.meta?.target?.[0];
       if (field === "email") {
         errorCode = "DUPLICATE_EMAIL";
@@ -194,7 +223,4 @@ export const updateUserUseCase = async (params) => {
   }
 };
 
-/**
- * Alias (exportación alternativa para compatibilidad)
- */
 export const update = updateUserUseCase;

@@ -12,7 +12,8 @@ export class UserRepository {
         email: data.email,
         pass_word: data.password,
         phone: data.phone,
-        id_status: data.idStatus
+        id_status: data.idStatus,
+        token_version: 0
       }
     });
 
@@ -38,29 +39,7 @@ export class UserRepository {
     return users.map(UserMapper.toDomain);
   }
 
-  /**
-   * Obtener usuarios con paginación y filtros avanzados
-   * 
-   * @param {Object} filters - Objeto con parámetros de filtrado
-   * @param {number} filters.page - Número de página (default: 1)
-   * @param {number} filters.limit - Usuarios por página (default: 10)
-   * @param {number} filters.status - ID de estado (opcional)
-   * @param {string} filters.search - Buscar en nombre o email (opcional)
-   * @param {string} filters.sortBy - Campo para ordenar: name, email, date (default: date)
-   * @param {string} filters.order - Orden: asc, desc (default: desc)
-   * 
-   * @returns {Object} { users: [], total, page, limit, totalPages }
-   * 
-   * Ejemplo:
-   * const result = await UserRepository.findAllWithFilters({
-   *   page: 1,
-   *   limit: 10,
-   *   status: 1,
-   *   search: "juan",
-   *   sortBy: "name",
-   *   order: "asc"
-   * });
-   */
+  
   static async findAllWithFilters(filters = {}) {
     const {
       page = 1,
@@ -192,4 +171,126 @@ export class UserRepository {
 
     return true;
   }
+
+  /**
+ * Obtiene usuario con su rol y permisos
+ * Maneja casos donde el usuario no tiene employee/rol
+ */
+
+/**
+ * MÉTODO CORREGIDO PARA UserRepository
+ * 
+ * Obtiene usuario con su rol y permisos
+ * Maneja el hecho de que employee_roles es singular (1-1)
+ */
+
+/**
+ * MÉTODO FINAL getUserWithRole para UserRepository
+ * 
+ * Obtiene usuario con su rol y TODOS los permisos del rol
+ * 
+ * Flujo:
+ * 1. Obtén usuario
+ * 2. Busca employee del usuario
+ * 3. Si existe employee_roles → obtén assigned_permission
+ * 4. De assigned_permission obtén id_role
+ * 5. Obtén TODOS los assigned_permissions de ese role
+ * 6. Retorna usuario con role completo y todos sus permisos
+ */
+
+static async getUserWithRole(id_user) {
+  // 1. Obtén usuario
+  const user = await prisma.users.findUnique({
+    where: { id_user },
+    select: {
+      id_user: true,
+      full_name: true,
+      email: true,
+      phone: true,
+      id_status: true,
+      creation_date: true,
+      token_version: true,
+    },
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  // 2. Busca employee vía id_user (relación UNIQUE)
+  const employee = await prisma.employees.findUnique({
+    where: { id_user },
+    include: {
+      employee_roles: {
+        include: {
+          assigned_permissions: {
+            include: {
+              roles: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // 3. Si NO existe employee → usuario sin rol (cliente)
+  if (!employee || !employee.employee_roles) {
+    return {
+      user: UserMapper.toDomain(user),
+      role: null,
+      permissions: [],
+    };
+  }
+
+  // 4. Obtén assigned_permission del employee_roles
+  const assignedPermission = employee.employee_roles.assigned_permissions;
+
+  // 5. Si NO tiene assigned_permission
+  if (!assignedPermission) {
+    return {
+      user: UserMapper.toDomain(user),
+      role: null,
+      permissions: [],
+    };
+  }
+
+  // 6. Obtén id_role de assigned_permission
+  const idRole = assignedPermission.id_role;
+  const role = assignedPermission.roles;
+
+  // 7. Obtén TODOS los assigned_permissions del rol
+  const allRolePermissions = await prisma.assigned_permissions.findMany({
+    where: { id_role: idRole },
+    include: {
+      modules: true,
+      privileges: true,
+    },
+  });
+
+  // 8. Mapea TODOS los permisos del rol
+  const permissions = allRolePermissions.map((perm) => ({
+    idPermission: perm.id_permission,
+    idRole: perm.id_role,
+    idModule: perm.id_module,
+    nameModule: perm.modules.name_module,
+    idPrivilege: perm.id_privilege,
+    namePrivilege: perm.privileges.name_privilege,
+  }));
+
+  // 9. Mapea rol
+  const mappedRole = role
+    ? {
+        idRole: role.id_role,
+        nameRole: role.name_role,
+        description: role.description,
+        idStatus: role.id_status,
+      }
+    : null;
+
+  return {
+    user: UserMapper.toDomain(user),
+    role: mappedRole,
+    permissions,
+  };
+}
 }

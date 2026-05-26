@@ -2,19 +2,25 @@ import { prisma } from '../../../../config/prisma.js';
 
 // ─── Reusable includes ────────────────────────────────────────────────────────
 
-const supplierPurchaseInclude = {
+const purchaseInclude = {
   providers:         { select: { name_provider: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
 };
 
-const supplierPurchaseWithDetailsInclude = {
+const purchaseWithDetailsInclude = {
   providers:         { select: { name_provider: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
   purchase_details: {
     include: {
       barcodes: {
         include: {
-          products: { select: { name: true } },
+          products: {
+            select: {
+              id_product: true,
+              name:        true,
+              barcodes: { select: { id_barcode: true, barcode: true } },
+            },
+          },
         },
       },
     },
@@ -22,6 +28,8 @@ const supplierPurchaseWithDetailsInclude = {
 };
 
 export class SupplierPurchaseRepository {
+
+  // ── Lookups ───────────────────────────────────────────────────────────────
 
   async findAll({ page, limit, search, startDate, endDate }) {
     const skip  = (page - 1) * limit;
@@ -40,24 +48,24 @@ export class SupplierPurchaseRepository {
       if (endDate)   where.purchase_date.lte = endDate;
     }
 
-    const [total, supplierPurchases] = await Promise.all([
+    const [total, purchases] = await Promise.all([
       prisma.purchases.count({ where }),
       prisma.purchases.findMany({
         where,
         skip,
         take:    limit,
         orderBy: { purchase_date: 'desc' },
-        include: supplierPurchaseInclude,
+        include: purchaseInclude,
       }),
     ]);
 
-    return { supplierPurchases: supplierPurchases || [], total: total || 0 };
+    return { purchases: purchases || [], total: total || 0 };
   }
 
   async findById(id) {
     return prisma.purchases.findUnique({
       where:   { id_purchase: parseInt(id) },
-      include: supplierPurchaseWithDetailsInclude,
+      include: purchaseWithDetailsInclude,
     });
   }
 
@@ -74,23 +82,84 @@ export class SupplierPurchaseRepository {
     });
   }
 
-  async findBarcodeById(id) {
+  async findProductById(id) {
+    return prisma.products.findUnique({
+      where:  { id_product: parseInt(id) },
+      select: {
+        id_product:      true,
+        name:            true,
+        wholesale_price: true,
+        iva_percentage:  true,
+        barcodes: {
+          select:  { id_barcode: true, barcode: true },
+          orderBy: { id_barcode: 'asc' },
+        },
+      },
+    });
+  }
+
+  async findBarcodeByCode(barcode) {
     return prisma.barcodes.findUnique({
-      where:  { id_barcode: parseInt(id) },
+      where:  { barcode },
       select: { id_barcode: true, barcode: true, id_product: true },
     });
   }
 
-  async create(purchaseData, details) {
-    return prisma.$transaction(async (tx) => {
-      const purchase = await tx.purchases.create({
-        data: purchaseData,
-      });
+  // ── Create ────────────────────────────────────────────────────────────────
 
+  /**
+   * Paso previo: crear extraBarcodes FUERA de la transacción
+   * para no consumir el timeout con queries de verificación.
+   */
+  async createExtraBarcodes(details) {
+    for (const detail of details) {
+      for (const extraCode of detail.extraBarcodes) {
+        const existing = await prisma.barcodes.findUnique({ where: { barcode: extraCode } });
+        if (!existing) {
+          await prisma.barcodes.create({
+            data: {
+              barcode:      extraCode,
+              barcode_type: 'extra',
+              stock:        0,
+              id_product:   detail.idProduct,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  async create(purchaseData, details) {
+
+    // 1 — Crear extraBarcodes fuera de la transacción
+    await this.createExtraBarcodes(details);
+
+    // 2 — Resolver id_barcode de extras (fuera de la transacción)
+    const detailsWithExtraIds = await Promise.all(
+      details.map(async (detail) => {
+        const extraIds = [];
+        for (const extraCode of detail.extraBarcodes) {
+          const b = await prisma.barcodes.findUnique({
+            where:  { barcode: extraCode },
+            select: { id_barcode: true },
+          });
+          if (b) extraIds.push(b.id_barcode);
+        }
+        return { ...detail, extraBarcodeIds: extraIds };
+      })
+    );
+
+    // 3 — Transacción solo con operaciones de escritura rápida
+    return prisma.$transaction(async (tx) => {
+
+      // 3a — Crear purchase
+      const purchase = await tx.purchases.create({ data: purchaseData });
+
+      // 3b — Crear todos los purchase_details de una vez
       await tx.purchase_details.createMany({
-        data: details.map((d) => ({
+        data: detailsWithExtraIds.map((d) => ({
           id_purchase:      purchase.id_purchase,
-          id_barcode:       d.idBarcode,
+          id_barcode:       d.primaryBarcodeId,
           quantity:         d.quantity,
           gross_unit_price: d.grossUnitPrice,
           tax_unit_price:   d.taxUnitPrice,
@@ -103,30 +172,52 @@ export class SupplierPurchaseRepository {
         })),
       });
 
-      for (const d of details) {
-        await tx.barcodes.update({
-          where: { id_barcode: d.idBarcode },
-          data:  { stock: { increment: d.quantity } },
-        });
-      }
+      // 3c — Actualizar stock en paralelo
+      const allBarcodeIds = detailsWithExtraIds.flatMap((d) => [
+        { id: d.primaryBarcodeId, qty: d.quantity },
+        ...d.extraBarcodeIds.map((eid) => ({ id: eid, qty: d.quantity })),
+      ]);
 
+      await Promise.all(
+        allBarcodeIds.map(({ id, qty }) =>
+          tx.barcodes.update({
+            where: { id_barcode: id },
+            data:  { stock: { increment: qty } },
+          })
+        )
+      );
+
+      // 3d — Retornar compra completa
       return tx.purchases.findUnique({
         where:   { id_purchase: purchase.id_purchase },
-        include: supplierPurchaseWithDetailsInclude,
+        include: purchaseWithDetailsInclude,
       });
-    });
+
+    }, { timeout: 30000 });
   }
+
+  // ── Annul ─────────────────────────────────────────────────────────────────
 
   async annul(id, cancellationReason) {
     return prisma.$transaction(async (tx) => {
+
       const details = await tx.purchase_details.findMany({
-        where: { id_purchase: parseInt(id) },
+        where:   { id_purchase: parseInt(id) },
+        include: {
+          barcodes: {
+            include: {
+              products: {
+                select: { barcodes: { select: { id_barcode: true } } },
+              },
+            },
+          },
+        },
       });
 
       const purchase = await tx.purchases.update({
         where:   { id_purchase: parseInt(id) },
         data:    { id_purchase_status: 3 },
-        include: supplierPurchaseWithDetailsInclude,
+        include: purchaseWithDetailsInclude,
       });
 
       await tx.purchase_details.updateMany({
@@ -134,14 +225,22 @@ export class SupplierPurchaseRepository {
         data:  { cancellation_reason: cancellationReason },
       });
 
-      for (const d of details) {
-        await tx.barcodes.update({
-          where: { id_barcode: d.id_barcode },
-          data:  { stock: { decrement: d.quantity } },
-        });
-      }
+      const stockReverts = details.flatMap((d) => {
+        const ids = d.barcodes?.products?.barcodes?.map((b) => b.id_barcode) ?? [];
+        return ids.map((barcodeId) => ({ id: barcodeId, qty: d.quantity }));
+      });
+
+      await Promise.all(
+        stockReverts.map(({ id, qty }) =>
+          tx.barcodes.update({
+            where: { id_barcode: id },
+            data:  { stock: { decrement: qty } },
+          })
+        )
+      );
 
       return purchase;
-    });
+
+    }, { timeout: 30000 });
   }
 }

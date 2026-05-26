@@ -1,9 +1,7 @@
 import { z } from 'zod';
 
-// ─── Purchase statuses ────────────────────────────────────────────────────────
+// ─── Statuses ─────────────────────────────────────────────────────────────────
 // 1 = Completada | 2 = Proc. devolución | 3 = Anulada
-
-// ─── Create supplier purchase validator ───────────────────────────────────────
 
 export const createSupplierPurchaseValidator = z.object({
   body: z.object({
@@ -16,12 +14,8 @@ export const createSupplierPurchaseValidator = z.object({
 
     purchaseDate: z.coerce
       .date({ required_error: 'La fecha de compra es obligatoria.' })
-      .refine((date) => date <= new Date(), {
-        message: 'La fecha de compra no puede ser futura.',
-      })
-      .refine((date) => date >= new Date('2000-01-01'), {
-        message: 'La fecha es demasiado antigua.',
-      }),
+      .refine((d) => d <= new Date(), { message: 'La fecha no puede ser futura.' })
+      .refine((d) => d >= new Date('2000-01-01'), { message: 'La fecha es demasiado antigua.' }),
 
     idProvider: z.coerce
       .number({ required_error: 'El proveedor es obligatorio.' })
@@ -31,33 +25,32 @@ export const createSupplierPurchaseValidator = z.object({
     details: z
       .array(
         z.object({
-          idBarcode: z.coerce
-            .number()
+          // Solo necesita el id del producto y la cantidad
+          idProduct: z.coerce
+            .number({ required_error: 'El ID del producto es obligatorio.' })
             .int()
-            .positive('El ID del código de barras debe ser un entero positivo.'),
+            .positive('El ID del producto debe ser un entero positivo.'),
+
           quantity: z.coerce
             .number()
             .int()
             .positive('La cantidad debe ser un entero positivo.'),
-          grossUnitPrice: z.coerce
-            .number()
-            .positive('El precio bruto unitario debe ser positivo.'),
-          taxPercentage: z.coerce
-            .number()
-            .min(0)
-            .max(100, 'El porcentaje de IVA debe estar entre 0 y 100.'),
-          batchCode: z
-            .string()
-            .trim()
-            .min(1, 'El código de lote es obligatorio.')
-            .max(50, 'El código de lote no puede superar los 50 caracteres.'),
+
+          // Códigos de barras extra opcionales — el usuario los escribe manualmente
+          extraBarcodes: z
+            .array(
+              z.string()
+                .trim()
+                .min(1, 'El código de barras no puede estar vacío.')
+                .max(100, 'El código de barras no puede superar los 100 caracteres.')
+            )
+            .optional()
+            .default([]),
         })
       )
       .min(1, 'La compra debe tener al menos un producto.'),
   }),
 });
-
-// ─── Annul supplier purchase validator ───────────────────────────────────────
 
 export const annulSupplierPurchaseValidator = z.object({
   params: z.object({
@@ -72,8 +65,6 @@ export const annulSupplierPurchaseValidator = z.object({
   }),
 });
 
-// ─── List supplier purchases validator (query filters) ────────────────────────
-
 export const getSupplierPurchasesValidator = z.object({
   query: z.object({
     page:      z.coerce.number().int().positive().default(1),
@@ -83,8 +74,6 @@ export const getSupplierPurchasesValidator = z.object({
     endDate:   z.coerce.date().optional(),
   }),
 });
-
-// ─── Get supplier purchase by id validator ───────────────────────────────────
 
 export const getSupplierPurchaseByIdValidator = z.object({
   params: z.object({
