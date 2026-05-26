@@ -2,8 +2,22 @@ import { prisma } from "../../../../config/prisma.js";
 
 // ─── Reusable includes ────────────────────────────────────────────────────────
 
+const productSelect = {
+  id_product: true,
+  name: true,
+  reference: true,
+  retail_price: true,
+  wholesale_price: true,
+  partner_price: true,
+  bulk_price: true,
+  iva_percentage: true,
+  description: true,
+  quantity_per_pack: true,
+};
+
 const productInclude = {
-  include: {
+  select: {
+    ...productSelect,
     categories: { select: { id_category: true, category_name: true } },
     unit_measures: { select: { id_unit_measure: true, name_unit_measure: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
@@ -11,9 +25,12 @@ const productInclude = {
       select: { id_barcode: true, barcode: true, barcode_type: true, stock: true },
       orderBy: { id_barcode: "asc" },
     },
+    product_images: {  // ← AGREGAR ESTO
+      select: { id_image: true, image_url: true, is_primary: true },
+      orderBy: { is_primary: 'desc' },
+    },
   },
 };
-
 // ─── Product repository ────────────────────────────────────────────────────────
 
 export class ProductRepository {
@@ -71,22 +88,29 @@ export class ProductRepository {
   }
 
   async create(data) {
-    return prisma.$transaction(async (tx) => {
-      // Crear producto
-      const product = await tx.products.create({
-        data: {
-          name: data.name,
-          reference: data.reference,
-          retail_price: parseFloat(data.retailPrice),
-          wholesale_price: parseFloat(data.wholesalePrice),
-          partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
-          bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
-          iva_percentage: parseFloat(data.ivaPercentage) || 0,
-          id_unit_measure: parseInt(data.idUnitMeasure),
-          id_category: parseInt(data.idCategory),
-          id_status: data.idStatus || 1,
-        },
-      });
+  return prisma.$transaction(async (tx) => {
+  const product = await tx.products.create({
+  data: {
+    name: data.name,
+    reference: data.reference,
+    retail_price: parseFloat(data.retailPrice),
+    wholesale_price: parseFloat(data.wholesalePrice),
+    partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
+    bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
+    iva_percentage: parseFloat(data.ivaPercentage) || 0,
+    description: data.description || null,
+    quantity_per_pack: parseInt(data.quantityPerPack) || 0,
+    categories: {
+      connect: { id_category: parseInt(data.idCategorie) }
+    },
+    general_statuses: {
+      connect: { id_status: data.idStatus || 1 }
+    },
+    unit_measures: {
+      connect: { id_unit_measure: parseInt(data.idUnitMeasure) }
+    }
+  },
+});
 
       // Crear barcodes asociados
       if (data.barcodes && data.barcodes.length > 0) {
@@ -108,62 +132,65 @@ export class ProductRepository {
     });
   }
 
-  async update(id, data) {
-    return prisma.$transaction(async (tx) => {
-      const updateData = {};
+async update(id, data) {
+  return prisma.$transaction(async (tx) => {
+    const updateData = {};
 
-      if (data.name !== undefined) updateData.name = data.name;
-      if (data.reference !== undefined) updateData.reference = data.reference;
-      if (data.retailPrice !== undefined) updateData.retail_price = parseFloat(data.retailPrice);
-      if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
-      if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
-      if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
-      if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
-      if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
-      if (data.idCategory !== undefined) updateData.id_category = parseInt(data.idCategory);
-      if (data.idStatus !== undefined) updateData.id_status = data.idStatus;
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.reference !== undefined) updateData.reference = data.reference;
+    if (data.retailPrice !== undefined) updateData.retail_price = parseFloat(data.retailPrice);
+    if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
+    if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
+    if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
+    if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
+    if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
+    if (data.idCategorie !== undefined) updateData.id_category = parseInt(data.idCategorie);  // ← Cambiar idCategory a idCategorie
+    if (data.idStatus !== undefined) updateData.id_status = data.idStatus;
+    if (data.description !== undefined) updateData.description = data.description;  // ← AGREGAR ESTO
+    if (data.quantityPerPack !== undefined) updateData.quantity_per_pack = parseInt(data.quantityPerPack);  // ← AGREGAR ESTO
 
-      // Actualizar producto
-      const updated = await tx.products.update({
-        where: { id_product: parseInt(id) },
-        data: updateData,
-      });
-
-      // Si vienen barcodes, reemplazar completamente
-      if (data.barcodes !== undefined) {
-        await tx.barcodes.deleteMany({ where: { id_product: parseInt(id) } });
-
-        if (data.barcodes.length > 0) {
-          await tx.barcodes.createMany({
-            data: data.barcodes.map((b) => ({
-              barcode: b.barcode,
-              barcode_type: b.barcode_type || "EAN13",
-              stock: parseInt(b.stock) || 0,
-              id_product: parseInt(id),
-            })),
-          });
-        }
-      }
-
-      return tx.products.findUnique({
-        where: { id_product: parseInt(id) },
-        ...productInclude,
-      });
-    });
-  }
-
-  async toggleStatus(id) {
-    const product = await this.findById(id);
-    if (!product) throw new Error("Producto no encontrado");
-
-    const newStatus = product.id_status === 1 ? 2 : 1;
-
-    return prisma.products.update({
+    // Actualizar producto
+    const updated = await tx.products.update({
       where: { id_product: parseInt(id) },
-      data: { id_status: newStatus },
+      data: updateData,
+    });
+
+    // Si vienen barcodes, reemplazar completamente
+    if (data.barcodes !== undefined) {
+      await tx.barcodes.deleteMany({ where: { id_product: parseInt(id) } });
+
+      if (data.barcodes.length > 0) {
+        await tx.barcodes.createMany({
+          data: data.barcodes.map((b) => ({
+            barcode: b.barcode,
+            barcode_type: b.barcode_type || "EAN13",
+            stock: parseInt(b.stock) || 0,
+            id_product: parseInt(id),
+          })),
+        });
+      }
+    }
+
+    return tx.products.findUnique({
+      where: { id_product: parseInt(id) },
       ...productInclude,
     });
-  }
+  });
+}
+
+  async toggleStatus(id) {
+  const product = await this.findById(id);
+  if (!product) throw new Error("Producto no encontrado");
+
+  // Cambiar: product.id_status → product.general_statuses.id_status
+  const newStatus = product.general_statuses.id_status === 1 ? 2 : 1;
+
+  return prisma.products.update({
+    where: { id_product: parseInt(id) },
+    data: { id_status: newStatus },
+    ...productInclude,
+  });
+}
 
   async delete(id) {
     return prisma.$transaction(async (tx) => {
@@ -192,4 +219,15 @@ export class ProductRepository {
 
     return barcodes.reduce((total, b) => total + (b.stock || 0), 0);
   }
+
+  async createProductImages(productId, imageUrls) {
+  return prisma.product_images.createMany({
+    data: imageUrls.map((url, idx) => ({
+      id_product: productId,
+      image_url: url,
+      is_primary: idx === 0,  // Primera imagen es principal
+    })),
+  });
 }
+}
+

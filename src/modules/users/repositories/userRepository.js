@@ -467,22 +467,27 @@ export class UserRepository {
 
     if (
       !employee ||
-      !employee.employee_roles
+      !Array.isArray(employee.employee_roles) ||
+      employee.employee_roles.length === 0
     ) {
-
       return {
-        user:
-          UserMapper.toDomain(
-            user
-          ),
+        user: UserMapper.toDomain(user),
         role: null,
-        permissions: []
+        permissions: [],
       };
     }
 
     const assignedPermission =
-      employee.employee_roles
-      .assigned_permissions;
+      employee.employee_roles[0]
+        ?.assigned_permissions;
+
+    if (!assignedPermission) {
+      return {
+        user: UserMapper.toDomain(user),
+        role: null,
+        permissions: [],
+      };
+    }
 
     const idRole =
       assignedPermission.id_role;
