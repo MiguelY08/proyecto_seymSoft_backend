@@ -1,10 +1,19 @@
+console.log('🚀 ARCHIVO CARGADO: createClientController.js');
+
+
 import { createClientUseCase } from '../use-cases/createClientUseCase.js';
 import { validateCreateClient } from '../validators/clientValidator.js';
 
+
+
 export const createClientController = async (req, res, next) => {
   try {
+    // 📥 LOG ANTES DE VALIDAR
+    console.log('📥 Body recibido en createClientController:', JSON.stringify(req.body, null, 2));
+    
     const validation = validateCreateClient(req.body);
     if (!validation.success) {
+      console.error('❌ Validación fallida:', JSON.stringify(validation.errors, null, 2));
       return res.status(400).json({ success: false, errors: validation.errors });
     }
 

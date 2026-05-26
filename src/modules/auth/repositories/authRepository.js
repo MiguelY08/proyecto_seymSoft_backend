@@ -31,13 +31,24 @@ export class AuthRepository {
     return await UserRepository.create(userData);
   }
 
-  static async updatePassword(idUser, hashedPassword) {
-    //  SE QUEDA AQUÍ - Solo Auth puede cambiar contraseña
-    return await prisma.users.update({
+static async updatePassword(idUser, hashedPassword) {
+  console.log("🔐 Actualizando usuario:", idUser);
+  console.log("🔐 Con hash:", hashedPassword.substring(0, 20) + "...");
+  
+  try {
+    const result = await prisma.users.update({
       where: { id_user: idUser },
       data: { pass_word: hashedPassword }
     });
+    
+    console.log("✅ Usuario actualizado:", result.id_user);
+    return result;
+    
+  } catch (error) {
+    console.error("❌ ERROR en updatePassword:", error.message);
+    throw error;
   }
+}
 
   static async createRefreshToken(idUser, token, expirationDate) {
     return await prisma.refresh_tokens.create({
@@ -89,6 +100,18 @@ export class AuthRepository {
     //  SE QUEDA AQUÍ - Específico de Auth
     return await prisma.password_resets.update({
       where: { token },
+      data: { used: true },
+    });
+  }
+
+  //  FIX: Invalida todos los tokens anteriores de un usuario
+  // Se llama antes de crear un nuevo token en ForgotPasswordUseCase
+  static async invalidatePreviousResets(idUser) {
+    return await prisma.password_resets.updateMany({
+      where: {
+        id_user: idUser,
+        used: false,
+      },
       data: { used: true },
     });
   }
