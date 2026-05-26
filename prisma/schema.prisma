@@ -256,6 +256,17 @@ model privileges {
   assigned_permissions assigned_permissions[]
 }
 
+model product_images {
+  id_image   Int       @id @default(autoincrement())
+  id_product Int
+  image_url  String    @db.VarChar(500)
+  is_primary Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  products   products  @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([id_product], map: "idx_product_images")
+}
+
 model product_providers {
   id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
   id_product          Int
@@ -542,15 +553,4 @@ model users {
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model product_images {
-  id_image   Int       @id @default(autoincrement())
-  id_product Int
-  image_url  String    @db.VarChar(500)
-  is_primary Boolean?  @default(false)
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  products   products  @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([id_product], map: "idx_product_images")
 }

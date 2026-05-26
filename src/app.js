@@ -37,6 +37,7 @@ const __dirname = path.dirname(
 app.use(cors());
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));  // ← AGREGAR ESTO
 
 app.use(morgan("dev"));
 
