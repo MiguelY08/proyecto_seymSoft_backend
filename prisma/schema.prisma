@@ -73,7 +73,7 @@ model clients {
   credit                Decimal?       @db.Decimal(10, 2)
   credit_balance        Decimal?       @db.Decimal(10, 2)
   doc_type              String?        @db.VarChar
-  doc_number            BigInt?
+  doc_number            String?        @db.VarChar(20)
   users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
@@ -553,4 +553,15 @@ model users {
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+}
+
+model product_images {
+  id_image   Int       @id @default(autoincrement())
+  id_product Int
+  image_url  String    @db.VarChar(500)
+  is_primary Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  products   products  @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([id_product], map: "idx_product_images")
 }

@@ -176,6 +176,13 @@ export class CategoryRepository {
     });
   }
 
+  async findAllSubcategories() {
+  return prisma.subcategories.findMany({
+    include: statusInclude,
+    orderBy: { name_subcategory: "asc" },
+  });
+}
+
   async updateSubcategory(id, data) {
     const updateData = {};
     if (data.name        !== undefined) updateData.name_subcategory = data.name;
