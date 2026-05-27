@@ -22,7 +22,10 @@ export const createUserSchema = z.object({
 
   idRole: z
     .number()
-    .int("El rol debe ser numérico")
+    .int()
+    .positive()
+    .optional()
+    .nullable()
 });
 
 export const validateCreateUser = (data) => {
