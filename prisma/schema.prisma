@@ -55,6 +55,7 @@ model categories {
   subcategories_count     Int?
   general_statuses        general_statuses?         @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "categorias_id_estado_fkey")
   non_conforming_products non_conforming_products[]
+  product_categories      product_categories[]
   products                products[]
   provider_categories     provider_categories[]
   subcategories           subcategories[]
@@ -303,8 +304,10 @@ model products {
   barcodes              barcodes[]
   order_details         order_details[]
   prd                   prd[]
+  product_categories    product_categories[]
   product_images        product_images[]
   product_providers     product_providers[]
+  product_subcategories product_subcategories[]
   product_unit_measures product_unit_measures[]
   categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
@@ -522,13 +525,14 @@ model sales_returns {
 }
 
 model subcategories {
-  id_subcategory   Int              @id(map: "subcategorias_pkey") @default(autoincrement())
-  name_subcategory String           @db.VarChar(100)
-  description      String?          @db.VarChar(250)
-  id_status        Int
-  id_category      Int
-  categories       categories       @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_categoria")
-  general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_estado")
+  id_subcategory        Int                     @id(map: "subcategorias_pkey") @default(autoincrement())
+  name_subcategory      String                  @db.VarChar(100)
+  description           String?                 @db.VarChar(250)
+  id_status             Int
+  id_category           Int
+  product_subcategories product_subcategories[]
+  categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_categoria")
+  general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_estado")
 }
 
 model unit_measures {
@@ -553,4 +557,30 @@ model users {
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+}
+
+model product_categories {
+  id_product_category Int        @id @default(autoincrement())
+  id_product          Int
+  id_category         Int
+  created_at          DateTime?  @default(now()) @db.Timestamp(6)
+  categories          categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction)
+  products            products   @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_product, id_category])
+  @@index([id_category], map: "idx_product_categories_category")
+  @@index([id_product], map: "idx_product_categories_product")
+}
+
+model product_subcategories {
+  id_product_subcategory Int           @id @default(autoincrement())
+  id_product             Int
+  id_subcategory         Int
+  created_at             DateTime?     @default(now()) @db.Timestamp(6)
+  products               products      @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+  subcategories          subcategories @relation(fields: [id_subcategory], references: [id_subcategory], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_product, id_subcategory])
+  @@index([id_product], map: "idx_product_subcategories_product")
+  @@index([id_subcategory], map: "idx_product_subcategories_subcategory")
 }

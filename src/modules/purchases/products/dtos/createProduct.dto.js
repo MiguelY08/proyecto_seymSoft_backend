@@ -12,7 +12,8 @@ export class CreateProductDto {
     this.description = data.description || null;
     this.quantityPerPack = parseInt(data.quantityPerPack) || 0;
     this.idStatus = data.idStatus || 1;
-
+    this.categories = data.categories || [];  // Array de ids de categorías
+    this.subcategories = data.subcategories || [];  // Array de ids de subcategorías
     // Construir barcodes desde FormData
     this.barcodes = [];
     

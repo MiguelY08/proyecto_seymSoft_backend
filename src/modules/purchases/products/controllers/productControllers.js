@@ -18,6 +18,18 @@ export const createProduct = async (req, res, next) => {
     console.log('📝 req.body:', req.body);
     
     const files = req.files || [];
+    
+    const categories = req.body['categories[]'] 
+      ? Array.isArray(req.body['categories[]']) 
+        ? req.body['categories[]'] 
+        : [req.body['categories[]']]
+      : [];
+
+    const subcategories = req.body['subcategories[]'] 
+      ? Array.isArray(req.body['subcategories[]']) 
+        ? req.body['subcategories[]'] 
+        : [req.body['subcategories[]']]
+      : [];
     const dto = new CreateProductDto(req.body);
 
     console.log(`📋 Recibido: ${files.length} archivos`);
@@ -61,10 +73,31 @@ export const getProductById = async (req, res, next) => {
 export const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const dto = new UpdateProductDto(req.body);
+
+    // ← AGREGAR ESTO: Mapear arrays de categorías y subcategorías
+    const categories = req.body['categories[]'] 
+      ? Array.isArray(req.body['categories[]']) 
+        ? req.body['categories[]'] 
+        : [req.body['categories[]']]
+      : req.body.categories || [];
+
+    const subcategories = req.body['subcategories[]'] 
+      ? Array.isArray(req.body['subcategories[]']) 
+        ? req.body['subcategories[]'] 
+        : [req.body['subcategories[]']]
+      : req.body.subcategories || [];
+
+    const dto = new UpdateProductDto({
+      ...req.body,
+      categories,
+      subcategories,
+    });
+
     const data = await new UpdateProductUseCase(repo).execute(parseInt(id), dto);
+
     res.status(httpCodes.OK).json({ success: true, data });
   } catch (err) {
+    console.error('❌ Error en updateProduct:', err.message);
     next(err);
   }
 };
