@@ -25,38 +25,34 @@ export const CreateUserController = async (
       validation.data;
 
     const result =
-  await createUserUseCase({
-    fullName: validatedData.fullName,
-    email: validatedData.email,
-    phone: validatedData.phone,
-    idRole: validatedData.idRole
-  });
+      await createUserUseCase({
+        fullName: validatedData.fullName,
+        email: validatedData.email,
+        phone: validatedData.phone,
+        idRole: validatedData.idRole
+      });
 
-if (!result.success) {
-  return res.status(400).json({
-    message: result.error
-  });
-}
+    if (!result.success) {
+      return res.status(400).json({
+        message: result.error
+      });
+    }
 
-// ✅ Obtener usuario completo con rol
-const userWithRole =
-  await UserRepository.getUserWithRole(
-    result.data.idUser
-  );
+    // ✅ Obtener usuario completo con rol
+    const userWithRole =
+      await UserRepository.getUserWithRole(
+        result.data.idUser
+      );
 
-return res.status(201).json({
-  message: "Usuario creado exitosamente",
-  user: userWithRole || {
-    user: result.data,
-    role: null,
-    permissions: [],
-  },
-});
+    return res.status(201).json({
+      message: "Usuario creado exitosamente",
+      user: userWithRole || {
+        user: result.data,
+        role: null,
+        permissions: [],
+      },
+    });
 
-return res.status(201).json({
-  message: "Usuario creado exitosamente",
-  user: userWithRole
-});
   } catch(error){
     console.error(
       "[CreateUserController]",

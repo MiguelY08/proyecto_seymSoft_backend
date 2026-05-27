@@ -127,35 +127,69 @@ export class UserRepository {
 
     const parsedPage = Number(page);
     const parsedLimit = Number(limit);
+    const searchTerm = search?.trim();
 
     const skip =
       (parsedPage - 1) * parsedLimit;
+
+    const isSearchingNoRole =
+      ["sin rol", "null", "nulo", "sin rol (null)"].includes(
+        searchTerm?.toLowerCase()
+      );
 
     // Construir filtros dinámicos
     const where = {
       ...(status && {
         id_status: Number(status)
       }),
-      ...(search && {
+      ...(searchTerm && {
         OR: [
           {
             full_name: {
-              contains: search,
+              contains: searchTerm,
               mode: "insensitive",
             },
           },
           {
             email: {
-              contains: search,
+              contains: searchTerm,
               mode: "insensitive",
             },
           },
 
           // Buscar por teléfono solo si es numérico
-          ...(!isNaN(search)
+          ...(!isNaN(searchTerm)
             ? [
                 {
-                  phone: BigInt(search),
+                  phone: BigInt(searchTerm),
+                },
+              ]
+            : []),
+
+          {
+            employees: {
+              employee_roles: {
+                assigned_permissions: {
+                  roles: {
+                    name_role: {
+                      contains: searchTerm,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          ...(isSearchingNoRole
+            ? [
+                {
+                  employees: null,
+                },
+                {
+                  employees: {
+                    employee_roles: null,
+                  },
                 },
               ]
             : []),
@@ -234,7 +268,7 @@ export class UserRepository {
     const usersWithRole = users.map((user) => {
       const roleData =
         user.employees
-          ?.employee_roles?.[0]
+          ?.employee_roles
           ?.assigned_permissions
           ?.roles || null;
 
@@ -304,7 +338,7 @@ export class UserRepository {
       },
     });
 
-    return employee?.employee_roles?.length > 0;
+    return Boolean(employee?.employee_roles);
   }
 
   static async findById(id) {
@@ -465,11 +499,7 @@ export class UserRepository {
         }
       });
 
-    if (
-      !employee ||
-      !Array.isArray(employee.employee_roles) ||
-      employee.employee_roles.length === 0
-    ) {
+    if (!employee || !employee.employee_roles) {
       return {
         user: UserMapper.toDomain(user),
         role: null,
@@ -478,7 +508,7 @@ export class UserRepository {
     }
 
     const assignedPermission =
-      employee.employee_roles[0]
+      employee.employee_roles
         ?.assigned_permissions;
 
     if (!assignedPermission) {

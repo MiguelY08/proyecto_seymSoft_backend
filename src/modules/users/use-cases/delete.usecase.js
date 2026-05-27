@@ -86,12 +86,21 @@ export const deleteUserUseCase = async (idUser) => {
 
         relationsTransferred.clients = clientsResult.count;
 
-        const employeesResult = await tx.employees.updateMany({
+        const employee = await tx.employees.findUnique({
           where: { id_user: parsedIdUser },
-          data: { id_user: SYSTEM_ID_USER },
         });
 
-        relationsTransferred.employees = employeesResult.count;
+        if (employee) {
+          await tx.employee_roles.deleteMany({
+            where: { id_employee: employee.id_employee },
+          });
+
+          await tx.employees.delete({
+            where: { id_employee: employee.id_employee },
+          });
+
+          relationsTransferred.employees = 1;
+        }
 
         const accessResult = await tx.access.updateMany({
           where: { id_user: parsedIdUser },
