@@ -1,5 +1,7 @@
 import { UserRepository } from "../repositories/userRepository.js";
 
+const SYSTEM_ID_USER = 999999999;
+
 /**
  * Use-Case: Actualizar estado del usuario
  * 
@@ -87,6 +89,15 @@ export const updateUserStatusUseCase = async (params) => {
         success: false,
         data: null,
         error: "Usuario no encontrado",
+      };
+    }
+
+    // Prevenir cambio de estado del usuario del sistema
+    if (parsedIdUser === SYSTEM_ID_USER) {
+      return {
+        success: false,
+        data: null,
+        error: "No se puede cambiar el estado del usuario del sistema",
       };
     }
 
