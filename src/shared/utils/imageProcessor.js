@@ -39,10 +39,10 @@ const OUTPUT_HEIGHT = 720;
 const WEBP_QUALITY = 85;
 
 // Bucket de Supabase (definido en .env)
-const BUCKET_NAME = process.env.SUPABASE_BUCKET;
+const BUCKET_NAME = process.env.SUPABASE_BUCKET_BANNERS;
 
 if (!BUCKET_NAME) {
-  throw new Error("Missing SUPABASE_BUCKET environment variable");
+  throw new Error("Missing SUPABASE_BUCKET_BANNERS environment variable");
 }
 
 /**
