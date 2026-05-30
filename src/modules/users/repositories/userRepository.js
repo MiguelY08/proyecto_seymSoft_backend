@@ -324,6 +324,34 @@ export class UserRepository {
     );
   }
 
+  static async getMetrics() {
+    const [
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+    ] = await Promise.all([
+      prisma.users.count(),
+
+      prisma.users.count({
+        where: {
+          id_status: 1,
+        },
+      }),
+
+      prisma.users.count({
+        where: {
+          id_status: 2,
+        },
+      }),
+    ]);
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+    };
+  }
+
   static async hasAssignedRoles(idUser) {
     const employee = await prisma.employees.findUnique({
       where: {

@@ -2,6 +2,7 @@ import express from "express";
 
 import { CreateUserController } from "../controllers/createUserController.js";
 import { GetUsersController } from "../controllers/getUsersController.js";
+import { GetUserMetricsController } from "../controllers/getUserMetricsController.js"
 import { GetUserByIdController } from "../controllers/getUserByIdController.js"
 import { UpdateUserController } from "../controllers/updateUserController.js";
 import { UpdateUserStatusController } from "../controllers/updateUserStatusController.js";
@@ -15,6 +16,9 @@ router.post("/", CreateUserController);
 
 // Obtener todos los usuarios
 router.get("/", GetUsersController);
+
+// Obtener métricas de usuarios
+router.get("/metrics", GetUserMetricsController);
 
 // Obtener usuario por ID
 router.get("/:id", GetUserByIdController);
