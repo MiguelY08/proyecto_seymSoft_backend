@@ -288,30 +288,34 @@ model product_unit_measures {
 }
 
 model products {
-  id_product            Int                     @id(map: "productos_pkey") @default(autoincrement())
-  name                  String                  @db.VarChar(255)
-  reference             String                  @unique(map: "productos_referencia_key") @db.VarChar(50)
-  retail_price          Decimal                 @db.Decimal(10, 2)
-  wholesale_price       Decimal                 @db.Decimal(10, 2)
-  id_unit_measure       Int
-  id_status             Int
-  partner_price         Decimal?                @db.Decimal(10, 2)
-  bulk_price            Decimal?                @db.Decimal(10, 2)
-  id_category           Int
-  iva_percentage        Decimal?                @default(0) @db.Decimal(5, 2)
-  description           String?                 @db.VarChar(500)
-  quantity_per_pack     Int?                    @default(0)
-  barcodes              barcodes[]
-  order_details         order_details[]
-  prd                   prd[]
-  product_categories    product_categories[]
-  product_images        product_images[]
-  product_providers     product_providers[]
-  product_subcategories product_subcategories[]
-  product_unit_measures product_unit_measures[]
-  categories            categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
-  general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
-  unit_measures         unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
+  id_product             Int                     @id(map: "productos_pkey") @default(autoincrement())
+  name                   String                  @db.VarChar(255)
+  reference              String                  @unique(map: "productos_referencia_key") @db.VarChar(50)
+  retail_price           Decimal                 @db.Decimal(10, 2)
+  wholesale_price        Decimal                 @db.Decimal(10, 2)
+  id_unit_measure        Int
+  id_status              Int
+  partner_price          Decimal?                @db.Decimal(10, 2)
+  bulk_price             Decimal?                @db.Decimal(10, 2)
+  id_category            Int
+  iva_percentage         Decimal?                @default(0) @db.Decimal(5, 2)
+  description            String?                 @db.VarChar(500)
+  quantity_per_pack      Int?                    @default(0)
+  retail_discount_pct    Decimal?                @default(0) @db.Decimal(5, 2)
+  wholesale_discount_pct Decimal?                @default(0) @db.Decimal(5, 2)
+  partner_discount_pct   Decimal?                @default(0) @db.Decimal(5, 2)
+  bulk_discount_pct      Decimal?                @default(0) @db.Decimal(5, 2)
+  barcodes               barcodes[]
+  order_details          order_details[]
+  prd                    prd[]
+  product_categories     product_categories[]
+  product_images         product_images[]
+  product_providers      product_providers[]
+  product_subcategories  product_subcategories[]
+  product_unit_measures  product_unit_measures[]
+  categories             categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
+  general_statuses       general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
+  unit_measures          unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
 }
 
 model provider_categories {
@@ -485,7 +489,7 @@ model sale_statuses {
 
 model sales {
   id_sale           Int             @id(map: "ventas_pkey") @default(autoincrement())
-  id_order          Int?            @unique(map: "ventas_id_pedido_key")
+  id_order          Int             @unique(map: "ventas_id_pedido_key")
   id_employe        Int
   id_payment_method Int
   subtotal          Decimal         @db.Decimal(12, 2)
@@ -496,7 +500,7 @@ model sales {
   employees         employees       @relation(fields: [id_employe], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_empleado_vendedor_fkey")
   sale_statuses     sale_statuses   @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_estado_venta_fkey")
   payment_methods   payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_metodo_pago_fkey")
-  sales_orders      sales_orders?   @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_pedido_fkey")
+  sales_orders      sales_orders    @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_pedido_fkey")
   sales_returns     sales_returns[]
 }
 

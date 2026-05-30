@@ -13,6 +13,10 @@ const productSelect = {
   iva_percentage: true,
   description: true,
   quantity_per_pack: true,
+  retail_discount_pct: true,
+  wholesale_discount_pct: true,
+  partner_discount_pct: true,
+  bulk_discount_pct: true,
 };
 
 const productInclude = {
@@ -112,6 +116,10 @@ export class ProductRepository {
         partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
         bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
         iva_percentage: parseFloat(data.ivaPercentage) || 0,
+        retail_discount_pct: parseFloat(data.retailDiscountPct) || 0,
+        wholesale_discount_pct: parseFloat(data.wholesaleDiscountPct) || 0,
+        partner_discount_pct: parseFloat(data.partnerDiscountPct) || 0,
+        bulk_discount_pct: parseFloat(data.bulkDiscountPct) || 0,
         description: data.description || null,
         quantity_per_pack: parseInt(data.quantityPerPack) || 0,
         categories: {
@@ -175,6 +183,14 @@ async update(id, data) {
     if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
     if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
     if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
+    if (data.retailDiscountPct !== undefined)
+    updateData.retail_discount_pct = parseFloat(data.retailDiscountPct);
+    if (data.wholesaleDiscountPct !== undefined)
+      updateData.wholesale_discount_pct = parseFloat(data.wholesaleDiscountPct);
+    if (data.partnerDiscountPct !== undefined)
+      updateData.partner_discount_pct = parseFloat(data.partnerDiscountPct);
+    if (data.bulkDiscountPct !== undefined)
+  updateData.bulk_discount_pct = parseFloat(data.bulkDiscountPct);
     if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
     if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
     if (data.idCategorie !== undefined) updateData.id_category = parseInt(data.idCategorie);  // ← Cambiar idCategory a idCategorie

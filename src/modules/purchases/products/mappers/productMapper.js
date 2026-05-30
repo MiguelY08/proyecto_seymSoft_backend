@@ -15,14 +15,18 @@ export const mapProduct = (product) => {
     wholesalePrice: product.wholesale_price,
     partnerPrice: product.partner_price,
     bulkPrice: product.bulk_price,
+    retailDiscountPct: product.retail_discount_pct,
+    wholesaleDiscountPct: product.wholesale_discount_pct,
+    partnerDiscountPct: product.partner_discount_pct,
+    bulkDiscountPct: product.bulk_discount_pct,
     ivaPercentage: product.iva_percentage,
     description: product.description,
     quantityPerPack: product.quantity_per_pack,
     totalStock,
-    category: product.categories ? {
-      id: product.categories.id_category,
-      name: product.categories.category_name,
-    } : null,
+    //category: product.categories ? {
+      //id: product.categories.id_category,
+      //name: product.categories.category_name,
+    //} : null,
     unitMeasure: product.unit_measures ? {
       id: product.unit_measures.id_unit_measure,
       name: product.unit_measures.name_unit_measure,

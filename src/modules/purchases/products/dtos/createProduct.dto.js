@@ -6,6 +6,10 @@ export class CreateProductDto {
     this.wholesalePrice = parseFloat(data.precioMayorista);
     this.partnerPrice = data.precioColegas ? parseFloat(data.precioColegas) : null;
     this.bulkPrice = data.precioPacas ? parseFloat(data.precioPacas) : null;
+    this.retailDiscountPct = parseFloat(data.retailDiscountPct) || 0;
+    this.wholesaleDiscountPct = parseFloat(data.wholesaleDiscountPct) || 0;
+    this.partnerDiscountPct = parseFloat(data.partnerDiscountPct) || 0;
+    this.bulkDiscountPct = parseFloat(data.bulkDiscountPct) || 0;
     this.ivaPercentage = parseFloat(data.ivaPercentage) || 0;
     this.idUnitMeasure = parseInt(data.idUnitMeasure) || 1;
     this.idCategorie = parseInt(data.idCategorie);

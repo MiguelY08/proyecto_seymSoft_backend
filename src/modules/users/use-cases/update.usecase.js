@@ -1,6 +1,8 @@
 import { UserRepository } from "../repositories/userRepository.js";
 import { prisma } from "../../../config/prisma.js";
 
+const SYSTEM_ID_USER = 999999999;
+
 /**
  * Use-Case: Actualizar usuario
  * 
@@ -13,9 +15,9 @@ import { prisma } from "../../../config/prisma.js";
  * - Retornar usuario actualizado con rol y permisos
  * 
  * Reglas de negocio:
- * - Si id_role es número: crear/actualizar employee y asignar rol
- * - Si id_role es null: eliminar employee y employee_roles
- * - Si id_role NO viene: no cambiar el rol
+ * - Si idRole es número: crear/actualizar employee y asignar rol
+ * - Si idRole es null: eliminar employee y employee_roles
+ * - Si idRole NO viene: no cambiar el rol
  * - No se puede actualizar: id, creationDate, password
  * 
  * @param {Object} params
@@ -24,7 +26,7 @@ import { prisma } from "../../../config/prisma.js";
  * @param {string} params.updateData.fullName - Nombre completo (opcional)
  * @param {string} params.updateData.email - Email (opcional)
  * @param {number} params.updateData.phone - Teléfono (opcional)
- * @param {number} params.updateData.id_role - ID del rol (opcional, null para eliminar)
+ * @param {number} params.updateData.idRole - ID del rol (opcional, null para eliminar)
  */
 export const updateUserUseCase = async (params) => {
   try {
@@ -64,6 +66,16 @@ export const updateUserUseCase = async (params) => {
       };
     }
 
+    // Prevenir actualización del usuario del sistema
+    if (parsedIdUser === SYSTEM_ID_USER) {
+      return {
+        success: false,
+        data: null,
+        error: "No se puede actualizar el usuario del sistema",
+        errorCode: "CANNOT_UPDATE_SYSTEM_USER",
+      };
+    }
+
     // Validar email único (si se está actualizando)
     if (updateData.email) {
       const existingEmail = await UserRepository.findByEmail(updateData.email);
@@ -79,7 +91,7 @@ export const updateUserUseCase = async (params) => {
     }
 
     // Separar datos de usuario y rol
-    const { id_role, ...userUpdateData } = updateData;
+    const { idRole, ...userUpdateData } = updateData;
 
     // Actualizar datos del usuario
     const updatedUser = await UserRepository.update(parsedIdUser, userUpdateData);
@@ -97,7 +109,7 @@ export const updateUserUseCase = async (params) => {
     // MANEJAR CAMBIOS DE ROL
     // ═══════════════════════════════════════════════════════════
 
-    if (id_role !== undefined) {
+    if (idRole !== undefined) {
       try {
         // Obtener employee actual
         let employee = await prisma.employees.findUnique({
@@ -105,8 +117,8 @@ export const updateUserUseCase = async (params) => {
           include: { employee_roles: true },
         });
 
-        if (id_role === null) {
-          // ✅ CASO 1: Eliminar rol (id_role = null)
+        if (idRole === null) {
+          // ✅ CASO 1: Eliminar rol (idRole = null)
           // Eliminar employee_roles primero (FK constraint)
           if (employee && employee.employee_roles) {
             await prisma.employee_roles.deleteMany({
@@ -122,18 +134,18 @@ export const updateUserUseCase = async (params) => {
           }
 
         } else {
-          // ✅ CASO 2: Asignar nuevo rol (id_role = número)
+          // ✅ CASO 2: Asignar nuevo rol (idRole = número)
 
           // Validar que el rol existe
           const roleExists = await prisma.roles.findUnique({
-            where: { id_role },
+            where: { id_role: idRole },
           });
 
           if (!roleExists) {
             return {
               success: false,
               data: null,
-              error: `El rol con ID ${id_role} no existe`,
+              error: `El rol con ID ${idRole} no existe`,
               errorCode: "ROLE_NOT_FOUND",
             };
           }
@@ -154,22 +166,21 @@ export const updateUserUseCase = async (params) => {
             where: { id_employee: employee.id_employee },
           });
 
-          // Obtener el PRIMER assigned_permission del nuevo rol
-          // (Según la estructura: 1 employee_role → 1 assigned_permission)
+          // Obtener el primer permiso del rol
           const rolePermission = await prisma.assigned_permissions.findFirst({
-            where: { id_role },
+            where: { id_role: idRole },
           });
 
           if (!rolePermission) {
             return {
               success: false,
               data: null,
-              error: `El rol con ID ${id_role} no tiene permisos asignados`,
+              error: `El rol con ID ${idRole} no tiene permisos asignados`,
               errorCode: "ROLE_NO_PERMISSIONS",
             };
           }
 
-          // Crear nuevo employee_roles con ese assigned_permission
+          // Crear employee_role
           await prisma.employee_roles.create({
             data: {
               id_employee: employee.id_employee,
