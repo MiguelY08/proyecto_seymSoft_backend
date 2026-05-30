@@ -4,42 +4,117 @@ import { UserMapper } from "../mappers/usersMapper.js";
 export class UserRepository {
 
   static async create(data) {
-    const user = await prisma.users.create({
-      data: {
-        id_google: data.idGoogle || null,
-        token_version: 0,
-        full_name: data.fullName,
-        email: data.email,
-        pass_word: data.password,
-        phone: data.phone,
-        id_status: data.idStatus,
-        token_version: 0
-      }
-    });
+    const user =
+      await prisma.users.create({
+        data: {
+          id_google:
+            data.idGoogle || null,
+          token_version: 0,
+          full_name:
+            data.fullName,
+          email:
+            data.email,
+          pass_word:
+            data.password,
+          phone:
+            data.phone,
+          id_status:
+            data.idStatus
+        }
+      });
 
-    return UserMapper.toDomain(user);
+    return UserMapper.toDomain(
+      user
+    );
   }
 
   /**
-   * Obtener todos los usuarios (sin paginación - DEPRECATED)
-   * Considera usar findAllWithFilters() en su lugar
+   * Asignar rol a usuario
    */
-  static async findAll() {
-    const users = await prisma.users.findMany({
-      select: {
-        id_user: true,
-        full_name: true,
-        email: true,
-        creation_date: true,
-        phone: true,
-        id_status: true,
+  static async assignRole(idUser, idRole) {
+    // Validar rol
+    const role = await prisma.roles.findUnique({
+      where: {
+        id_role: idRole,
       },
     });
 
-    return users.map(UserMapper.toDomain);
+    if (!role) {
+      throw new Error("Rol no encontrado");
+    }
+
+    // Buscar empleado asociado
+    let employee = await prisma.employees.findUnique({
+      where: {
+        id_user: idUser,
+      },
+    });
+
+    if (!employee) {
+      employee = await prisma.employees.create({
+        data: {
+          id_user: idUser,
+        },
+      });
+    }
+
+    // Obtener cualquier permiso del rol
+    const assignedPermission = await prisma.assigned_permissions.findFirst({
+      where: {
+        id_role: idRole,
+      },
+      orderBy: {
+        id_permission: "asc",
+      },
+    });
+
+    // Si el rol no tiene permisos, NO se crea employee_roles
+    // porque employee_roles depende de assigned_permissions.
+    if (!assignedPermission) {
+      return {
+        employee,
+        role,
+        assignedPermission: null,
+      };
+    }
+
+    const existingRole = await prisma.employee_roles.findFirst({
+      where: {
+        id_employee: employee.id_employee,
+      },
+    });
+
+    if (existingRole) {
+      return await prisma.employee_roles.update({
+        where: {
+          id_employee_role: existingRole.id_employee_role,
+        },
+        data: {
+          assigned_permissions: {
+            connect: {
+              id_permission: assignedPermission.id_permission,
+            },
+          },
+        },
+      });
+    }
+
+    return await prisma.employee_roles.create({
+      data: {
+        employees: {
+          connect: {
+            id_employee: employee.id_employee,
+          },
+        },
+        assigned_permissions: {
+          connect: {
+            id_permission: assignedPermission.id_permission,
+          },
+        },
+      },
+    });
   }
 
-  
   static async findAllWithFilters(filters = {}) {
     const {
       page = 1,
@@ -50,247 +125,483 @@ export class UserRepository {
       order = "desc",
     } = filters;
 
-    // Validar y convertir paginación
-    const pageNum = Math.max(1, page);
-    const limitNum = Math.min(Math.max(1, limit), 100); // Max 100 por seguridad
-    const skip = (pageNum - 1) * limitNum;
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+    const searchTerm = search?.trim();
 
-    // Construir condiciones WHERE dinámicamente
-    const where = {};
+    const skip =
+      (parsedPage - 1) * parsedLimit;
 
-    if (status !== undefined) {
-      where.id_status = status;
-    }
+    const isSearchingNoRole =
+      ["sin rol", "null", "nulo", "sin rol (null)"].includes(
+        searchTerm?.toLowerCase()
+      );
 
-    if (search) {
-      // Buscar en nombre o email
-      where.OR = [
-        { full_name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
-      ];
-    }
+    // Construir filtros dinámicos
+    const where = {
+      ...(status && {
+        id_status: Number(status)
+      }),
+      ...(searchTerm && {
+        OR: [
+          {
+            full_name: {
+              contains: searchTerm,
+              mode: "insensitive",
+            },
+          },
+          {
+            email: {
+              contains: searchTerm,
+              mode: "insensitive",
+            },
+          },
 
-    // Mapear sortBy a campo de BD
-    const sortFieldMap = {
-      name: "full_name",
-      email: "email",
-      date: "creation_date",
+          // Buscar por teléfono solo si es numérico
+          ...(!isNaN(searchTerm)
+            ? [
+                {
+                  phone: BigInt(searchTerm),
+                },
+              ]
+            : []),
+
+          {
+            employees: {
+              employee_roles: {
+                assigned_permissions: {
+                  roles: {
+                    name_role: {
+                      contains: searchTerm,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          ...(isSearchingNoRole
+            ? [
+                {
+                  employees: null,
+                },
+                {
+                  employees: {
+                    employee_roles: null,
+                  },
+                },
+              ]
+            : []),
+        ],
+      }),
     };
-    const sortField = sortFieldMap[sortBy] || "creation_date";
+    // Configurar ordenamiento
+    let orderBy = {
+      creation_date: "desc",
+    };
+    if (sortBy === "name") {
+      orderBy = {
+        full_name: order,
+      };
+    }
+    if (sortBy === "email") {
+      orderBy = {
+        email: order,
+      };
+    }
+    if (sortBy === "date") {
+      orderBy = {
+        creation_date: order,
+      };
+    }
 
-    // Validar order
-    const validOrder = order.toLowerCase() === "asc" ? "asc" : "desc";
+    // Consultas paralelas
+    const [users, total] =
+      await Promise.all([
+        prisma.users.findMany({
+          where,
+          select: {
+            id_user: true,
+            full_name: true,
+            email: true,
+            creation_date: true,
+            phone: true,
+            id_status: true,
 
-    // Ejecutar queries en paralelo
-    const [users, total] = await Promise.all([
-      prisma.users.findMany({
-        where,
+            clients: {
+              select: {
+                id_client: true,
+              },
+            },
+
+            employees: {
+              select: {
+                employee_roles: {
+                  select: {
+                    assigned_permissions: {
+                      select: {
+                        roles: {
+                          select: {
+                            id_role: true,
+                            name_role: true,
+                            description: true,
+                            id_status: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy,
+          skip,
+          take: parsedLimit,
+        }),
+        prisma.users.count({
+          where,
+        }),
+      ]);
+
+    const usersWithRole = users.map((user) => {
+      const roleData =
+        user.employees
+          ?.employee_roles
+          ?.assigned_permissions
+          ?.roles || null;
+
+      const { employees, clients, ...cleanUser } = user;
+
+      return {
+        ...cleanUser,
+        isClient: Array.isArray(clients)
+          ? clients.length > 0
+          : Boolean(clients),
+        role: roleData
+          ? {
+              idRole: roleData.id_role,
+              nameRole: roleData.name_role,
+              description: roleData.description,
+              idStatus: roleData.id_status,
+            }
+          : null,
+      };
+    });
+
+    const totalPages =
+      Math.ceil(total / parsedLimit);
+
+    return {
+      users: usersWithRole,
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      totalPages,
+      hasNextPage:
+        parsedPage < totalPages,
+      hasPrevPage:
+        parsedPage > 1,
+    };
+  }
+
+  static async findAll() {
+    const users =
+      await prisma.users.findMany({
         select: {
           id_user: true,
           full_name: true,
           email: true,
           creation_date: true,
           phone: true,
-          id_status: true,
+          id_status: true
+        }
+      });
+
+    return users.map(
+      UserMapper.toDomain
+    );
+  }
+
+  static async getMetrics() {
+    const [
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+    ] = await Promise.all([
+      prisma.users.count(),
+
+      prisma.users.count({
+        where: {
+          id_status: 1,
         },
-        orderBy: {
-          [sortField]: validOrder,
-        },
-        skip,
-        take: limitNum,
       }),
-      prisma.users.count({ where }),
+
+      prisma.users.count({
+        where: {
+          id_status: 2,
+        },
+      }),
     ]);
 
-    // Calcular datos de paginación
-    const totalPages = Math.ceil(total / limitNum);
-
     return {
-      users: users,
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages,
-      hasNextPage: pageNum < totalPages,
-      hasPrevPage: pageNum > 1,
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
     };
   }
 
+  static async hasAssignedRoles(idUser) {
+    const employee = await prisma.employees.findUnique({
+      where: {
+        id_user: Number(idUser),
+      },
+      select: {
+        employee_roles: {
+          select: {
+            id_employee_role: true,
+          },
+        },
+      },
+    });
+
+    return Boolean(employee?.employee_roles);
+  }
+
   static async findById(id) {
-    const user = await prisma.users.findUnique({
-      where: { id_user: id },
+    return await prisma.users.findUnique({
+      where: {
+        id_user: id
+      },
       select: {
         id_user: true,
         full_name: true,
         email: true,
         creation_date: true,
         phone: true,
-        id_status: true,
-      },
+        id_status: true
+      }
     });
-
-    return user;
   }
 
   static async findByEmail(email) {
-    const user = await prisma.users.findUnique({
-      where: { email: email }
-    });
-    return user;
-  }
-
-  static async update(id, data) {
-    const user = await prisma.users.update({
-      where: { id_user: id },
-      data: {
-        ...(data.fullName && { full_name: data.fullName }),
-        ...(data.email && { email: data.email }),
-        ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.idStatus && { id_status: data.idStatus }),
-      },
-    });
-
-    return UserMapper.toDomain(user);
-  }
-
-  static async updateStatus(id, idStatus) {
-    const user = await prisma.users.update({
-      where: { id_user: id },
-      data: {
-        id_status: idStatus
+    return await prisma.users.findUnique({
+      where: {
+        email
       }
     });
+  }
 
-    return UserMapper.toDomain(user);
+  static async update(
+    id,
+    data
+  ) {
+
+    const user =
+      await prisma.users.update({
+        where: {
+          id_user: id
+        },
+        data: {
+          ...(data.fullName && {
+            full_name:
+              data.fullName
+          }),
+          ...(data.email && {
+            email:
+              data.email
+          }),
+          ...(data.phone !== undefined && {
+            phone:
+              data.phone
+          }),
+          ...(data.idStatus && {
+            id_status:
+              data.idStatus
+          })
+        }
+      });
+
+    return UserMapper.toDomain(
+      user
+    );
+  }
+
+  static async updateStatus(
+    id,
+    idStatus
+  ) {
+
+    const user =
+      await prisma.users.update({
+        where: {
+          id_user: id
+        },
+        data: {
+          id_status:
+            idStatus
+        }
+      });
+
+    return UserMapper.toDomain(
+      user
+    );
   }
 
   static async delete(id) {
-    await prisma.users.delete({
-      where: { id_user: id }
-    });
+    // Eliminar relaciones primero
+    const employee =
+      await prisma.employees.findUnique({
+        where: {
+          id_user: id
+        }
+      });
 
+    if (employee) {
+      await prisma.employee_roles.deleteMany({
+        where: {
+          id_employee:
+            employee.id_employee
+        }
+      });
+
+      await prisma.employees.delete({
+        where: {
+          id_employee:
+            employee.id_employee
+        }
+      });
+    }
+
+    await prisma.users.delete({
+      where: {
+        id_user: id
+      }
+    });
     return true;
   }
 
   /**
- * Obtiene usuario con su rol y permisos
- * Maneja casos donde el usuario no tiene employee/rol
- */
+   * Obtener usuario con rol y permisos
+   */
+  static async getUserWithRole(
+    id_user
+  ) {
 
-/**
- * MÉTODO CORREGIDO PARA UserRepository
- * 
- * Obtiene usuario con su rol y permisos
- * Maneja el hecho de que employee_roles es singular (1-1)
- */
-
-/**
- * MÉTODO FINAL getUserWithRole para UserRepository
- * 
- * Obtiene usuario con su rol y TODOS los permisos del rol
- * 
- * Flujo:
- * 1. Obtén usuario
- * 2. Busca employee del usuario
- * 3. Si existe employee_roles → obtén assigned_permission
- * 4. De assigned_permission obtén id_role
- * 5. Obtén TODOS los assigned_permissions de ese role
- * 6. Retorna usuario con role completo y todos sus permisos
- */
-
-static async getUserWithRole(id_user) {
-  // 1. Obtén usuario
-  const user = await prisma.users.findUnique({
-    where: { id_user },
-    select: {
-      id_user: true,
-      full_name: true,
-      email: true,
-      phone: true,
-      id_status: true,
-      creation_date: true,
-      token_version: true,
-    },
-  });
-
-  if (!user) {
-    return null;
-  }
-
-  // 2. Busca employee vía id_user (relación UNIQUE)
-  const employee = await prisma.employees.findUnique({
-    where: { id_user },
-    include: {
-      employee_roles: {
-        include: {
-          assigned_permissions: {
-            include: {
-              roles: true,
-            },
-          },
+    const user =
+      await prisma.users.findUnique({
+        where: {
+          id_user
         },
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
+          phone: true,
+          id_status: true,
+          creation_date: true,
+          token_version: true
+        }
+      });
+
+    if (!user) {
+      return null;
+    }
+
+    const employee =
+      await prisma.employees.findUnique({
+        where: {
+          id_user
+        },
+        include: {
+          employee_roles: {
+            include: {
+              assigned_permissions: {
+                include: {
+                  roles: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+    if (!employee || !employee.employee_roles) {
+      return {
+        user: UserMapper.toDomain(user),
+        role: null,
+        permissions: [],
+      };
+    }
+
+    const assignedPermission =
+      employee.employee_roles
+        ?.assigned_permissions;
+
+    if (!assignedPermission) {
+      return {
+        user: UserMapper.toDomain(user),
+        role: null,
+        permissions: [],
+      };
+    }
+
+    const idRole =
+      assignedPermission.id_role;
+
+    const permissions =
+      await prisma.assigned_permissions.findMany({
+        where: {
+          id_role:
+            idRole
+        },
+        include: {
+          modules: true,
+          privileges: true
+        }
+      });
+
+    return {
+      user:
+        UserMapper.toDomain(
+          user
+        ),
+      role: {
+        idRole:
+          assignedPermission
+          .roles
+          .id_role,
+        nameRole:
+          assignedPermission
+          .roles
+          .name_role,
+        description:
+          assignedPermission
+          .roles
+          .description,
+        idStatus:
+          assignedPermission
+          .roles
+          .id_status
       },
-    },
-  });
-
-  // 3. Si NO existe employee → usuario sin rol (cliente)
-  if (!employee || !employee.employee_roles) {
-    return {
-      user: UserMapper.toDomain(user),
-      role: null,
-      permissions: [],
+      permissions:
+        permissions.map(
+          p => ({
+            idPermission:
+              p.id_permission,
+            idModule:
+              p.id_module,
+            module:
+              p.modules
+              .name_module,
+            idPrivilege:
+              p.id_privilege,
+            privilege:
+              p.privileges
+              .name_privilege
+          })
+        )
     };
   }
-
-  // 4. Obtén assigned_permission del employee_roles
-  const assignedPermission = employee.employee_roles.assigned_permissions;
-
-  // 5. Si NO tiene assigned_permission
-  if (!assignedPermission) {
-    return {
-      user: UserMapper.toDomain(user),
-      role: null,
-      permissions: [],
-    };
-  }
-
-  // 6. Obtén id_role de assigned_permission
-  const idRole = assignedPermission.id_role;
-  const role = assignedPermission.roles;
-
-  // 7. Obtén TODOS los assigned_permissions del rol
-  const allRolePermissions = await prisma.assigned_permissions.findMany({
-    where: { id_role: idRole },
-    include: {
-      modules: true,
-      privileges: true,
-    },
-  });
-
-  // 8. Mapea TODOS los permisos del rol
-  const permissions = allRolePermissions.map((perm) => ({
-    idPermission: perm.id_permission,
-    idRole: perm.id_role,
-    idModule: perm.id_module,
-    nameModule: perm.modules.name_module,
-    idPrivilege: perm.id_privilege,
-    namePrivilege: perm.privileges.name_privilege,
-  }));
-
-  // 9. Mapea rol
-  const mappedRole = role
-    ? {
-        idRole: role.id_role,
-        nameRole: role.name_role,
-        description: role.description,
-        idStatus: role.id_status,
-      }
-    : null;
-
-  return {
-    user: UserMapper.toDomain(user),
-    role: mappedRole,
-    permissions,
-  };
-}
 }

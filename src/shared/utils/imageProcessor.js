@@ -1,128 +1,314 @@
-// src/services/imageProcessor.js
+// src/shared/utils/imageProcessor.js
 import sharp from "sharp";
 import crypto from "crypto";
 import supabase from "../../config/supabaseClient.js";
 
 /**
- * ImageProcessor con Supabase Storage
+ * ImageProcessor reutilizable con Supabase Storage
  *
  * Responsabilidades:
  * - Validar imágenes reales usando Sharp
- * - Validar dimensiones mínimas
- * - Procesar imágenes (resize, compresión, conversión)
- * - Subir buffer a Supabase Storage
+ * - Validar dimensiones mínimas configurables
+ * - Procesar imágenes según el caso de uso
+ * - Convertir a WebP
+ * - Subir buffer al bucket indicado
  * - Obtener URL pública
- * - Eliminar imágenes del bucket
+ * - Eliminar imágenes del bucket indicado
  *
- * Especificaciones:
- * - Dimensiones mínimas requeridas: 1280x720
- * - Dimensiones finales: 1280x720
- * - Formato final: WebP
- * - Calidad WebP: 85
- * - Ajuste: cover + center
- *
- * Flujo:
- * 1. Validar buffer
- * 2. Validar imagen real con Sharp
- * 3. Validar dimensiones mínimas
- * 4. Generar nombre único
- * 5. Redimensionar y convertir a WebP → toBuffer()
- * 6. Subir buffer a Supabase Storage
- * 7. Obtener URL pública
- * 8. Retornar URL pública
+ * Casos de uso posibles:
+ * - Banners: 1280x720, fondo desenfocado, relación 16:9
+ * - Productos: 800x800, imagen cuadrada, sin fondo desenfocado
  */
 
-const MIN_WIDTH = 1280;
-const MIN_HEIGHT = 720;
-const OUTPUT_WIDTH = 1280;
-const OUTPUT_HEIGHT = 720;
-const WEBP_QUALITY = 85;
+const DEFAULT_CONFIG = {
+  minWidth: 300,
+  minHeight: 300,
 
-// Bucket de Supabase (definido en .env)
-const BUCKET_NAME = process.env.SUPABASE_BUCKET_BANNERS;
+  outputWidth: 800,
+  outputHeight: 800,
 
-if (!BUCKET_NAME) {
-  throw new Error("Missing SUPABASE_BUCKET_BANNERS environment variable");
-}
+  fit: "contain",
+  position: "center",
 
-/**
- * Genera nombre único para la imagen en el bucket
- * Formato: banner_[random].webp
- * @returns {string}
- */
-const generateUniqueFilename = () => {
-  const randomString = crypto.randomBytes(8).toString("hex");
-  return `banner_${randomString}.webp`;
+  webpQuality: 85,
+
+  withBlurBackground: false,
+  backgroundBlur: 24,
+  backgroundBrightness: 0.75,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "image",
 };
 
 /**
- * Procesa y sube la imagen a Supabase Storage
- * @param {Buffer} fileBuffer - Buffer de la imagen original
- * @returns {Promise<string>} URL pública de la imagen subida
- * @throws {Error}
+ * Configuración recomendada para banners/carrusel.
  */
-export const processAndSaveImage = async (fileBuffer) => {
-  try {
-    console.log(`[imageProcessor] Iniciando procesamiento de imagen`);
+export const BANNER_IMAGE_CONFIG = {
+  minWidth: 1280,
+  minHeight: 720,
 
-    // 1. Validar buffer
-    if (!fileBuffer || fileBuffer.length === 0) {
-      throw new Error("Buffer de imagen vacío o inválido");
+  outputWidth: 1280,
+  outputHeight: 720,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: true,
+  backgroundBlur: 24,
+  backgroundBrightness: 0.75,
+
+  prefix: "banner",
+};
+
+/**
+ * Configuración recomendada para productos.
+ */
+export const PRODUCT_IMAGE_CONFIG = {
+  minWidth: 300,
+  minHeight: 300,
+
+  outputWidth: 800,
+  outputHeight: 800,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 85,
+
+  withBlurBackground: false,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "product",
+};
+
+/**
+ * Genera nombre único para la imagen.
+ *
+ * @param {string} prefix
+ * @returns {string}
+ */
+const generateUniqueFilename = (prefix = "image") => {
+  const randomString = crypto.randomBytes(8).toString("hex");
+  return `${prefix}_${randomString}.webp`;
+};
+
+/**
+ * Valida que el bucket exista.
+ *
+ * @param {string} bucketName
+ */
+const validateBucketName = (bucketName) => {
+  if (!bucketName) {
+    throw new Error("El nombre del bucket de Supabase es obligatorio");
+  }
+};
+
+/**
+ * Extrae el nombre del archivo desde una URL pública de Supabase.
+ *
+ * @param {string} imgUrl
+ * @returns {string}
+ */
+const extractFilenameFromUrl = (imgUrl) => {
+  try {
+    const url = new URL(imgUrl);
+    const filename = url.pathname.split("/").pop();
+
+    if (!filename) {
+      throw new Error("No se pudo extraer el nombre del archivo de la URL");
     }
+
+    return filename;
+  } catch {
+    const urlParts = imgUrl.split("/");
+    const filename = urlParts[urlParts.length - 1];
+
+    if (!filename) {
+      throw new Error("No se pudo extraer el nombre del archivo de la URL");
+    }
+
+    return filename;
+  }
+};
+
+/**
+ * Valida que el archivo sea una imagen real y cumpla dimensiones mínimas.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Object>} metadata de Sharp
+ */
+const validateImage = async (fileBuffer, config) => {
+  if (!fileBuffer || fileBuffer.length === 0) {
+    throw new Error("Buffer de imagen vacío o inválido");
+  }
+
+  let metadata;
+
+  try {
+    metadata = await sharp(fileBuffer).metadata();
+  } catch {
+    throw new Error("El archivo proporcionado no es una imagen válida");
+  }
+
+  if (
+    !metadata.width ||
+    !metadata.height ||
+    metadata.width < config.minWidth ||
+    metadata.height < config.minHeight
+  ) {
+    throw new Error(
+      `La imagen debe tener mínimo ${config.minWidth}x${config.minHeight}px`
+    );
+  }
+
+  return metadata;
+};
+
+/**
+ * Crea una imagen con fondo desenfocado.
+ * Útil para banners cuando se quiere evitar recortes y barras laterales.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createImageWithBlurBackground = async (fileBuffer, config) => {
+  const backgroundBuffer = await sharp(fileBuffer)
+    .resize(config.outputWidth, config.outputHeight, {
+      fit: "cover",
+      position: config.position,
+    })
+    .blur(config.backgroundBlur)
+    .modulate({
+      brightness: config.backgroundBrightness,
+    })
+    .toBuffer();
+
+  const foregroundBuffer = await sharp(fileBuffer)
+    .resize(config.outputWidth, config.outputHeight, {
+      fit: "contain",
+      position: config.position,
+      background: {
+        r: 0,
+        g: 0,
+        b: 0,
+        alpha: 0,
+      },
+    })
+    .toBuffer();
+
+  return sharp(backgroundBuffer)
+    .composite([
+      {
+        input: foregroundBuffer,
+        gravity: "center",
+      },
+    ])
+    .webp({ quality: config.webpQuality })
+    .toBuffer();
+};
+
+/**
+ * Crea una imagen estándar.
+ * Útil para productos, categorías, miniaturas, etc.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createStandardImage = async (fileBuffer, config) => {
+  return sharp(fileBuffer)
+    .resize(config.outputWidth, config.outputHeight, {
+      fit: config.fit,
+      position: config.position,
+      background: config.background,
+    })
+    .webp({ quality: config.webpQuality })
+    .toBuffer();
+};
+
+/**
+ * Procesa una imagen según configuración.
+ *
+ * @param {Buffer} fileBuffer
+ * @param {Object} config
+ * @returns {Promise<Buffer>}
+ */
+const createProcessedImageBuffer = async (fileBuffer, config) => {
+  if (config.withBlurBackground) {
+    return createImageWithBlurBackground(fileBuffer, config);
+  }
+
+  return createStandardImage(fileBuffer, config);
+};
+
+/**
+ * Procesa y sube la imagen a Supabase Storage.
+ *
+ * @param {Buffer} fileBuffer - Buffer de la imagen original
+ * @param {Object} options
+ * @param {string} options.bucketName - Bucket destino en Supabase
+ * @param {Object} [options.config] - Configuración de procesamiento
+ * @returns {Promise<string>} URL pública de la imagen subida
+ */
+export const processAndSaveImage = async (
+  fileBuffer,
+  { bucketName, config = {} } = {}
+) => {
+  try {
+    validateBucketName(bucketName);
+
+    const finalConfig = {
+      ...DEFAULT_CONFIG,
+      ...config,
+    };
+
+    console.log("[imageProcessor] Iniciando procesamiento de imagen");
 
     console.log(
       `[imageProcessor] Tamaño original: ${(fileBuffer.length / 1024).toFixed(2)}KB`
     );
 
-    // 2. Validar imagen real con Sharp
-    let metadata;
-    try {
-      metadata = await sharp(fileBuffer).metadata();
-    } catch (error) {
-      throw new Error("El archivo proporcionado no es una imagen válida");
-    }
-
-    // 3. Validar dimensiones mínimas
-    if (
-      !metadata.width ||
-      !metadata.height ||
-      metadata.width < MIN_WIDTH ||
-      metadata.height < MIN_HEIGHT
-    ) {
-      throw new Error(
-        `La imagen debe tener mínimo ${MIN_WIDTH}x${MIN_HEIGHT}px`
-      );
-    }
+    const metadata = await validateImage(fileBuffer, finalConfig);
 
     console.log(
       `[imageProcessor] Dimensiones originales: ${metadata.width}x${metadata.height}`
     );
 
-    // 4. Generar nombre único
-    const filename = generateUniqueFilename();
-    console.log(`[imageProcessor] Nombre generado: ${filename}`);
+    const filename = generateUniqueFilename(finalConfig.prefix);
 
-    // 5. Procesar imagen (redimensionar + convertir a WebP) y obtener buffer
+    console.log(`[imageProcessor] Bucket destino: ${bucketName}`);
+    console.log(`[imageProcessor] Nombre generado: ${filename}`);
     console.log(
-      `[imageProcessor] Procesando imagen (${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}, WebP quality ${WEBP_QUALITY})`
+      `[imageProcessor] Procesando imagen (${finalConfig.outputWidth}x${finalConfig.outputHeight}, WebP quality ${finalConfig.webpQuality})`
     );
 
-    const processedBuffer = await sharp(fileBuffer)
-      .resize(OUTPUT_WIDTH, OUTPUT_HEIGHT, {
-        fit: "cover",
-        position: "center",
-        withoutEnlargement: true,
-      })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer(); // ⬅️ Cambiamos toFile() por toBuffer()
+    const processedBuffer = await createProcessedImageBuffer(
+      fileBuffer,
+      finalConfig
+    );
 
     console.log(
       `[imageProcessor] Tamaño después de procesar: ${(processedBuffer.length / 1024).toFixed(2)}KB`
     );
 
-    // 6. Subir buffer a Supabase Storage
-    const { data, error: uploadError } = await supabase.storage
-      .from(BUCKET_NAME)
+    const { error: uploadError } = await supabase.storage
+      .from(bucketName)
       .upload(filename, processedBuffer, {
         contentType: "image/webp",
         cacheControl: "3600",
@@ -133,47 +319,41 @@ export const processAndSaveImage = async (fileBuffer) => {
       throw new Error(`Error subiendo imagen a Supabase: ${uploadError.message}`);
     }
 
-    console.log(`[imageProcessor] Imagen subida exitosamente: ${filename}`);
-
-    // 7. Obtener URL pública
     const { data: publicUrlData } = supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucketName)
       .getPublicUrl(filename);
 
     const publicUrl = publicUrlData.publicUrl;
 
+    console.log(`[imageProcessor] Imagen subida exitosamente: ${filename}`);
     console.log(`[imageProcessor] URL pública generada: ${publicUrl}`);
 
-    // 8. Retornar URL pública (se guardará en la BD)
     return publicUrl;
-
   } catch (error) {
-    console.error(`[imageProcessor] Error procesando imagen:`, error.message);
+    console.error("[imageProcessor] Error procesando imagen:", error.message);
     throw new Error(`Error procesando imagen: ${error.message}`);
   }
 };
 
 /**
- * Elimina una imagen del bucket de Supabase
- * @param {string} imgUrl - URL pública de la imagen (o ruta dentro del bucket)
+ * Elimina una imagen del bucket de Supabase.
+ *
+ * @param {string} imgUrl - URL pública de la imagen
+ * @param {Object} options
+ * @param {string} options.bucketName - Bucket donde está almacenada la imagen
  * @returns {Promise<void>}
  */
-export const deleteImage = async (imgUrl) => {
+export const deleteImage = async (imgUrl, { bucketName } = {}) => {
   try {
-    // Extraer el nombre del archivo (último segmento de la URL)
-    // Ejemplo: https://xxx.supabase.co/storage/v1/object/public/banners/banner_abc123.webp
-    const urlParts = imgUrl.split('/');
-    const filename = urlParts[urlParts.length - 1];
+    validateBucketName(bucketName);
 
-    if (!filename) {
-      throw new Error("No se pudo extraer el nombre del archivo de la URL");
-    }
+    const filename = extractFilenameFromUrl(imgUrl);
 
+    console.log(`[imageProcessor] Bucket origen: ${bucketName}`);
     console.log(`[imageProcessor] Eliminando imagen del bucket: ${filename}`);
 
-    // Eliminar del bucket de Supabase
     const { error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucketName)
       .remove([filename]);
 
     if (error) {
@@ -181,35 +361,30 @@ export const deleteImage = async (imgUrl) => {
     }
 
     console.log(`[imageProcessor] Imagen eliminada exitosamente: ${filename}`);
-
   } catch (error) {
-    console.error(`[imageProcessor] Error eliminando imagen:`, error.message);
+    console.error("[imageProcessor] Error eliminando imagen:", error.message);
     throw new Error(`Error eliminando imagen: ${error.message}`);
   }
 };
 
 /**
- * Obtiene información de una imagen (opcional - adaptado para Supabase)
- * Nota: Como ahora trabajamos con URLs públicas, esta función puede no ser necesaria.
- * Se mantiene por compatibilidad, pero solo retorna información básica desde la URL.
+ * Obtiene información básica de una imagen.
+ *
  * @param {string} imgUrl - URL pública de la imagen
  * @returns {Object|null}
  */
 export const getImageInfo = async (imgUrl) => {
   try {
-    const urlParts = imgUrl.split('/');
-    const filename = urlParts[urlParts.length - 1];
+    const filename = extractFilenameFromUrl(imgUrl);
 
-    // Podríamos consultar metadata desde Supabase si es necesario, pero por ahora
-    // retornamos información mínima.
     return {
       filename,
       url: imgUrl,
-      exists: true, // Asumimos que existe (la validación real requeriría head() del storage)
+      exists: true,
       source: "supabase",
     };
   } catch (error) {
-    console.error(`[imageProcessor] Error obteniendo info:`, error.message);
+    console.error("[imageProcessor] Error obteniendo info:", error.message);
     return null;
   }
 };

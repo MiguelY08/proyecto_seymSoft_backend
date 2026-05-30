@@ -1,31 +1,39 @@
 import { LoginUseCase } from "../use-cases/loginUseCase.js";
 import { LoginDto } from "../dtos/loginDto.js";
-import { AuthResponseDto } from "../dtos/authResponseDto.js";
 import { loginSchema } from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/index.js";
 
 export class LoginController {
+
   static async login(req, res, next) {
     try {
-      // Validar input
-      const validation = loginSchema.safeParse(req.body);
+
+      const validation =
+        loginSchema.safeParse(req.body);
+
       if (!validation.success) {
-        throw new ValidationError("Validation failed", validation.error.errors);
+        throw new ValidationError(
+          "Validation failed",
+          validation.error.errors
+        );
       }
 
-      const loginDto = new LoginDto(validation.data);
+      const loginDto =
+        new LoginDto(validation.data);
 
-      // Ejecutar caso de uso
-      const result = await LoginUseCase.execute(loginDto);
+      const result =
+        await LoginUseCase.execute(
+          loginDto
+        );
 
-      const responseDto = new AuthResponseDto(result);
-
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
-        data: responseDto,
+        data: result
       });
-    } catch (error) {
+
+    } catch(error){
       next(error);
     }
   }
+
 }

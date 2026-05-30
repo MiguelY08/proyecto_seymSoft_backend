@@ -15,11 +15,12 @@ import userRoutes from "./modules/users/routes/userRoutes.js";
 import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
 
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
-import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js"
+import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js";
+import clientRoutes from './modules/sales/clients/routes/clientRoutes.js';
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 
+
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
-import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 
 const app = express();
 
@@ -36,6 +37,7 @@ const __dirname = path.dirname(
 app.use(cors());
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));  // ← AGREGAR ESTO
 
 app.use(morgan("dev"));
 
@@ -67,6 +69,7 @@ app.get("/api/health", (req, res) => {
  */
 app.use("/auth", authRoutes);
 /* Rutas de autenticación */
+app.use("/auth", authRoutes);
 app.use("/api/auth", authRoutes);  
 
 /**
@@ -88,17 +91,13 @@ app.use("/api/products", productRoutes);
  */
 app.use("/api/banners", bannerRoutes);
 
-/**
- * Rutas de clientes
- */
-app.use("/api/clients", clientRoutes)
-
-/**
- * Middleware global de errores
- * SIEMPRE al final
- */
+/* Rutas de proveedores */
+app.use('/api/clients', clientRoutes);
 /* Rutas de Roles */
 app.use("/api/roles", roleRoutes);
+
+/* Rutas de clientes */
+app.use("/api/clients", clientRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

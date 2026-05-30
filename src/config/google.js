@@ -2,7 +2,6 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { UserRepository } from '../modules/users/repositories/userRepository.js';
 import { EmailService } from '../shared/services/emailService.js';
-import { id } from 'zod/locales';
 
 passport.use(
   new GoogleStrategy(
@@ -18,17 +17,14 @@ passport.use(
         const googleId = profile.id;
 
         if (!email) {
-          return done(
-            new Error('No email from Google'),
-            null,
-          );
+          return done(new Error('No email from Google'), null);
         }
 
-        // Buscar usuario existente
+        // Buscar usuario existente por email
         let user = await UserRepository.findByEmail(email);
 
-        // Si no existe, crearlo
         if (!user) {
+          // ✅ CASO 1: Usuario nuevo → crear cuenta
           user = await UserRepository.create({
             idGoogle: googleId,
             fullName: fullName,
@@ -38,31 +34,28 @@ passport.use(
             idStatus: 1,
           });
 
-          // Enviar welcome email
           try {
-            await EmailService.sendLandingWelcomeEmail(
-              user.email,
-              user.fullName,
-            );
-
-            console.log(
-              `✅ Google welcome email sent to ${user.email}`,
-            );
+            await EmailService.sendLandingWelcomeEmail(user.email, user.fullName);
+            console.log(`✅ Google welcome email sent to ${user.email}`);
           } catch (emailError) {
-            console.error(
-              `❌ Failed to send Google welcome email:`,
-              emailError.message,
-            );
+            console.error(`❌ Failed to send Google welcome email:`, emailError.message);
           }
+
+        } else if (!user.idGoogle) {
+          // ✅ CASO 2: Usuario existente con cuenta normal → vincular Google
+          // Actualiza el idGoogle para que en el futuro reconozca esta cuenta
+          user = await UserRepository.update(user.idUser, {
+            idGoogle: googleId,
+          });
+          console.log(`✅ Google account linked to existing user: ${email}`);
+
         }
+        // ✅ CASO 3: Usuario existente con Google → login normal, no hacer nada
 
         return done(null, user);
-      } catch (error) {
-        console.error(
-          'Error en Google Strategy:',
-          error,
-        );
 
+      } catch (error) {
+        console.error('Error en Google Strategy:', error);
         return done(error, null);
       }
     },
@@ -70,20 +63,16 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
-  done(null, user.idUser);  // ← Cambiar a idUser (mapeado)
+  done(null, user.idUser);
 });
 
-passport.deserializeUser(
-  async (id_user, done) => {
-    try {
-      const user =
-        await UserRepository.findById(id_user);
-
-      done(null, user);
-    } catch (error) {
-      done(error, null);
-    }
-  },
-);
+passport.deserializeUser(async (id_user, done) => {
+  try {
+    const user = await UserRepository.findById(id_user);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 export default passport;

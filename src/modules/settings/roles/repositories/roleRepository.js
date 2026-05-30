@@ -161,6 +161,42 @@ export class RoleRepository {
   }
 
   /**
+ * Obtener módulos por IDs
+ */
+static async findModulesByIds(ids) {
+  return await prisma.modules.findMany({
+    where: {
+      id_module: {
+        in: ids,
+      },
+    },
+  });
+}
+
+/**
+ * Obtener privilegios por IDs
+ */
+static async findPrivilegesByIds(ids) {
+  return await prisma.privileges.findMany({
+    where: {
+      id_privilege: {
+        in: ids,
+      },
+    },
+  });
+}
+
+/**
+ * Crear múltiples permisos de una vez
+ */
+static async createManyAssignedPermissions(permissions) {
+  return await prisma.assigned_permissions.createMany({
+    data: permissions,
+    skipDuplicates: true,
+  });
+}
+
+  /**
    * Crear permisos asignados a un rol
    */
   static async createAssignedPermission(permissionData) {
@@ -240,4 +276,78 @@ export class RoleRepository {
       },
     });
   }
+
+  /**
+ * Eliminar employee_roles relacionados a un rol
+ * Evita errores de FK antes de borrar permisos
+ */
+static async deleteEmployeeRolesByRole(id_role) {
+  return await prisma.employee_roles.deleteMany({
+    where: {
+      assigned_permissions: {
+        id_role,
+      },
+    },
+  });
+}
+
+/**
+ * Ejecutar actualización completa en transacción
+ */
+static async updateRolePermissionsTransaction(
+  id_role,
+  roleData,
+  permissions
+) {
+  return await prisma.$transaction(async (tx) => {
+
+    // Actualizar rol
+    await tx.roles.update({
+      where: { id_role },
+      data: {
+        name_role: roleData.name_role,
+        description: roleData.description || null,
+      },
+    });
+
+    // Primero eliminar employee_roles dependientes
+    await tx.employee_roles.deleteMany({
+      where: {
+        assigned_permissions: {
+          id_role,
+        },
+      },
+    });
+
+    // Después eliminar permisos
+    await tx.assigned_permissions.deleteMany({
+      where: {
+        id_role,
+      },
+    });
+
+    // Crear permisos nuevos
+    if (permissions.length > 0) {
+      await tx.assigned_permissions.createMany({
+        data: permissions,
+        skipDuplicates: true,
+      });
+    }
+
+    // Obtener rol actualizado
+    return await tx.roles.findUnique({
+      where: { id_role },
+      include: {
+        assigned_permissions: {
+          include: {
+            modules: true,
+            privileges: true,
+          },
+        },
+        general_statuses: true,
+      },
+    });
+
+  });
+}
 }
