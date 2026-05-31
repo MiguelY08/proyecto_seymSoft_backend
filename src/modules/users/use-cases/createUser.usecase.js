@@ -23,14 +23,12 @@ const generateRandomPassword = () => {
       )
     );
   }
-
   return password;
 };
 
 export const createUserUseCase = async (userData) => {
 
   try {
-
     const {
       fullName,
       email,
@@ -41,10 +39,9 @@ export const createUserUseCase = async (userData) => {
     // ======================
     // Validar campos
     // ======================
-
     if (
       !fullName ||
-      !email 
+      !email
     ) {
 
       return {
@@ -53,33 +50,27 @@ export const createUserUseCase = async (userData) => {
         error: "Faltan campos obligatorios",
         errorCode: "VALIDATION_ERROR"
       };
-
     }
 
     // ======================
     // Validar email duplicado
     // ======================
-
     const existingEmail =
       await UserRepository.findByEmail(
         email
       );
-
     if (existingEmail) {
-
       return {
         success: false,
         data: null,
         error: "El email ya está registrado",
         errorCode: "DUPLICATE_EMAIL"
       };
-
     }
 
     // ======================
     // Generar contraseña
     // ======================
-
     const tempPassword =
       generateRandomPassword();
 
@@ -91,23 +82,16 @@ export const createUserUseCase = async (userData) => {
     // ======================
     // Crear usuario
     // ======================
-
     const newUser =
       await UserRepository.create({
-
         fullName:
           fullName,
-
         email,
-
         password:
           hashedPassword,
-
         phone:
           phone || null,
-
         idStatus: 1
-
       });
 
     // ======================
@@ -137,77 +121,55 @@ export const createUserUseCase = async (userData) => {
         newUser.idUser,
         idRole
       );
-
     }
 
     // ======================
     // Enviar correo
     // ======================
-
     try {
-
       await EmailService.sendWelcomeEmail(
         email,
         tempPassword,
-        full_name,
+        fullName,
         process.env.FRONTEND_URL
       );
-
     } catch (emailError) {
-
       console.log(
         "Error email:",
         emailError.message
       );
 
       return {
-
         success: true,
-
         data: newUser,
-
         error:
           "Usuario creado pero el email falló",
-
         errorCode:
           "EMAIL_SEND_ERROR"
-
       };
-
     }
 
     return {
-
       success: true,
       data: newUser,
       error: null,
       errorCode: null
-
     };
-
   } catch (error) {
-
     console.error(
       "[CreateUserUseCase]",
       error
     );
 
     return {
-
       success: false,
-
       data: null,
-
       error:
         error.message,
-
       errorCode:
         "DATABASE_ERROR"
-
     };
-
   }
-
 };
 
 export const create =

@@ -1,8 +1,18 @@
 /**
  * ROLE PERMISSION RULES
  *
- * Define qué privilegios son válidos
- * para cada módulo.
+ * Define qué privilegios son válidos para cada módulo.
+ *
+ * Organización:
+ * 1. Gestión de Usuarios y Roles (CRUD completo)
+ * 2. Gestión de Entidades (CRUD completo)
+ * 3. Gestión de Inventario
+ * 4. Operaciones de Compra
+ * 5. Operaciones de Venta
+ * 6. Devoluciones
+ * 7. Finanzas
+ * 8. Contenido
+ * 9. Reportes
  *
  * Se reutiliza en:
  * - CreateRoleUseCase
@@ -12,14 +22,17 @@
 
 export const ROLE_PERMISSION_RULES = {
 
+  // ═════════════════════════════════════════════════════════════════
+  // GESTIÓN DE USUARIOS Y ROLES (CRUD Completo)
+  // ═════════════════════════════════════════════════════════════════
+
   Usuarios: [
     "CREATE",
     "READ",
     "READ_DETAIL",
     "UPDATE",
     "DELETE",
-    "ACTIVATE_DEACTIVATE",
-    "EXPORT"
+    "ACTIVATE_DEACTIVATE"
   ],
 
   Roles: [
@@ -31,15 +44,31 @@ export const ROLE_PERMISSION_RULES = {
     "ACTIVATE_DEACTIVATE"
   ],
 
+  // ═════════════════════════════════════════════════════════════════
+  // GESTIÓN DE ENTIDADES (CRUD Completo)
+  // ═════════════════════════════════════════════════════════════════
+
   Clientes: [
     "CREATE",
     "READ",
     "READ_DETAIL",
     "UPDATE",
     "DELETE",
-    "ACTIVATE_DEACTIVATE",
-    "EXPORT"
+    "ACTIVATE_DEACTIVATE"
   ],
+
+  Proveedores: [
+    "CREATE",
+    "READ",
+    "READ_DETAIL",
+    "UPDATE",
+    "DELETE",
+    "ACTIVATE_DEACTIVATE"
+  ],
+
+  // ═════════════════════════════════════════════════════════════════
+  // GESTIÓN DE INVENTARIO
+  // ═════════════════════════════════════════════════════════════════
 
   Productos: [
     "CREATE",
@@ -56,18 +85,23 @@ export const ROLE_PERMISSION_RULES = {
     "READ",
     "READ_DETAIL",
     "UPDATE",
-    "DELETE"
+    "DELETE",
+    "ACTIVATE_DEACTIVATE"
   ],
 
-  Proveedores: [
+  Producto_no_conforme: [
     "CREATE",
     "READ",
     "READ_DETAIL",
     "UPDATE",
     "DELETE",
-    "ACTIVATE_DEACTIVATE",
-    "CONTACTAR"
+    "EXPORT",
+    "ANULAR"
   ],
+
+  // ═════════════════════════════════════════════════════════════════
+  // OPERACIONES DE COMPRA
+  // ═════════════════════════════════════════════════════════════════
 
   Compras: [
     "CREATE",
@@ -76,16 +110,21 @@ export const ROLE_PERMISSION_RULES = {
     "UPDATE",
     "ANULAR",
     "DEVOLVER",
-    "EXPORT"
+    "EXPORT",
+    "CREAR_DEVOLUCION"
   ],
 
-  Producto_no_conforme: [
-    "CREATE",
+  Devoluciones_en_compras: [
     "READ",
     "READ_DETAIL",
     "UPDATE",
-    "DELETE"
+    "ANULAR",
+    "EXPORT"
   ],
+
+  // ═════════════════════════════════════════════════════════════════
+  // OPERACIONES DE VENTA
+  // ═════════════════════════════════════════════════════════════════
 
   Pedidos: [
     "CREATE",
@@ -102,8 +141,13 @@ export const ROLE_PERMISSION_RULES = {
     "READ_DETAIL",
     "UPDATE",
     "ANULAR",
-    "EXPORT"
+    "EXPORT",
+    "CREAR_DEVOLUCION"
   ],
+
+  // ═════════════════════════════════════════════════════════════════
+  // DEVOLUCIONES EN VENTAS
+  // ═════════════════════════════════════════════════════════════════
 
   Devoluciones_en_ventas: [
     "CREATE",
@@ -111,8 +155,12 @@ export const ROLE_PERMISSION_RULES = {
     "READ_DETAIL",
     "UPDATE",
     "ANULAR",
-    "CREAR_DEVOLUCION"
+    "EXPORT"
   ],
+
+  // ═════════════════════════════════════════════════════════════════
+  // FINANZAS
+  // ═════════════════════════════════════════════════════════════════
 
   Pagos_y_abonos: [
     "READ",
@@ -120,31 +168,33 @@ export const ROLE_PERMISSION_RULES = {
     "ABONAR",
     "GENERAR_INTERES",
     "CONTACTAR",
-    "EXPORT"
+    "EXPORT",
+    "DESCARGAR",
+    "ANULAR"
   ],
 
+  // ═════════════════════════════════════════════════════════════════
+  // CONTENIDO
+  // ═════════════════════════════════════════════════════════════════
+
   Banners: [
-    "CREATE",
     "READ",
     "READ_DETAIL",
     "UPDATE",
     "DELETE",
     "ORDENAR",
-    "SUBIR_IMAGEN"
+    "SUBIR_IMAGEN",
+    "ACTIVATE_DEACTIVATE"
   ],
 
-  Devoluciones_en_compras: [
-    "CREATE",
-    "READ",
-    "READ_DETAIL",
-    "UPDATE",
-    "ANULAR",
-    "DEVOLVER"
-  ],
+  // ═════════════════════════════════════════════════════════════════
+  // REPORTES Y DASHBOARD
+  // ═════════════════════════════════════════════════════════════════
 
   Dashboard: [
-    "READ",
-    "EXPORT"
+    "READ"
   ]
 
 };
+
+export default ROLE_PERMISSION_RULES;

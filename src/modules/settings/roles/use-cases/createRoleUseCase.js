@@ -11,7 +11,7 @@ export class CreateRoleUseCase {
 
   static async execute(roleData) {
 
-    // Validar nombre duplicado
+    // ✅ PASO 1: Validar nombre duplicado
     const existingRole =
       await RoleRepository.findRoleByName(
         roleData.name_role
@@ -23,58 +23,46 @@ export class CreateRoleUseCase {
       );
     }
 
-    // Crear rol
-    const newRole =
-      await RoleRepository.createRole(roleData);
-
-    // Obtener IDs únicos
+    // ✅ PASO 2: Obtener módulos y privilegios
     const moduleIds = [
       ...new Set(
-        roleData.permissions.map(
-          p => p.id_module
-        )
+        roleData.permissions.map(p => p.id_module)
       )
     ];
 
     const privilegeIds = [
       ...new Set(
-        roleData.permissions.map(
-          p => p.id_privilege
-        )
+        roleData.permissions.map(p => p.id_privilege)
       )
     ];
 
-    // Consultar una sola vez
     const modules =
-      await RoleRepository.findModulesByIds(
-        moduleIds
-      );
+      await RoleRepository.findModulesByIds(moduleIds);
 
     const privileges =
-      await RoleRepository.findPrivilegesByIds(
-        privilegeIds
-      );
+      await RoleRepository.findPrivilegesByIds(privilegeIds);
 
-    // Validar módulos
+    // ✅ PASO 3: Validar permisos ANTES de crear
     validateRolePermissions(
       roleData.permissions,
       modules,
       privileges
     );
 
+    // ✅ PASO 4: AHORA sí crear el rol (sabemos que es válido)
+    const newRole =
+      await RoleRepository.createRole(roleData);
 
-    // Crear todos los permisos juntos
+    // ✅ PASO 5: Crear permisos
     await RoleRepository.createManyAssignedPermissions(
-
       roleData.permissions.map(permission => ({
         id_role: newRole.id_role,
         id_module: permission.id_module,
         id_privilege: permission.id_privilege
       }))
-
     );
 
-    // Obtener rol completo
+    // ✅ PASO 6: Obtener rol completo
     const role =
       await RoleRepository.findRoleById(
         newRole.id_role

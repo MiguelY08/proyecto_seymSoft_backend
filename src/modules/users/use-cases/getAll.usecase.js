@@ -100,13 +100,20 @@ export const getAllUsersUseCase = async (filters = {}) => {
       };
     }
 
-    // Mapear usuarios de formato BD a formato limpio
     const mappedUsers = result.users.map((user) => {
       if (!user || Object.keys(user).length === 0) {
         return null;
       }
+
       try {
-        return UserMapper.toDomain(user);
+        const mappedUser = UserMapper.toDomain(user);
+
+        return {
+          ...mappedUser,
+          role: user.role || null,
+          isClient: user.isClient || false,
+        };
+
       } catch (mapError) {
         console.error("[DEBUG] Error mapping user:", mapError.message);
         return null;

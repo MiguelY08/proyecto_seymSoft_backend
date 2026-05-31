@@ -1,6 +1,7 @@
-import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaClient } from "@prisma/client";
 import { ROLE_PERMISSION_RULES } 
-from "../src/features/roles/constants/rolePermissionRules.js";
+from "../src/modules/settings/roles/constants/rolePermissionRules.js";
+
 
 const prisma = new PrismaClient();
 
@@ -23,26 +24,26 @@ async function main() {
       });
     }
 
-    console.log("Estados creados");
+    console.log("✅ Estados creados");
 
     // ==================== MÓDULOS ====================
 
     const modules = [
-      ["Usuarios","Gestión de usuarios"],
-      ["Roles","Gestión de roles"],
+      ["Usuarios","Gestión de usuarios del sistema"],
+      ["Roles","Gestión de roles y permisos"],
       ["Clientes","Gestión de clientes"],
       ["Productos","Gestión de productos"],
-      ["Categorias","Gestión categorías"],
-      ["Proveedores","Gestión proveedores"],
-      ["Compras","Gestión compras"],
-      ["Producto_no_conforme","Productos no conformes"],
-      ["Pedidos","Gestión pedidos"],
-      ["Ventas","Gestión ventas"],
-      ["Devoluciones_en_ventas","Devoluciones ventas"],
-      ["Pagos_y_abonos","Pagos y abonos"],
-      ["Banners","Gestión banners"],
-      ["Devoluciones_en_compras","Devoluciones compras"],
-      ["Dashboard","Dashboard"],
+      ["Categorias","Gestión de categorías y subcategorías"],
+      ["Proveedores","Gestión de proveedores"],
+      ["Compras","Gestión de compras"],
+      ["Producto_no_conforme","Gestión de productos no conformes"],
+      ["Pedidos","Gestión de pedidos"],
+      ["Ventas","Gestión de ventas"],
+      ["Devoluciones_en_ventas","Gestión de devoluciones en ventas"],
+      ["Pagos_y_abonos","Gestión de pagos y abonos"],
+      ["Banners","Gestión de banners"],
+      ["Devoluciones_en_compras","Gestión de devoluciones en compras"],
+      ["Dashboard","Dashboard y reportes generales"],
     ];
 
     const createdModules=[];
@@ -61,28 +62,29 @@ async function main() {
       createdModules.push(module);
     }
 
-    console.log(`${createdModules.length} módulos creados`);
+    console.log(`✅ ${createdModules.length} módulos creados`);
 
     // ==================== PRIVILEGIOS ====================
 
+    // ✅ REMOVER DUPLICADO DE "DESCARGAR"
     const privileges = [
-      ["CREATE","Crear registros"],
-      ["READ","Ver listado"],
-      ["READ_DETAIL","Ver detalle"],
-      ["UPDATE","Editar"],
-      ["DELETE","Eliminar"],
-      ["ACTIVATE_DEACTIVATE","Activar/desactivar"],
-      ["EXPORT","Exportar datos"],
-      ["DESCARGAR","Descargar archivos"],
-      ["ABONAR","Registrar abonos"],
-      ["CONTACTAR","Contactar"],
-      ["GENERAR_INTERES","Generar intereses"],
-      ["ANULAR","Anular"],
-      ["DEVOLVER","Devolver"],
-      ["CREAR_DEVOLUCION","Crear devolución"],
-      ["ORDENAR","Ordenar"],
-      ["SUBIR_IMAGEN","Subir imágenes"]
-    ];
+  ["CREATE","Crear registros"],
+  ["READ","Ver listado completo"],
+  ["READ_DETAIL","Ver información detallada de un registro"],
+  ["UPDATE","Editar registros"],
+  ["DELETE","Eliminar registros"],
+  ["ACTIVATE_DEACTIVATE","Activar y desactivar registros"],
+  ["EXPORT","Descargar y exportar datos"],
+  ["DESCARGAR","Descargar archivos"],  // ← ¿ESTÁ AQUÍ?
+  ["ABONAR","Registrar abonos en pagos"],
+  ["CONTACTAR","Contactar clientes"],
+  ["GENERAR_INTERES","Generar intereses en pagos"],
+  ["ANULAR","Anular registros"],
+  ["DEVOLVER","Procesar devoluciones"],
+  ["CREAR_DEVOLUCION","Crear devoluciones"],
+  ["ORDENAR","Ordenar elementos"],
+  ["SUBIR_IMAGEN","Subir imágenes"]
+];
 
     const createdPrivileges=[];
 
@@ -102,7 +104,7 @@ async function main() {
 
     }
 
-    console.log(`${createdPrivileges.length} privilegios creados`);
+    console.log(`✅ ${createdPrivileges.length} privilegios creados`);
 
     // ==================== ADMIN ====================
 
@@ -113,58 +115,50 @@ async function main() {
       update:{},
       create:{
         name_role:"Administrator",
-        description:"Acceso completo",
+        description:"Acceso completo al sistema",
         id_status:1,
         date_creation:new Date()
       }
     });
 
-    console.log("Administrator creado");
+    console.log("✅ Rol Administrator creado");
 
-    // ==================== REGLAS ====================
+    // ==================== ASIGNAR PERMISOS ====================
 
-    const restrictedPermissions={
+    // ✅ CREAR MAPA DE PRIVILEGIOS PARA BÚSQUEDA RÁPIDA
+    const privilegeMap = new Map();
+    createdPrivileges.forEach(p => {
+      privilegeMap.set(p.name_privilege, p.id_privilege);
+    });
 
-      ORDENAR:["Banners"],
+    const moduleMap = new Map();
+    createdModules.forEach(m => {
+      moduleMap.set(m.name_module, m.id_module);
+    });
 
-      SUBIR_IMAGEN:["Banners"],
+    // ✅ CONTAR PERMISOS CREADOS
+    let permissionCount = 0;
 
-      ABONAR:["Pagos_y_abonos"],
-
-      CONTACTAR:["Pagos_y_abonos"],
-
-      GENERAR_INTERES:["Pagos_y_abonos"],
-
-      DEVOLVER:["Compras"],
-
-      CREAR_DEVOLUCION:[
-        "Devoluciones_en_ventas"
-      ],
-
-      ANULAR:[
-        "Compras",
-        "Pedidos",
-        "Ventas",
-        "Devoluciones_en_ventas",
-        "Devoluciones_en_compras"
-      ]
-    };
-
-    const permissions=[];
-
+    // Iterar por cada módulo
     for (const module of createdModules) {
 
-  const validPermissions =
-    ROLE_PERMISSION_RULES[module.name_module] || [];
+      // Obtener permisos válidos para este módulo
+      const validPermissions =
+        ROLE_PERMISSION_RULES[module.name_module] || [];
 
-      for (const privilege of createdPrivileges) {
+      console.log(
+        `  Módulo: ${module.name_module} - ${validPermissions.length} permisos`
+      );
 
-        const isAllowed =
-          validPermissions.includes(
-            privilege.name_privilege
+      // Asignar cada permiso válido al rol Administrator
+      for (const privilegeName of validPermissions) {
+
+        const id_privilege = privilegeMap.get(privilegeName);
+
+        if (!id_privilege) {
+          console.warn(
+            `    ⚠️ Privilegio no encontrado: ${privilegeName}`
           );
-
-        if (!isAllowed) {
           continue;
         }
 
@@ -173,14 +167,14 @@ async function main() {
             id_role_id_module_id_privilege: {
               id_role: adminRole.id_role,
               id_module: module.id_module,
-              id_privilege: privilege.id_privilege,
+              id_privilege: id_privilege,
             },
           },
           update: {},
           create: {
             id_role: adminRole.id_role,
             id_module: module.id_module,
-            id_privilege: privilege.id_privilege,
+            id_privilege: id_privilege,
           },
         });
 
@@ -188,22 +182,13 @@ async function main() {
       }
     }
 
-    await prisma.assigned_permissions.createMany({
+    console.log(`✅ ${permissionCount} permisos asignados al Administrator`);
 
-      data:permissions,
-      skipDuplicates:true
-
-    });
-
-    console.log(
-      `${permissions.length} permisos asignados`
-    );
-
-    console.log("\nSeed completado");
+    console.log("\n✅ Seed completado exitosamente");
 
   } catch(error){
 
-    console.error(error);
+    console.error("❌ Error en seed:", error);
 
   } finally{
 
