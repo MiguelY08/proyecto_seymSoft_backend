@@ -18,6 +18,23 @@ export const createProduct = async (req, res, next) => {
     console.log('📝 req.body:', req.body);
     
     const files = req.files || [];
+    
+    const parseArrayField = (value) => {
+  if (!value) return [];
+
+  if (Array.isArray(value)) return value;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [value];
+  }
+};
+
+const categories = parseArrayField(req.body.categories || req.body['categories[]']);
+const subcategories = parseArrayField(req.body.subcategories || req.body['subcategories[]']);
+      
     const dto = new CreateProductDto(req.body);
 
     console.log(`📋 Recibido: ${files.length} archivos`);
@@ -61,10 +78,54 @@ export const getProductById = async (req, res, next) => {
 export const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const dto = new UpdateProductDto(req.body);
-    const data = await new UpdateProductUseCase(repo).execute(parseInt(id), dto);
+
+    // ← AGREGAR ESTO: Mapear arrays de categorías y subcategorías
+    const parseArrayField = (value) => {
+  if (!value) return [];
+
+  if (Array.isArray(value)) return value;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [value];
+  }
+};
+
+const categories = parseArrayField(
+  req.body.categories || req.body['categories[]']
+);
+
+const subcategories = parseArrayField(
+  req.body.subcategories || req.body['subcategories[]']
+);
+
+const barcodes = parseArrayField(req.body.barcodes);
+
+const files = req.files || [];
+      console.log('📝 req.body:', req.body);
+    console.log('✅ categories:', categories);
+    console.log('✅ subcategories:', subcategories);
+
+    const dto = new UpdateProductDto({
+  ...req.body,
+  categories,
+  subcategories,
+  barcodes,
+});
+
+    console.log('📋 dto.categories:', dto.categories);
+    console.log('📋 dto.subcategories:', dto.subcategories);
+
+    const data = await new UpdateProductUseCase(repo).execute(
+  parseInt(id),
+  dto,
+  files
+);
     res.status(httpCodes.OK).json({ success: true, data });
   } catch (err) {
+    console.error('❌ Error en updateProduct:', err.message);
     next(err);
   }
 };

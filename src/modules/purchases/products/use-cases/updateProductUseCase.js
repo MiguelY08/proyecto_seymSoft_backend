@@ -1,12 +1,12 @@
 import { AppError } from "../../../../shared/errors/AppError.js";
 import { mapProduct } from "../mappers/productMapper.js";
+import { processAndSaveImage, PRODUCT_IMAGE_CONFIG, } from "../../../../shared/utils/imageProcessor.js";
 
 export class UpdateProductUseCase {
   constructor(repo) {
     this.repo = repo;
   }
-
-  async execute(id, dto) {
+    async execute(id, dto, files = []) {
     const product = await this.repo.findById(id);
 
     if (!product) {
@@ -30,6 +30,21 @@ export class UpdateProductUseCase {
     }
 
     const updated = await this.repo.update(id, dto);
+    // Procesar imágenes nuevas
+if (files.length > 0) {
+  const imageUrls = [];
+
+  for (const file of files) {
+    const url = await processAndSaveImage(file.buffer, {
+      bucketName: process.env.SUPABASE_BUCKET_PRODUCTS,
+      config: PRODUCT_IMAGE_CONFIG,
+    });
+
+    imageUrls.push(url);
+  }
+
+  await this.repo.createProductImages(id, imageUrls);
+}
     return mapProduct(updated);
   }
 }

@@ -17,7 +17,7 @@ const router = Router();
 
 // router.use(authMiddleware);
 
-// ─── Rutas estáticas primero ──────────────────────────────────────────────────
+// ─── Rutas estáticas primero ─────────────────────────────────────────────────
 router.get("/subcategories",              getAllSubcategories);
 router.post("/subcategories",             createSubcategory);
 router.get("/subcategories/:id",          getSubcategoryById);
