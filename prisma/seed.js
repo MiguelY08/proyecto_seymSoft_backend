@@ -83,7 +83,8 @@ async function main() {
   ["DEVOLVER","Procesar devoluciones"],
   ["CREAR_DEVOLUCION","Crear devoluciones"],
   ["ORDENAR","Ordenar elementos"],
-  ["SUBIR_IMAGEN","Subir imágenes"]
+  ["SUBIR_IMAGEN","Subir imágenes"],
+  ["AMPLIAR_IMAGEN", "Ampliar imagenes o detalles"]
 ];
 
     const createdPrivileges=[];

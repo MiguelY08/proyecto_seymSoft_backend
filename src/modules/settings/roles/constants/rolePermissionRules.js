@@ -32,7 +32,8 @@ export const ROLE_PERMISSION_RULES = {
     "READ_DETAIL",
     "UPDATE",
     "DELETE",
-    "ACTIVATE_DEACTIVATE"
+    "ACTIVATE_DEACTIVATE",
+    "EXPORT"
   ],
 
   Roles: [
@@ -179,12 +180,11 @@ export const ROLE_PERMISSION_RULES = {
 
   Banners: [
     "READ",
-    "READ_DETAIL",
-    "UPDATE",
     "DELETE",
     "ORDENAR",
     "SUBIR_IMAGEN",
-    "ACTIVATE_DEACTIVATE"
+    "ACTIVATE_DEACTIVATE",
+    "AMPLIAR_IMAGEN"
   ],
 
   // ═════════════════════════════════════════════════════════════════
