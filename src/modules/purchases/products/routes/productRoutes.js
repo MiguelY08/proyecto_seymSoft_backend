@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router } from 'express';
+import multer from 'multer';
 import {
   createProduct,
   getAllProducts,
@@ -6,15 +7,21 @@ import {
   updateProduct,
   toggleProductStatus,
   deleteProduct,
-} from "../controllers/productControllers.js";
+} from '../controllers/productControllers.js';
 
 const router = Router();
 
-router.post("/", createProduct);
-router.get("/", getAllProducts);
-router.get("/:id", getProductById);
-router.put("/:id", updateProduct);
-router.patch("/:id/toggle", toggleProductStatus);
-router.delete("/:id", deleteProduct);
+// Configurar multer
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Ruta POST con multer
+router.post('/', upload.array('images', 10), createProduct);
+
+// Otras rutas
+router.get('/', getAllProducts);
+router.get('/:id', getProductById);
+router.put('/:id', updateProduct);
+router.patch('/:id/toggle', toggleProductStatus);
+router.delete('/:id', deleteProduct);
 
 export default router;

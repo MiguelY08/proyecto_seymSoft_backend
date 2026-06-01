@@ -37,7 +37,7 @@ export class EmailService {
 
     const subject = "Código para restablecer tu contraseña";
     const name = fullName ? `${fullName}` : "usuario";
-    const resetPageUrl = `${frontendUrl}/reset-password`;
+    const resetPageUrl = `${frontendUrl}/resetpassword`;
 
     const text = `Hola ${name},\n\nHemos recibido una solicitud para restablecer la contraseña de tu cuenta.\n\nTu código de verificación es: ${verificationCode}\n\nIngresa este código en la pantalla de recuperación de contraseña de la aplicación.\n\nSi no solicitaste este cambio, ignora este mensaje.\n\nGracias.`;
     const html = `
@@ -61,23 +61,7 @@ export class EmailService {
     });
   }
 
-  /**
-   * Envía email de bienvenida con contraseña temporal al crear un usuario
-   * 
-   * @param {string} to - Email del usuario
-   * @param {string} tempPassword - Contraseña temporal generada
-   * @param {string} fullName - Nombre completo del usuario
-   * @param {string} frontendUrl - URL del frontend para login
-   * 
-   * @throws {Error} Si EMAIL_FROM no está configurado
-   * 
-   * Ejemplo:
-   * await EmailService.sendWelcomeEmail(
-   *   "juan@example.com",
-   *   "3K9mL7x2Qw",
-   *   "Juan Pérez"
-   * );
-   */
+
   static async sendWelcomeEmail(
     to,
     tempPassword,

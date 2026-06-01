@@ -110,9 +110,15 @@ export class ClientRepository {
     });
   }
 
-  static async findUserById(userId) {
-    return await prisma.users.findUnique({ where: { id_user: userId } });
-  }
+  static async findById(id) {
+  console.log('🔍 Buscando cliente con id_client:', id);
+  const client = await prisma.clients.findUnique({
+    where: { id_client: id },
+    include: { users: true }
+  });
+  console.log('🔍 Resultado de findUnique:', client);
+  return client ? ClientMapper.toDTO(client) : null;
+}
 
   static async isUserAlreadyClient(userId) {
     const client = await prisma.clients.findUnique({ where: { id_user: userId } });

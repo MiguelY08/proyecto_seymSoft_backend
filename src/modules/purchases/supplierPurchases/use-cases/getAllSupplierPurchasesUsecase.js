@@ -1,3 +1,4 @@
+// backend/src/modules/supplier-purchases/use-cases/getAllSupplierPurchasesUsecase.js
 import { SupplierPurchaseRepository } from '../repositories/supplierPurchaseRepository.js';
 import { SupplierPurchaseMapper }     from '../mappers/supplierPurchaseMapper.js';
 

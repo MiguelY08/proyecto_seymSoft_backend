@@ -1,22 +1,19 @@
-
 import { RoleRepository } from "../repositories/roleRepository.js";
-import { RoleListDto } from "../dtos/roleDtos.js";
-
+import { RoleMapper } from "../mappers/roleMapper.js";
 
 export class ListRolesUseCase {
-  static async execute(includeAdmin = false) {
-    try {
-      //  Obtener todos los roles
-      // Si includeAdmin es false, excluye Administrator
-      const roles = await RoleRepository.findAllRoles(!includeAdmin);
 
-      //  Mapear a formato de respuesta
-      const rolesList = roles.map((role) => new RoleListDto(role));
+  static async execute(includeAdmin=false){
 
-      return rolesList;
+    const roles =
+      await RoleRepository.findAllRoles(
+        !includeAdmin
+      );
 
-    } catch (error) {
-      throw error;
-    }
+    return roles.map(
+      RoleMapper.toListDto
+    );
+
   }
+
 }

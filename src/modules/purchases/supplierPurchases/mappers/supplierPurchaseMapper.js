@@ -1,10 +1,10 @@
+// backend/src/modules/supplier-purchases/mappers/supplierPurchaseMapper.js
 export class SupplierPurchaseMapper {
 
   // ─── Detail mapper ──────────────────────────────────────────────────────────
   static detailToDTO(detail) {
     if (!detail) return null;
 
-    // Todos los barcodes del producto (principal + extras)
     const allBarcodes = detail.barcodes?.products?.barcodes ?? [];
     const extraBarcodes = allBarcodes
       .filter((b) => b.id_barcode !== detail.id_barcode)
@@ -34,14 +34,15 @@ export class SupplierPurchaseMapper {
   static toDTO(purchase) {
     if (!purchase) return null;
     return {
-      id:            purchase.id_purchase,
-      invoiceNumber: purchase.invoice_number,
-      purchaseDate:  purchase.purchase_date,
-      totalAmount:   Number(purchase.total_amount ?? 0),
-      providerId:    purchase.id_provider,
-      providerName:  purchase.providers?.name_provider              ?? null,
-      statusId:      purchase.id_purchase_status,
-      status:        purchase.purchase_statuses?.name_puchase_status ?? null,
+      id:               purchase.id_purchase,
+      invoiceNumber:    purchase.invoice_number,
+      purchaseDate:     purchase.purchase_date,
+      totalAmount:      Number(purchase.total_amount ?? 0),
+      totalQuantity:    purchase.total_quantity || 0,
+      providerId:       purchase.id_provider,
+      providerName:     purchase.providers?.name_provider              ?? null,
+      statusId:         purchase.id_purchase_status,
+      status:           purchase.purchase_statuses?.name_puchase_status ?? null,
     };
   }
 
@@ -61,7 +62,7 @@ export class SupplierPurchaseMapper {
       purchase_date:      dto.purchaseDate,
       total_amount:       dto.details.reduce((sum, d) => sum + d.netSubtotal, 0),
       id_provider:        dto.idProvider,
-      id_purchase_status: 1, // 1 = Completada
+      id_purchase_status: 1,
     };
   }
 }

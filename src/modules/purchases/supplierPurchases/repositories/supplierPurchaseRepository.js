@@ -1,3 +1,4 @@
+// backend/src/modules/supplier-purchases/repositories/supplierPurchaseRepository.js
 import { prisma } from '../../../../config/prisma.js';
 
 // ─── Reusable includes ────────────────────────────────────────────────────────
@@ -5,6 +6,9 @@ import { prisma } from '../../../../config/prisma.js';
 const purchaseInclude = {
   providers:         { select: { name_provider: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
+  purchase_details: {
+    select: { quantity: true }
+  },
 };
 
 const purchaseWithDetailsInclude = {
@@ -59,7 +63,12 @@ export class SupplierPurchaseRepository {
       }),
     ]);
 
-    return { purchases: purchases || [], total: total || 0 };
+    const purchasesWithCount = purchases.map(purchase => ({
+      ...purchase,
+      total_quantity: purchase.purchase_details?.reduce((sum, d) => sum + (d.quantity || 0), 0) || 0
+    }));
+
+    return { purchases: purchasesWithCount || [], total: total || 0 };
   }
 
   async findById(id) {
@@ -107,10 +116,6 @@ export class SupplierPurchaseRepository {
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  /**
-   * Paso previo: crear extraBarcodes FUERA de la transacción
-   * para no consumir el timeout con queries de verificación.
-   */
   async createExtraBarcodes(details) {
     for (const detail of details) {
       for (const extraCode of detail.extraBarcodes) {
@@ -131,10 +136,8 @@ export class SupplierPurchaseRepository {
 
   async create(purchaseData, details) {
 
-    // 1 — Crear extraBarcodes fuera de la transacción
     await this.createExtraBarcodes(details);
 
-    // 2 — Resolver id_barcode de extras (fuera de la transacción)
     const detailsWithExtraIds = await Promise.all(
       details.map(async (detail) => {
         const extraIds = [];
@@ -149,13 +152,10 @@ export class SupplierPurchaseRepository {
       })
     );
 
-    // 3 — Transacción solo con operaciones de escritura rápida
     return prisma.$transaction(async (tx) => {
 
-      // 3a — Crear purchase
       const purchase = await tx.purchases.create({ data: purchaseData });
 
-      // 3b — Crear todos los purchase_details de una vez
       await tx.purchase_details.createMany({
         data: detailsWithExtraIds.map((d) => ({
           id_purchase:      purchase.id_purchase,
@@ -172,7 +172,6 @@ export class SupplierPurchaseRepository {
         })),
       });
 
-      // 3c — Actualizar stock en paralelo
       const allBarcodeIds = detailsWithExtraIds.flatMap((d) => [
         { id: d.primaryBarcodeId, qty: d.quantity },
         ...d.extraBarcodeIds.map((eid) => ({ id: eid, qty: d.quantity })),
@@ -187,7 +186,6 @@ export class SupplierPurchaseRepository {
         )
       );
 
-      // 3d — Retornar compra completa
       return tx.purchases.findUnique({
         where:   { id_purchase: purchase.id_purchase },
         include: purchaseWithDetailsInclude,
