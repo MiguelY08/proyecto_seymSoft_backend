@@ -1,6 +1,7 @@
 import { UserRepository } from "../repositories/userRepository.js";
 import { hashPassword } from "../../../shared/utils/hashPassword.js";
 import { EmailService } from "../../../shared/services/emailService.js";
+import { RoleRepository } from "../../settings/roles/repositories/roleRepository.js";
 
 const generateRandomPassword = () => {
   const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -96,7 +97,26 @@ export const createUserUseCase = async (userData) => {
     // ======================
     // Asignar rol
     // ======================
-    if (idRole !== null && idRole !== undefined) {
+
+// Asignar rol solo si viene enviado
+    if (idRole) {
+
+      const role =
+        await RoleRepository.findRoleById(
+          idRole
+        );
+
+      if (!role) {
+
+        return {
+          success: false,
+          data: null,
+          error: "El rol no existe",
+          errorCode: "INVALID_ROLE"
+        };
+
+      }
+
       await UserRepository.assignRole(
         newUser.idUser,
         idRole
