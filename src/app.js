@@ -17,6 +17,7 @@ import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js";
 import clientRoutes from './modules/sales/clients/routes/clientRoutes.js';
+import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 
 
@@ -98,6 +99,9 @@ app.use("/api/roles", roleRoutes);
 
 /* Rutas de clientes */
 app.use("/api/clients", clientRoutes);
+
+/* Rutas de ventas */
+app.use("/api/vendings", vendingRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

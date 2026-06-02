@@ -1,0 +1,109 @@
+import { createVendingUseCase } from "../use-cases/index.js";
+import {
+  validateCreateVending,
+  validateCreateVendingParams,
+} from "../validators/index.js";
+
+export const CreateVendingController = async (req, res) => {
+  try {
+    // Validar tipo de venta desde la ruta
+    const paramsValidation =
+      validateCreateVendingParams(
+        req.params
+      );
+
+    if (!paramsValidation.success) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Errores de validación.",
+        errors:
+          paramsValidation.errors,
+      });
+    }
+
+    // Validar body
+    const bodyValidation =
+      validateCreateVending(
+        req.body
+      );
+
+    if (!bodyValidation.success) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Errores de validación.",
+        errors:
+          bodyValidation.errors,
+      });
+    }
+
+    const { vendingType } =
+      paramsValidation.data;
+
+    const idUser =
+      req.user?.id_user ||
+      req.user?.idUser ||
+      null;
+
+    // Ejecutar use-case
+    const result =
+      await createVendingUseCase({
+        vendingType,
+        idUser,
+        data:
+          bodyValidation.data,
+      });
+
+    if (!result.success) {
+      const statusCodeByError = {
+        INVALID_SALE_TYPE: 400,
+        SALE_TYPE_NOT_FOUND: 404,
+        EMPLOYEE_REQUIRED: 401,
+        WEB_EMPLOYEE_NOT_CONFIGURED: 500,
+        EMPLOYEE_NOT_FOUND: 404,
+        SALE_STATUS_NOT_FOUND: 404,
+        INVALID_ORDER_ID: 400,
+        ORDER_NOT_FOUND: 404,
+        ORDER_ALREADY_SOLD: 409,
+        ORDER_WITHOUT_DETAILS: 409,
+        BARCODE_NOT_FOUND: 404,
+        INSUFFICIENT_STOCK: 409,
+        PAYMENT_METHOD_NOT_FOUND: 404,
+        PAYMENT_AMOUNT_EXCEEDS_TOTAL: 400,
+        DUPLICATE_SALE_ORDER: 409,
+        DATABASE_ERROR: 500,
+      };
+
+      return res.status(statusCodeByError[result.errorCode] || 500).json({
+        success: false,
+        message:
+          result.error,
+        errorCode:
+          result.errorCode,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message:
+        "Venta creada exitosamente.",
+      data:
+        result.data,
+    });
+
+  } catch (error) {
+    console.error(
+      "[CreateVendingController] Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Error creando la venta.",
+      error:
+        error.message,
+    });
+  }
+};
