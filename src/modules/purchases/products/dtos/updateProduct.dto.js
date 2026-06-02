@@ -6,12 +6,18 @@ export class UpdateProductDto {
     this.wholesalePrice = data.wholesalePrice ?? data.precioMayorista;
     this.partnerPrice = data.partnerPrice ?? data.precioColegas;
     this.bulkPrice = data.bulkPrice ?? data.precioPacas;
+    this.retailDiscountPct = parseFloat(data.retailDiscountPct) || 0;
+    this.wholesaleDiscountPct = parseFloat(data.wholesaleDiscountPct) || 0;
+    this.partnerDiscountPct = parseFloat(data.partnerDiscountPct) || 0;
+    this.bulkDiscountPct = parseFloat(data.bulkDiscountPct) || 0;
     this.ivaPercentage = data.ivaPercentage ?? data.iva_percentage;
     this.idUnitMeasure = data.idUnitMeasure ?? data.id_unit_measure;
     this.idCategorie = data.idCategorie ?? data.id_category;
     this.description = data.description ?? data.descripcion;
     this.quantityPerPack = data.quantityPerPack ?? data.cantidadXPaca;
     this.idStatus = data.idStatus ?? data.id_status;
+    this.categories = data.categories ?? [];
+    this.subcategories = data.subcategories ?? [];
 
     // Barcodes (opcional en actualización)
     this.barcodes = data.barcodes ?? [];

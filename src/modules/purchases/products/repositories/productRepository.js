@@ -13,6 +13,10 @@ const productSelect = {
   iva_percentage: true,
   description: true,
   quantity_per_pack: true,
+  retail_discount_pct: true,
+  wholesale_discount_pct: true,
+  partner_discount_pct: true,
+  bulk_discount_pct: true,
 };
 
 const productInclude = {
@@ -25,13 +29,27 @@ const productInclude = {
       select: { id_barcode: true, barcode: true, barcode_type: true, stock: true },
       orderBy: { id_barcode: "asc" },
     },
-    product_images: {  // ← AGREGAR ESTO
+    product_images: {
       select: { id_image: true, image_url: true, is_primary: true },
       orderBy: { is_primary: 'desc' },
     },
+    // ← AGREGAR ESTO
+    product_categories: {
+      select: {
+        id_product_category: true,
+        id_category: true,
+        categories: { select: { id_category: true, category_name: true } }
+      },
+    },
+    product_subcategories: {
+      select: {
+        id_product_subcategory: true,
+        id_subcategory: true,
+        subcategories: { select: { id_subcategory: true, name_subcategory: true } }
+      },
+    },
   },
-};
-// ─── Product repository ────────────────────────────────────────────────────────
+};// ─── Product repository ────────────────────────────────────────────────────────
 
 export class ProductRepository {
 
@@ -89,59 +107,90 @@ export class ProductRepository {
 
   async create(data) {
   return prisma.$transaction(async (tx) => {
-  const product = await tx.products.create({
-  data: {
-    name: data.name,
-    reference: data.reference,
-    retail_price: parseFloat(data.retailPrice),
-    wholesale_price: parseFloat(data.wholesalePrice),
-    partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
-    bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
-    iva_percentage: parseFloat(data.ivaPercentage) || 0,
-    description: data.description || null,
-    quantity_per_pack: parseInt(data.quantityPerPack) || 0,
-    categories: {
-      connect: { id_category: parseInt(data.idCategorie) }
-    },
-    general_statuses: {
-      connect: { id_status: data.idStatus || 1 }
-    },
-    unit_measures: {
-      connect: { id_unit_measure: parseInt(data.idUnitMeasure) }
-    }
-  },
-});
-
-      // Crear barcodes asociados
-      if (data.barcodes && data.barcodes.length > 0) {
-        await tx.barcodes.createMany({
-          data: data.barcodes.map((b) => ({
-            barcode: b.barcode,
-            barcode_type: b.barcode_type || "EAN13",
-            stock: parseInt(b.stock) || 0,
-            id_product: product.id_product,
-          })),
-        });
-      }
-
-      // Retornar con includes
-      return tx.products.findUnique({
-        where: { id_product: product.id_product },
-        ...productInclude,
-      });
+    const product = await tx.products.create({
+      data: {
+        name: data.name,
+        reference: data.reference,
+        retail_price: parseFloat(data.retailPrice),
+        wholesale_price: parseFloat(data.wholesalePrice),
+        partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
+        bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
+        iva_percentage: parseFloat(data.ivaPercentage) || 0,
+        retail_discount_pct: parseFloat(data.retailDiscountPct) || 0,
+        wholesale_discount_pct: parseFloat(data.wholesaleDiscountPct) || 0,
+        partner_discount_pct: parseFloat(data.partnerDiscountPct) || 0,
+        bulk_discount_pct: parseFloat(data.bulkDiscountPct) || 0,
+        description: data.description || null,
+        quantity_per_pack: parseInt(data.quantityPerPack) || 0,
+        categories: {
+          connect: { id_category: parseInt(data.idCategorie) }
+        },
+        general_statuses: {
+          connect: { id_status: data.idStatus || 1 }
+        },
+        unit_measures: {
+          connect: { id_unit_measure: parseInt(data.idUnitMeasure) }
+        }
+      },
     });
-  }
+
+    // Crear barcodes asociados
+    if (data.barcodes && data.barcodes.length > 0) {
+      await tx.barcodes.createMany({
+        data: data.barcodes.map((b) => ({
+          barcode: b.barcode,
+          barcode_type: b.barcode_type || "EAN13",
+          stock: parseInt(b.stock) || 0,
+          id_product: product.id_product,
+        })),
+      });
+    }
+
+    // ← AGREGAR ESTO: Crear relaciones con categorías adicionales
+    if (data.categories && data.categories.length > 0) {
+      await tx.product_categories.createMany({
+        data: data.categories.map((catId) => ({
+          id_product: product.id_product,
+          id_category: parseInt(catId),
+        })),
+      });
+    }
+
+    // ← AGREGAR ESTO: Crear relaciones con subcategorías
+    if (data.subcategories && data.subcategories.length > 0) {
+      await tx.product_subcategories.createMany({
+        data: data.subcategories.map((subId) => ({
+          id_product: product.id_product,
+          id_subcategory: parseInt(subId),
+        })),
+      });
+    }
+
+    return tx.products.findUnique({
+      where: { id_product: product.id_product },
+      ...productInclude,
+    });
+  });
+}
 
 async update(id, data) {
   return prisma.$transaction(async (tx) => {
     const updateData = {};
-
+      
     if (data.name !== undefined) updateData.name = data.name;
     if (data.reference !== undefined) updateData.reference = data.reference;
     if (data.retailPrice !== undefined) updateData.retail_price = parseFloat(data.retailPrice);
     if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
     if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
     if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
+    if (data.retailDiscountPct !== undefined)
+    updateData.retail_discount_pct = parseFloat(data.retailDiscountPct);
+    if (data.wholesaleDiscountPct !== undefined)
+      updateData.wholesale_discount_pct = parseFloat(data.wholesaleDiscountPct);
+    if (data.partnerDiscountPct !== undefined)
+      updateData.partner_discount_pct = parseFloat(data.partnerDiscountPct);
+    if (data.bulkDiscountPct !== undefined)
+  updateData.bulk_discount_pct = parseFloat(data.bulkDiscountPct);
     if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
     if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
     if (data.idCategorie !== undefined) updateData.id_category = parseInt(data.idCategorie);  // ← Cambiar idCategory a idCategorie
@@ -155,22 +204,66 @@ async update(id, data) {
       data: updateData,
     });
 
-    // Si vienen barcodes, reemplazar completamente
-    if (data.barcodes !== undefined) {
-      await tx.barcodes.deleteMany({ where: { id_product: parseInt(id) } });
-
-      if (data.barcodes.length > 0) {
-        await tx.barcodes.createMany({
-          data: data.barcodes.map((b) => ({
-            barcode: b.barcode,
-            barcode_type: b.barcode_type || "EAN13",
-            stock: parseInt(b.stock) || 0,
+    // ← AGREGAR ESTO: Actualizar categorías
+    if (data.categories !== undefined) {
+      await tx.product_categories.deleteMany({ where: { id_product: parseInt(id) } });
+      if (data.categories.length > 0) {
+        await tx.product_categories.createMany({
+          data: data.categories.map((catId) => ({
             id_product: parseInt(id),
+            id_category: parseInt(catId),
           })),
         });
       }
     }
 
+    // ← AGREGAR ESTO: Actualizar subcategorías
+    if (data.subcategories !== undefined) {
+      await tx.product_subcategories.deleteMany({ where: { id_product: parseInt(id) } });
+      if (data.subcategories.length > 0) {
+        await tx.product_subcategories.createMany({
+          data: data.subcategories.map((subId) => ({
+            id_product: parseInt(id),
+            id_subcategory: parseInt(subId),
+          })),
+        });
+      }
+    }
+
+// Si vienen barcodes, actualizar en lugar de eliminar
+if (data.barcodes !== undefined && data.barcodes.length > 0) {
+  // Obtener barcodes actuales
+  const currentBarcodes = await tx.barcodes.findMany({
+    where: { id_product: parseInt(id) }
+  });
+
+  // Eliminar solo los que no están en la nueva lista
+  const newBarcodeCodes = data.barcodes.map(b => b.barcode);
+  const codesToDelete = currentBarcodes
+    .filter(b => !newBarcodeCodes.includes(b.barcode))
+    .map(b => b.id_barcode);
+
+  if (codesToDelete.length > 0) {
+    await tx.barcodes.deleteMany({
+      where: { id_barcode: { in: codesToDelete } }
+    });
+  }
+
+  // Crear solo los nuevos
+  const existingCodes = currentBarcodes.map(b => b.barcode);
+  const newBarcodes = data.barcodes.filter(b => !existingCodes.includes(b.barcode));
+
+  if (newBarcodes.length > 0) {
+    await tx.barcodes.createMany({
+      data: newBarcodes.map((b) => ({
+        barcode: b.barcode,
+        barcode_type: b.barcode_type || "EAN13",
+        stock: parseInt(b.stock) || 0,
+        id_product: parseInt(id),
+      })),
+    });
+  }
+}
     return tx.products.findUnique({
       where: { id_product: parseInt(id) },
       ...productInclude,

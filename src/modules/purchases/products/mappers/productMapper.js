@@ -5,47 +5,53 @@
  * Ahora el stock está distribuido en los barcodes.
  */
 export const mapProduct = (product) => {
-  const totalStock = product.barcodes
-    ? product.barcodes.reduce((sum, b) => sum + (b.stock || 0), 0)
-    : 0;
+  const totalStock = (product.barcodes || []).reduce((sum, b) => sum + (b.stock || 0), 0);
 
   return {
     id: product.id_product,
     name: product.name,
     reference: product.reference,
-    retailPrice: parseFloat(product.retail_price),
-    wholesalePrice: parseFloat(product.wholesale_price),
-    partnerPrice: product.partner_price ? parseFloat(product.partner_price) : null,
-    bulkPrice: product.bulk_price ? parseFloat(product.bulk_price) : null,
-    ivaPercentage: parseFloat(product.iva_percentage || 0),
+    retailPrice: product.retail_price,
+    wholesalePrice: product.wholesale_price,
+    partnerPrice: product.partner_price,
+    bulkPrice: product.bulk_price,
+    retailDiscountPct: product.retail_discount_pct,
+    wholesaleDiscountPct: product.wholesale_discount_pct,
+    partnerDiscountPct: product.partner_discount_pct,
+    bulkDiscountPct: product.bulk_discount_pct,
+    ivaPercentage: product.iva_percentage,
     description: product.description,
-    quantityPerPack: product.quantity_per_pack || 0,  // ← Agregar esto
-    totalStock: totalStock,
-    category: product.categories
-      ? {
-          id: product.categories.id_category,
-          name: product.categories.category_name,
-        }
-      : null,
-    unitMeasure: product.unit_measures
-      ? {
-          id: product.unit_measures.id_unit_measure,
-          name: product.unit_measures.name_unit_measure,
-        }
-      : null,
-    status: product.general_statuses?.name_status ?? (product.id_status === 1 ? "Active" : "Inactive"),
+    quantityPerPack: product.quantity_per_pack,
+    totalStock,
+    //category: product.categories ? {
+      //id: product.categories.id_category,
+      //name: product.categories.category_name,
+    //} : null,
+    unitMeasure: product.unit_measures ? {
+      id: product.unit_measures.id_unit_measure,
+      name: product.unit_measures.name_unit_measure,
+    } : null,
+    status: product.general_statuses?.name_status === 'Activo' ? 'Activo' : 'Inactivo',
     barcodes: (product.barcodes || []).map((b) => ({
       id: b.id_barcode,
       barcode: b.barcode,
       barcodeType: b.barcode_type,
-      stock: b.stock || 0,
+      stock: b.stock,
     })),
-
     images: (product.product_images || []).map((img) => ({
       id: img.id_image,
       url: img.image_url,
       isPrimary: img.is_primary,
-    })),  // ← Agregar esto
+    })),
+    // ← AGREGAR ESTO
+    categories: (product.product_categories || []).map((pc) => ({
+      id: pc.id_category,
+      name: pc.categories?.category_name,
+    })),
+    subcategories: (product.product_subcategories || []).map((ps) => ({
+      id: ps.id_subcategory,
+      name: ps.subcategories?.name_subcategory,
+    })),
   };
 };
 

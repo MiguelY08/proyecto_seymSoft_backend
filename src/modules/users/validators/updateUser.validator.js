@@ -24,7 +24,7 @@ export const updateUserSchema = z.object({
     .optional()
     .nullable(),
 
-  id_role: z
+  idRole: z
     .number()
     .int()
     .positive("El ID del rol debe ser un número positivo")
@@ -38,7 +38,7 @@ export const validateUpdateUser = (data) => {
     const validatedData = updateUserSchema.parse(data);
 
     // Filtrar campos undefined para solo enviar lo que se actualizó
-    // PERO permitir null (especialmente para id_role)
+    // PERO permitir null (especialmente para idRole)
     const cleanData = Object.entries(validatedData)
       .filter(([, value]) => value !== undefined)  // ← Permitir null
       .reduce((acc, [key, value]) => {
