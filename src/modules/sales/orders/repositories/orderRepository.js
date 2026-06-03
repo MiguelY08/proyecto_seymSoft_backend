@@ -18,13 +18,18 @@ const orderInclude = {
     order_details: {
       include: {
         products: {
-          select: {
-            id_product: true,
-            name: true,
-            reference: true,
-            iva_percentage: true,
-          },
+        select: {
+          id_product: true,
+          name: true,
+          reference: true,
+          iva_percentage: true,
+
+          retail_price: true,
+          wholesale_price: true,
+          partner_price: true,
+          bulk_price: true,
         },
+      },
       },
       orderBy: {
         id_order_detail: 'asc',
@@ -183,23 +188,17 @@ export class OrderRepository {
     });
   }
 
-  async findBarcodeByProduct(idProduct, barcode) {
-  return prisma.barcodes.findFirst({
+async findClientById(idClient) {
+  return prisma.clients.findUnique({
     where: {
-      id_product: Number(idProduct),
-      barcode: barcode,
+      id_client: Number(idClient),
     },
     include: {
-      products: true,
+      users: true,
     },
   });
 }
 
-async findClientById(idClient) {
-  return prisma.clients.findUnique({
-    where: { id_client: Number(idClient) },
-  });
-}
 
 async findBarcodeByProduct(idProduct, barcode) {
   return prisma.barcodes.findFirst({
@@ -208,7 +207,18 @@ async findBarcodeByProduct(idProduct, barcode) {
       barcode,
     },
     include: {
-      products: true,
+      products: {
+        select: {
+          id_product: true,
+          name: true,
+          iva_percentage: true,
+
+          retail_price: true,
+          wholesale_price: true,
+          partner_price: true,
+          bulk_price: true,
+        },
+      },
     },
   });
 }

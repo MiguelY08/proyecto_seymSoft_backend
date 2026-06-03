@@ -1,3 +1,26 @@
+export const getPriceByClientType = (product, clientType) => {
+  const normalizedType = String(clientType || 'Detal')
+    .trim()
+    .toLowerCase();
+
+  switch (normalizedType) {
+    case 'mayorista':
+      return product.wholesale_price;
+
+    case 'colega':
+    case 'colegas':
+      return product.partner_price;
+
+    case 'paca':
+    case 'pacas':
+      return product.bulk_price;
+
+    case 'detal':
+    default:
+      return product.retail_price;
+  }
+};
+
 export const calculateOrderTotals = (items = []) => {
   const calculatedItems = items.map((item) => {
     const quantity = Number(item.quantity);
@@ -35,21 +58,4 @@ export const calculateOrderTotals = (items = []) => {
     ivaAmount,
     total,
   };
-
-  export const getPriceByClientType = (product, clientType) => {
-  switch (clientType) {
-    case 'Mayorista':
-      return product.wholesale_price;
-
-    case 'Colega':
-      return product.partner_price;
-
-    case 'Paca':
-      return product.bulk_price;
-
-    case 'Detal':
-    default:
-      return product.retail_price;
-  }
-};
 };
