@@ -227,10 +227,10 @@ model password_resets {
 }
 
 model payment_methods {
-  id_payment_method   Int            @id(map: "metodos_pago_pkey") @default(autoincrement())
-  name_payment_method String         @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)
-  installments        installments[]
-  sales               sales[]
+  id_payment_method    Int                    @id(map: "metodos_pago_pkey") @default(autoincrement())
+  name_payment_method  String                 @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)
+  installments         installments[]
+  sale_payment_methods sale_payment_methods[]
 }
 
 model prd {
@@ -258,6 +258,19 @@ model privileges {
   assigned_permissions assigned_permissions[]
 }
 
+model product_categories {
+  id_product_category Int        @id @default(autoincrement())
+  id_product          Int
+  id_category         Int
+  created_at          DateTime?  @default(now()) @db.Timestamp(6)
+  categories          categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction)
+  products            products   @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_product, id_category])
+  @@index([id_category], map: "idx_product_categories_category")
+  @@index([id_product], map: "idx_product_categories_product")
+}
+
 model product_images {
   id_image   Int       @id @default(autoincrement())
   id_product Int
@@ -277,6 +290,19 @@ model product_providers {
   providers           providers @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
 
   @@unique([id_product, id_provider], map: "productos_proveedores_id_producto_id_proveedor_key")
+}
+
+model product_subcategories {
+  id_product_subcategory Int           @id @default(autoincrement())
+  id_product             Int
+  id_subcategory         Int
+  created_at             DateTime?     @default(now()) @db.Timestamp(6)
+  products               products      @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
+  subcategories          subcategories @relation(fields: [id_subcategory], references: [id_subcategory], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_product, id_subcategory])
+  @@index([id_product], map: "idx_product_subcategories_product")
+  @@index([id_subcategory], map: "idx_product_subcategories_subcategory")
 }
 
 model product_unit_measures {
@@ -454,6 +480,18 @@ model roles {
   general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
 }
 
+model sale_payment_methods {
+  id_sale_payment_method Int             @id @default(autoincrement())
+  id_sale                Int
+  id_payment_method      Int
+  amount                 Decimal?        @db.Decimal(12, 2)
+  creation_date          DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  payment_methods        payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
+  sales                  sales           @relation(fields: [id_sale], references: [id_sale], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id_sale, id_payment_method], map: "sale_payment_methods_sale_payment_unique")
+}
+
 model sale_return_details {
   id_sale_return_detail Int             @id(map: "detalle_devolucion_venta_pkey") @default(autoincrement())
   id_sales_return       Int
@@ -488,22 +526,27 @@ model sale_statuses {
   sales          sales[]
 }
 
+model sale_types {
+  id_sale_type   Int     @id @default(autoincrement())
+  sale_type_name String  @unique @db.VarChar(50)
+  sales          sales[]
+}
+
 model sales {
-  id_sale           Int             @id(map: "ventas_pkey") @default(autoincrement())
-  id_order          Int             @unique(map: "ventas_id_pedido_key")
-  id_employe        Int
-  id_payment_method Int
-  subtotal          Decimal         @db.Decimal(12, 2)
-  sale_date         DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_sale_status    Int
-  id_sale_type      Int
-  credits           credits?
-  employees         employees       @relation(fields: [id_employe], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_empleado_vendedor_fkey")
-  sale_statuses     sale_statuses   @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_estado_venta_fkey")
-  payment_methods   payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_metodo_pago_fkey")
-  sales_orders      sales_orders    @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_pedido_fkey")
-  sale_types        sale_types      @relation(fields: [id_sale_type], references: [id_sale_type], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_tipo_venta_fkey")
-  sales_returns     sales_returns[]
+  id_sale              Int                    @id(map: "ventas_pkey") @default(autoincrement())
+  id_order             Int                    @unique(map: "ventas_id_pedido_key")
+  id_employe           Int
+  subtotal             Decimal                @db.Decimal(12, 2)
+  sale_date            DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_sale_status       Int
+  id_sale_type         Int
+  credits              credits?
+  sale_payment_methods sale_payment_methods[]
+  employees            employees              @relation(fields: [id_employe], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_empleado_vendedor_fkey")
+  sale_statuses        sale_statuses          @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_estado_venta_fkey")
+  sales_orders         sales_orders           @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_pedido_fkey")
+  sale_types           sale_types             @relation(fields: [id_sale_type], references: [id_sale_type], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_tipo_venta_fkey")
+  sales_returns        sales_returns[]
 }
 
 model sales_orders {
@@ -570,36 +613,4 @@ model users {
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model product_categories {
-  id_product_category Int        @id @default(autoincrement())
-  id_product          Int
-  id_category         Int
-  created_at          DateTime?  @default(now()) @db.Timestamp(6)
-  categories          categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction)
-  products            products   @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([id_product, id_category])
-  @@index([id_category], map: "idx_product_categories_category")
-  @@index([id_product], map: "idx_product_categories_product")
-}
-
-model product_subcategories {
-  id_product_subcategory Int           @id @default(autoincrement())
-  id_product             Int
-  id_subcategory         Int
-  created_at             DateTime?     @default(now()) @db.Timestamp(6)
-  products               products      @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
-  subcategories          subcategories @relation(fields: [id_subcategory], references: [id_subcategory], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([id_product, id_subcategory])
-  @@index([id_product], map: "idx_product_subcategories_product")
-  @@index([id_subcategory], map: "idx_product_subcategories_subcategory")
-}
-
-model sale_types {
-  id_sale_type   Int     @id @default(autoincrement())
-  sale_type_name String  @unique @db.VarChar(50)
-  sales          sales[]
 }

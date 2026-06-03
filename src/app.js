@@ -18,6 +18,7 @@ import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js";
 import clientRoutes from './modules/sales/clients/routes/clientRoutes.js';
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
+import orderRoutes from './modules/sales/orders/routes/orderRoutes.js';
 
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
@@ -81,6 +82,10 @@ app.use("/api/users", userRoutes);
  * Rutas de categorías y productos
  */
 app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+
+/* Rutas de pedidos */
+app.use('/api/orders', orderRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
