@@ -3,7 +3,11 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { UserRepository } from '../modules/users/repositories/userRepository.js';
 import { EmailService } from '../shared/services/emailService.js';
 
+
 passport.use(
+
+  
+
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
@@ -44,7 +48,7 @@ passport.use(
         } else if (!user.idGoogle) {
           // ✅ CASO 2: Usuario existente con cuenta normal → vincular Google
           // Actualiza el idGoogle para que en el futuro reconozca esta cuenta
-          user = await UserRepository.update(user.idUser, {
+          user = await UserRepository.update(user.id_user, {
             idGoogle: googleId,
           });
           console.log(`✅ Google account linked to existing user: ${email}`);
