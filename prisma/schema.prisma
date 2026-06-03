@@ -614,18 +614,3 @@ model users {
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
-<<<<<<< HEAD
-
-model sale_payment_methods {
-  id_sale_payment_method Int             @id @default(autoincrement())
-  id_sale                Int
-  id_payment_method      Int
-  amount                 Decimal?        @db.Decimal(12, 2)
-  creation_date          DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  payment_methods        payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
-  sales                  sales           @relation(fields: [id_sale], references: [id_sale], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([id_sale, id_payment_method], map: "sale_payment_methods_sale_payment_unique")
-}
-=======
->>>>>>> 6de497d59162b9d1f2630b1bcc06523ba13594b8

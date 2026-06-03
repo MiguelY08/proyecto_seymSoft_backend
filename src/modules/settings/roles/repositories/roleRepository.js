@@ -62,7 +62,8 @@ export class RoleRepository {
             privileges: true,
           },
         },
-        general_statuses: true,
+        general_statuses: true
+
       },
       orderBy: {
         date_creation: "desc",
