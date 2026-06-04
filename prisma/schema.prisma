@@ -24,13 +24,11 @@ model assigned_permissions {
   privileges     privileges       @relation(fields: [id_privilege], references: [id_privilege], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_privilegio_fkey")
   roles          roles            @relation(fields: [id_role], references: [id_role], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_rol_fkey")
   employee_roles employee_roles[]
-
-  @@unique([id_role, id_module, id_privilege], map: "permisos_asignados_id_rol_id_modulo_id_privilegio_key")
 }
 
 model banner_img {
   id_img           Int              @id(map: "imagenes_carrusel_pkey") @default(autoincrement())
-  img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
+  img_url          String           @db.VarChar(255)
   id_status        Int
   disposition      Int?             @unique
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
@@ -38,7 +36,7 @@ model banner_img {
 
 model barcodes {
   id_barcode              Int                       @id(map: "codigo_de_barras_pkey") @default(autoincrement())
-  barcode                 String                    @unique(map: "codigo_de_barras_codigo_de_barras_key") @db.VarChar(100)
+  barcode                 String                    @db.VarChar(100)
   barcode_type            String?                   @db.VarChar(50)
   stock                   Int?                      @default(0)
   id_product              Int
@@ -50,7 +48,7 @@ model barcodes {
 
 model categories {
   id_category             Int                       @id(map: "categorias_pkey") @default(autoincrement())
-  category_name           String                    @unique(map: "categorias_nombre_categoria_key") @db.VarChar(100)
+  category_name           String                    @db.VarChar(100)
   id_status               Int?
   subcategories_count     Int?
   general_statuses        general_statuses?         @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "categorias_id_estado_fkey")
@@ -69,7 +67,7 @@ model clients {
   address               String?        @db.VarChar(255)
   contact_person_number BigInt?
   contact_person_name   String?        @db.VarChar(255)
-  id_user               Int            @unique(map: "clientes_id_usuario_key")
+  id_user               Int
   client_type           String?        @db.VarChar(20)
   credit                Decimal?       @db.Decimal(10, 2)
   credit_balance        Decimal?       @db.Decimal(10, 2)
@@ -78,54 +76,70 @@ model clients {
   users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
+
+  @@index([id_user], map: "clientes_id_usuario_key")
+}
+
+model credit_interests {
+  id_interest      Int      @id @default(autoincrement())
+  id_credit        Int
+  percentage       Decimal  @db.Decimal(5, 2)
+  base_amount      Decimal  @db.Decimal(12, 2)
+  generated_amount Decimal  @db.Decimal(12, 2)
+  created_at       DateTime @default(now())
+  credits          credits  @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade)
+
+  @@index([id_credit])
 }
 
 model credit_statuses {
   id_credit_status   Int            @id(map: "estados_credito_pkey") @default(autoincrement())
-  name_credit_status String         @unique(map: "estados_credito_nombre_key") @db.VarChar(50)
+  name_credit_status String         @db.VarChar(50)
   credits            credits[]
   installments       installments[]
 }
 
 model credits {
-  id_credit           Int             @id(map: "creditos_pkey") @default(autoincrement())
-  id_sale             Int             @unique(map: "creditos_id_venta_key")
-  due_date            DateTime        @db.Date
-  interest_percentage Decimal?        @default(0) @db.Decimal(5, 2)
-  applied_interest    Decimal?        @default(0) @db.Decimal(12, 2)
-  new_total_debt      Decimal         @db.Decimal(12, 2)
-  id_credit_status    Int
-  id_customer         Int
-  used_quota          Decimal?        @db.Decimal(10, 2)
-  available_quota     Decimal?        @db.Decimal(10, 2)
-  sales               sales           @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
-  clients             clients         @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
-  credit_statuses     credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
-  installments        installments[]
+  id_credit        Int                @id(map: "creditos_pkey") @default(autoincrement())
+  id_sale          Int
+  due_date         DateTime           @db.Date
+  id_credit_status Int
+  id_customer      Int
+  credit_interests credit_interests[]
+  sales            sales              @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
+  clients          clients            @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
+  credit_statuses  credit_statuses    @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
+  installments     installments[]
+
+  @@index([id_sale], map: "creditos_id_venta_key")
 }
 
 model employee_roles {
   id_employee_role       Int                  @id(map: "empleados_rol_pkey") @default(autoincrement())
-  id_employee            Int                  @unique(map: "empleados_rol_id_empleado_key")
+  id_employee            Int
   id_assigned_permission Int
   employees              employees            @relation(fields: [id_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_empleado_fkey")
   assigned_permissions   assigned_permissions @relation(fields: [id_assigned_permission], references: [id_permission], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_permisos_asignados_fkey")
+
+  @@index([id_employee], map: "empleados_rol_id_empleado_key")
 }
 
 model employees {
   id_employee      Int               @id(map: "empleados_pkey") @default(autoincrement())
-  id_user          Int               @unique(map: "empleados_id_usuario_key")
+  id_user          Int
   id_status        Int?
-  employee_roles   employee_roles?
+  employee_roles   employee_roles[]
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "empleados_id_estado_fkey")
   users            users             @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "empleados_id_usuario_fkey")
   sales            sales[]
   sales_orders     sales_orders[]
+
+  @@index([id_user], map: "empleados_id_usuario_key")
 }
 
 model general_statuses {
   id_status     Int             @id(map: "estados_generales_pkey") @default(autoincrement())
-  name_status   String          @unique(map: "estados_generales_nombre_key") @db.VarChar(50)
+  name_status   String          @db.VarChar(50)
   banner_img    banner_img[]
   categories    categories[]
   employees     employees[]
@@ -174,6 +188,10 @@ model installments {
   remaining_balance  Decimal         @db.Decimal(12, 2)
   id_credit_status   Int
   id_credit          Int
+  cancelled_at       DateTime?
+  capital_paid       Decimal         @default(0) @db.Decimal(12, 2)
+  interest_paid      Decimal         @default(0) @db.Decimal(12, 2)
+  is_cancelled       Boolean         @default(false)
   payment_methods    payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
   credits            credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
   credit_statuses    credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_abonos_estado_credito")
@@ -181,7 +199,7 @@ model installments {
 
 model modules {
   id_module            Int                    @id(map: "modulos_pkey") @default(autoincrement())
-  name_module          String                 @unique(map: "modulos_nombre_modulo_key") @db.VarChar(50)
+  name_module          String                 @db.VarChar(50)
   description          String?                @db.VarChar(100)
   assigned_permissions assigned_permissions[]
 }
@@ -212,7 +230,7 @@ model order_details {
 
 model order_statuses {
   id_order_status Int            @id(map: "estados_pedidos_pkey") @default(autoincrement())
-  name_status     String         @unique(map: "estados_pedidos_nombre_key") @db.VarChar(50)
+  name_status     String         @db.VarChar(50)
   description     String?        @db.VarChar(100)
   sales_orders    sales_orders[]
 }
@@ -220,7 +238,7 @@ model order_statuses {
 model password_resets {
   id_reset        Int      @id @default(autoincrement())
   id_user         Int
-  token           String   @unique
+  token           String
   expiration_date DateTime
   created_at      DateTime @default(now())
   used            Boolean  @default(false)
@@ -228,9 +246,15 @@ model password_resets {
 
 model payment_methods {
   id_payment_method    Int                    @id(map: "metodos_pago_pkey") @default(autoincrement())
-  name_payment_method  String                 @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)
+  name_payment_method  String                 @db.VarChar(50)
   installments         installments[]
   sale_payment_methods sale_payment_methods[]
+}
+
+model payment_statuses {
+  id_payment_status   Int     @id @default(autoincrement())
+  name_payment_status String  @unique @db.VarChar(50)
+  description         String? @db.VarChar(255)
 }
 
 model prd {
@@ -253,7 +277,7 @@ model prd {
 
 model privileges {
   id_privilege         Int                    @id(map: "privilegios_pkey") @default(autoincrement())
-  name_privilege       String                 @unique(map: "privilegios_nombre_privilegio_key") @db.VarChar(50)
+  name_privilege       String                 @db.VarChar(50)
   description          String?                @db.VarChar(100)
   assigned_permissions assigned_permissions[]
 }
@@ -283,13 +307,11 @@ model product_images {
 }
 
 model product_providers {
-  id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
+  id_product_provider Int       @id @default(autoincrement())
   id_product          Int
   id_provider         Int
   products            products  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_producto_fkey")
   providers           providers @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "productos_proveedores_id_proveedor_fkey")
-
-  @@unique([id_product, id_provider], map: "productos_proveedores_id_producto_id_proveedor_key")
 }
 
 model product_subcategories {
@@ -317,7 +339,7 @@ model product_unit_measures {
 model products {
   id_product             Int                     @id(map: "productos_pkey") @default(autoincrement())
   name                   String                  @db.VarChar(255)
-  reference              String                  @unique(map: "productos_referencia_key") @db.VarChar(50)
+  reference              String                  @db.VarChar(50)
   retail_price           Decimal                 @db.Decimal(10, 2)
   wholesale_price        Decimal                 @db.Decimal(10, 2)
   id_unit_measure        Int
@@ -408,14 +430,14 @@ model purchase_details {
 
 model purchase_statuses {
   id_purchase_status  Int         @id(map: "estados_compras_pkey") @default(autoincrement())
-  name_puchase_status String      @unique(map: "estados_compras_nombre_key") @db.VarChar(50)
+  name_puchase_status String      @db.VarChar(50)
   hsp                 hsp[]
   purchases           purchases[]
 }
 
 model purchases {
   id_purchase        Int                 @id(map: "compras_pkey") @default(autoincrement())
-  invoice_number     String              @unique(map: "compras_no_recibo_key") @db.VarChar(50)
+  invoice_number     String              @db.VarChar(50)
   purchase_date      DateTime?           @default(dbgenerated("CURRENT_DATE")) @db.Date
   total_amount       Decimal?            @default(0) @db.Decimal(12, 2)
   id_provider        Int
@@ -440,28 +462,28 @@ model purchases_returns {
 model refresh_tokens {
   id_token        Int      @id @default(autoincrement())
   id_user         Int
-  token           String   @unique
+  token           String
   expiration_date DateTime
   created_at      DateTime @default(now())
 }
 
 model return_methods {
   id_return_method    Int                   @id(map: "metodo_devolucion_pkey") @default(autoincrement())
-  description         String                @unique(map: "metodo_devolucion_descripcion_key") @db.VarChar(50)
+  description         String                @db.VarChar(50)
   prd                 prd[]
   sale_return_details sale_return_details[]
 }
 
 model return_reasons {
   id_return_reason    Int                   @id(map: "motivos_devolucion_pkey") @default(autoincrement())
-  description         String                @unique(map: "motivos_devolucion_descripcion_key") @db.VarChar(50)
+  description         String                @db.VarChar(50)
   prd                 prd[]
   sale_return_details sale_return_details[]
 }
 
 model return_statuses {
   id_return_status     Int                   @id(map: "estado_devoluciones_pkey") @default(autoincrement())
-  name_status          String                @unique(map: "estado_devoluciones_nombre_key") @db.VarChar(25)
+  name_status          String                @db.VarChar(25)
   purchase_description String?               @db.VarChar(255)
   sales_description    String?               @db.VarChar(255)
   prd                  prd[]
@@ -472,7 +494,7 @@ model return_statuses {
 
 model roles {
   id_role              Int                    @id @default(autoincrement())
-  name_role            String                 @unique(map: "roles_nombre_rol_key") @db.VarChar(20)
+  name_role            String                 @db.VarChar(20)
   description          String?                @db.VarChar(50)
   date_creation        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_status            Int
@@ -512,7 +534,7 @@ model sale_return_details {
 
 model sale_return_evidence {
   id_evidence       Int           @id(map: "evidencia_devolucion_ventas_pkey") @default(autoincrement())
-  image_path        String        @unique(map: "evidencia_devolucion_ventas_ruta_imagen_key") @db.VarChar(255)
+  image_path        String        @db.VarChar(255)
   image_description String?       @db.VarChar(255)
   id_sales_return   Int
   sales_returns     sales_returns @relation(fields: [id_sales_return], references: [id_sales_return], onDelete: NoAction, onUpdate: NoAction, map: "evidencia_devolucion_ventas_id_devolucion_venta_fkey")
@@ -520,7 +542,7 @@ model sale_return_evidence {
 
 model sale_statuses {
   id_sale_status Int     @id(map: "estados_ventas_pkey") @default(autoincrement())
-  name_status    String  @unique(map: "estados_ventas_nombre_key") @db.VarChar(50)
+  name_status    String  @db.VarChar(50)
   description    String? @db.VarChar(100)
   hev            hev[]
   sales          sales[]
@@ -534,19 +556,21 @@ model sale_types {
 
 model sales {
   id_sale              Int                    @id(map: "ventas_pkey") @default(autoincrement())
-  id_order             Int                    @unique(map: "ventas_id_pedido_key")
+  id_order             Int
   id_employe           Int
   subtotal             Decimal                @db.Decimal(12, 2)
   sale_date            DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_sale_status       Int
   id_sale_type         Int
-  credits              credits?
+  credits              credits[]
   sale_payment_methods sale_payment_methods[]
   employees            employees              @relation(fields: [id_employe], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_empleado_vendedor_fkey")
   sale_statuses        sale_statuses          @relation(fields: [id_sale_status], references: [id_sale_status], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_estado_venta_fkey")
   sales_orders         sales_orders           @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_pedido_fkey")
   sale_types           sale_types             @relation(fields: [id_sale_type], references: [id_sale_type], onDelete: NoAction, onUpdate: NoAction, map: "ventas_id_tipo_venta_fkey")
   sales_returns        sales_returns[]
+
+  @@index([id_order], map: "ventas_id_pedido_key")
 }
 
 model sales_orders {
@@ -563,7 +587,7 @@ model sales_orders {
   assigned_employee Int?
   hev               hev?
   order_details     order_details[]
-  sales             sales?
+  sales             sales[]
   employees         employees?      @relation(fields: [assigned_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_employee")
   clients           clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
   order_statuses    order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
@@ -593,8 +617,8 @@ model subcategories {
 
 model unit_measures {
   id_unit_measure       Int                     @id(map: "unidad_medida_pkey") @default(autoincrement())
-  name_unit_measure     String                  @unique(map: "unidad_medida_nombre_key") @db.VarChar(50)
-  abbreviation          String                  @unique(map: "unidad_medida_abreviado_key") @db.VarChar(3)
+  name_unit_measure     String                  @db.VarChar(50)
+  abbreviation          String                  @db.VarChar(3)
   product_unit_measures product_unit_measures[]
   products              products[]
 }
@@ -602,7 +626,7 @@ model unit_measures {
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
   full_name        String            @db.VarChar(255)
-  email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
+  email            String            @unique @db.VarChar(255)
   pass_word        String            @db.VarChar(255)
   creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
   phone            BigInt?
@@ -610,7 +634,7 @@ model users {
   token_version    Int               @default(0)
   id_google        String?
   access           access[]
-  clients          clients?
-  employees        employees?
+  clients          clients[]
+  employees        employees[]
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
