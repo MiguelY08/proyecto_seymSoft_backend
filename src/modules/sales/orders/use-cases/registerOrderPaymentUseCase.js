@@ -1,5 +1,6 @@
 ﻿import {
   ORDER_STATUSES,
+  PAYMENT_METHODS,
   PAYMENT_STATUSES,
   SALE_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
@@ -8,6 +9,7 @@ import { mapOrder } from '../mappers/orderMapper.js';
 import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
 
 const DEFAULT_VENDING_TYPE = 'web';
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
@@ -56,6 +58,13 @@ export class RegisterOrderPaymentUseCase {
     if (order.id_payment_status === PAYMENT_STATUSES[2].id) {
       throw new AppError(
         'El pedido ya se encuentra pagado.',
+        400
+      );
+    }
+
+    if (Number(data.idPaymentMethod) === CREDIT_PAYMENT_METHOD_ID) {
+      throw new AppError(
+        'El metodo Credito solo puede usarse al crear una venta.',
         400
       );
     }

@@ -1,5 +1,11 @@
 ﻿import { prisma } from "../../../../config/prisma.js";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_STATUSES,
+} from "../../../../shared/constants/generalStatuses.js";
 import { VendingMapper } from "../mappers/vendingMapper.js";
+
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 const saleInclude = {
   employees: {
@@ -14,6 +20,7 @@ const saleInclude = {
       },
     },
   },
+  credits: true,
   sale_payment_methods: {
     include: {
       payment_methods: true,
@@ -41,6 +48,12 @@ const saleInclude = {
         },
       },
       order_statuses: true,
+      payment_statuses: true,
+      order_payments: {
+        include: {
+          payment_methods: true,
+        },
+      },
       order_details: {
         include: {
           products: {
@@ -61,11 +74,96 @@ const saleInclude = {
   },
 };
 
+const getCreditAmount = (paymentMethods = []) => {
+  const creditPayment = paymentMethods.find(
+    (paymentMethod) => Number(paymentMethod.idPaymentMethod) === CREDIT_PAYMENT_METHOD_ID
+  );
+
+  return Number(creditPayment?.amount || 0);
+};
+
+const buildCreditData = ({ data, idCustomer, creditAmount }) => {
+  if (creditAmount <= 0) {
+    return null;
+  }
+
+  const creditData = data.credit || {};
+
+  if (!creditData.dueDate && !data.creditDueDate) {
+    throw new Error("La fecha de vencimiento del credito es obligatoria");
+  }
+
+  if (!creditData.idCreditStatus && !data.idCreditStatus) {
+    throw new Error("El estado inicial del credito es obligatorio");
+  }
+
+  return {
+    due_date: creditData.dueDate || data.creditDueDate,
+    id_credit_status: Number(creditData.idCreditStatus || data.idCreditStatus),
+    id_customer: Number(idCustomer),
+    credit_amount: creditAmount,
+    remaining_balance: creditAmount,
+  };
+};
+
 export class VendingRepository {
 
   static async create(data) {
     const sale =
       await prisma.$transaction(async (tx) => {
+        const creditAmount =
+          getCreditAmount(data.paymentMethods);
+
+        const order =
+          await tx.sales_orders.findUnique({
+            where: {
+              id_order:
+                Number(data.idOrder),
+            },
+            include: {
+              clients: {
+                select: {
+                  id_client: true,
+                  credit_balance: true,
+                },
+              },
+            },
+          });
+
+        if (!order) {
+          throw new Error("Pedido no encontrado");
+        }
+
+        const creditData =
+          buildCreditData({
+            data,
+            idCustomer:
+              order.id_customer,
+            creditAmount,
+          });
+
+        if (creditAmount > 0) {
+          const creditBalance =
+            Number(order.clients?.credit_balance || 0);
+
+          if (creditAmount > creditBalance) {
+            throw new Error("El cupo disponible del cliente no es suficiente para la venta a credito");
+          }
+
+          await tx.clients.update({
+            where: {
+              id_client:
+                Number(order.id_customer),
+            },
+            data: {
+              credit_balance: {
+                decrement:
+                  creditAmount,
+              },
+            },
+          });
+        }
+
         const createdSale =
           await tx.sales.create({
             data: {
@@ -84,12 +182,18 @@ export class VendingRepository {
                   data.paymentMethods.map(
                     (paymentMethod) => ({
                       id_payment_method:
-                        paymentMethod.idPaymentMethod,
+                        Number(paymentMethod.idPaymentMethod),
                       amount:
                         paymentMethod.amount ?? null,
                     })
                   ),
               },
+              ...(creditData && {
+                credits: {
+                  create:
+                    creditData,
+                },
+              }),
               ...(data.saleDate && {
                 sale_date:
                   data.saleDate,
@@ -98,6 +202,21 @@ export class VendingRepository {
             include:
               saleInclude,
           });
+
+        if (data.markOrderAsPaid) {
+          await tx.sales_orders.update({
+            where: {
+              id_order:
+                Number(data.idOrder),
+            },
+            data: {
+              id_payment_status:
+                PAYMENT_STATUSES[2].id,
+              payment_status:
+                PAYMENT_STATUSES[2].name,
+            },
+          });
+        }
 
         if (data.decreaseStock) {
           for (const detail of data.orderDetails || []) {
@@ -116,7 +235,14 @@ export class VendingRepository {
           }
         }
 
-        return createdSale;
+        return await tx.sales.findUnique({
+          where: {
+            id_sale:
+              createdSale.id_sale,
+          },
+          include:
+            saleInclude,
+        });
       });
 
     return VendingMapper.toDomain(
@@ -157,6 +283,7 @@ export class VendingRepository {
 
         if (
           data.deliveryAdress !== undefined ||
+          data.deliveryType !== undefined ||
           data.idOrderStatus !== undefined
         ) {
           await tx.sales_orders.update({
@@ -168,6 +295,10 @@ export class VendingRepository {
               ...(data.deliveryAdress !== undefined && {
                 delivery_adress:
                   data.deliveryAdress,
+              }),
+              ...(data.deliveryType !== undefined && {
+                delivery_type:
+                  data.deliveryType,
               }),
               ...(data.idOrderStatus !== undefined && {
                 id_order_status:
@@ -202,6 +333,8 @@ export class VendingRepository {
                 Number(idSale),
             },
             include: {
+              credits: true,
+              sale_payment_methods: true,
               sales_orders: {
                 include: {
                   order_details: true,
@@ -235,6 +368,21 @@ export class VendingRepository {
               data.idOrderStatus,
           },
         });
+
+        if (currentSale.credits) {
+          await tx.clients.update({
+            where: {
+              id_client:
+                currentSale.credits.id_customer,
+            },
+            data: {
+              credit_balance: {
+                increment:
+                  Number(currentSale.credits.remaining_balance || 0),
+              },
+            },
+          });
+        }
 
         for (const detail of currentSale.sales_orders.order_details || []) {
           await tx.barcodes.updateMany({
@@ -547,7 +695,7 @@ export class VendingRepository {
         return {
           success: false,
           error:
-            `El cÃ³digo de barras ${detail.barcode} no existe`,
+            `El codigo de barras ${detail.barcode} no existe`,
           errorCode:
             "BARCODE_NOT_FOUND",
         };
@@ -561,7 +709,7 @@ export class VendingRepository {
         return {
           success: false,
           error:
-            `Stock insuficiente para el cÃ³digo de barras ${detail.barcode}`,
+            `Stock insuficiente para el codigo de barras ${detail.barcode}`,
           errorCode:
             "INSUFFICIENT_STOCK",
         };
@@ -595,6 +743,18 @@ export class VendingRepository {
       where: {
         id_payment_method:
           Number(idPaymentMethod),
+      },
+    });
+  }
+
+  static async findClientById(idClient) {
+    return await prisma.clients.findUnique({
+      where: {
+        id_client:
+          Number(idClient),
+      },
+      include: {
+        users: true,
       },
     });
   }
@@ -679,11 +839,20 @@ export class VendingRepository {
       },
       include: {
         sales: true,
+        clients: {
+          include: {
+            users: true,
+          },
+        },
         order_details: true,
         order_statuses: true,
+        payment_statuses: true,
+        order_payments: {
+          include: {
+            payment_methods: true,
+          },
+        },
       },
     });
   }
 }
-
-

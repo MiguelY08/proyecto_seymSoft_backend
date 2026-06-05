@@ -1,7 +1,11 @@
+﻿import {
+  ORDER_STATUSES,
+  SALE_STATUSES,
+} from "../../../../shared/constants/generalStatuses.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
 
-const ANNULLED_SALE_STATUS_ID = 4;
-const CANCELLED_ORDER_STATUS_ID = 4;
+const ANNULLED_SALE_STATUS_ID = SALE_STATUSES[4].id;
+const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 
 const normalizeText = (value) => {
   return String(value || "")
@@ -33,28 +37,15 @@ const isAnnulledStatus = (status) => {
  *
  * Responsabilidades:
  * - Validar que la venta exista.
- * - Cambiar el estado de la venta a "Anulada".
- * - Cambiar el estado del pedido a "Cancelada".
+ * - Cambiar el estado de la venta a Anulada.
+ * - Cambiar el estado del pedido a Cancelado.
  * - Retornar al stock los productos relacionados con el pedido.
- * - Exigir motivo de anulación desde el validator/controller.
+ * - Restaurar cupo del cliente si la venta tenia credito.
+ * - Exigir motivo de anulacion desde el validator/controller.
  *
  * Reglas de negocio:
  * - Una venta anulada no puede anularse nuevamente.
- * - La anulación actualiza venta, pedido y stock en una transacción.
- * - Estado de venta anulada: ID 4.
- * - Estado de pedido cancelado: ID 4.
- *
- * @param {Object} params
- * @param {number} params.idSale - ID de la venta a anular
- * @param {string} params.annulmentReason - Motivo de anulación
- *
- * @returns {Promise<Object>} Resultado con estructura:
- * {
- *   success: boolean,
- *   data: Object|null,
- *   error: string|null,
- *   errorCode: string|null
- * }
+ * - La anulacion actualiza venta, pedido, stock y cupo en una transaccion.
  */
 export const annularVendingUseCase = async (params) => {
   try {
@@ -68,7 +59,7 @@ export const annularVendingUseCase = async (params) => {
         success: false,
         data: null,
         error:
-          "ID de venta inválido",
+          "ID de venta invalido",
         errorCode:
           "VALIDATION_ERROR",
       };
@@ -79,7 +70,7 @@ export const annularVendingUseCase = async (params) => {
         success: false,
         data: null,
         error:
-          "El motivo de anulación es obligatorio",
+          "El motivo de anulacion es obligatorio",
         errorCode:
           "ANNULMENT_REASON_REQUIRED",
       };

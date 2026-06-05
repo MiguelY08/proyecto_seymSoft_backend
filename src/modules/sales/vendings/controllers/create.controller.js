@@ -6,7 +6,7 @@ import {
 
 export const CreateVendingController = async (req, res) => {
   try {
-    // Validar tipo de venta desde la ruta
+    // Validar tipo de venta desde la ruta.
     const paramsValidation =
       validateCreateVendingParams(
         req.params
@@ -16,13 +16,13 @@ export const CreateVendingController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validaciÃ³n.",
+          "Errores de validacion.",
         errors:
           paramsValidation.errors,
       });
     }
 
-    // Validar body
+    // Validar datos necesarios para crear pedido, venta y pagos.
     const bodyValidation =
       validateCreateVending(
         req.body
@@ -32,7 +32,7 @@ export const CreateVendingController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validaciÃ³n.",
+          "Errores de validacion.",
         errors:
           bodyValidation.errors,
       });
@@ -50,7 +50,6 @@ export const CreateVendingController = async (req, res) => {
       bodyValidation.data.idEmployee ||
       null;
 
-    // Ejecutar use-case
     const result =
       await createVendingUseCase({
         vendingType,
@@ -77,8 +76,13 @@ export const CreateVendingController = async (req, res) => {
         ORDER_WITHOUT_DETAILS: 409,
         BARCODE_NOT_FOUND: 404,
         INSUFFICIENT_STOCK: 409,
+        PAYMENT_METHODS_REQUIRED: 400,
         PAYMENT_METHOD_NOT_FOUND: 404,
         PAYMENT_AMOUNT_EXCEEDS_TOTAL: 400,
+        PAYMENT_AMOUNT_MUST_MATCH_TOTAL: 400,
+        CREDIT_DATA_REQUIRED: 400,
+        CREDIT_DATA_NOT_ALLOWED: 400,
+        CREDIT_ERROR: 400,
         DUPLICATE_SALE_ORDER: 409,
         DATABASE_ERROR: 500,
       };
@@ -115,5 +119,3 @@ export const CreateVendingController = async (req, res) => {
     });
   }
 };
-
-

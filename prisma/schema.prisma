@@ -100,16 +100,18 @@ model credit_statuses {
 }
 
 model credits {
-  id_credit        Int                @id(map: "creditos_pkey") @default(autoincrement())
-  id_sale          Int                @unique(map: "creditos_id_venta_key")
-  due_date         DateTime           @db.Date
-  id_credit_status Int
-  id_customer      Int
-  credit_interests credit_interests[]
-  sales            sales              @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
-  clients          clients            @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
-  credit_statuses  credit_statuses    @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
-  installments     installments[]
+  id_credit         Int                @id(map: "creditos_pkey") @default(autoincrement())
+  id_sale           Int                @unique(map: "creditos_id_venta_key")
+  due_date          DateTime           @db.Date
+  id_credit_status  Int
+  id_customer       Int
+  credit_amount     Decimal            @db.Decimal(12, 2)
+  remaining_balance Decimal            @db.Decimal(12, 2)
+  credit_interests  credit_interests[]
+  sales             sales              @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
+  clients           clients            @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
+  credit_statuses   credit_statuses    @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
+  installments      installments[]
 }
 
 model employee_roles {

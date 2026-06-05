@@ -1,10 +1,13 @@
 ﻿import { z } from "zod";
+import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
 
 const VENDING_TYPES = [
   "manual",
   "direct",
   "web",
 ];
+
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 const paymentMethodSchema = z.object({
   idPaymentMethod: z
@@ -15,9 +18,10 @@ const paymentMethodSchema = z.object({
     .positive("El ID del metodo de pago debe ser positivo"),
 
   amount: z
-    .number()
-    .positive("El monto del metodo de pago debe ser positivo")
-    .optional(),
+    .number({
+      error: "El monto del metodo de pago es obligatorio",
+    })
+    .positive("El monto del metodo de pago debe ser positivo"),
 }).strict();
 
 const orderItemSchema = z.object({
@@ -72,13 +76,6 @@ const orderSchema = z.object({
     .max(255, "La direccion de entrega no puede exceder 255 caracteres")
     .optional(),
 
-  paymentStatus: z
-    .string()
-    .trim()
-    .min(1, "El estado de pago no puede estar vacio")
-    .max(50, "El estado de pago no puede exceder 50 caracteres")
-    .optional(),
-
   items: z
     .array(orderItemSchema, {
       error: "El pedido debe tener al menos un producto",
@@ -86,8 +83,23 @@ const orderSchema = z.object({
     .min(1, "El pedido debe tener al menos un producto"),
 }).strict();
 
+const creditSchema = z.object({
+  dueDate: z
+    .coerce
+    .date({
+      error: "La fecha de vencimiento del credito es obligatoria",
+    }),
+
+  idCreditStatus: z
+    .number({
+      error: "El ID del estado inicial del credito es obligatorio",
+    })
+    .int("El ID del estado inicial del credito debe ser un numero entero")
+    .positive("El ID del estado inicial del credito debe ser positivo"),
+}).strict();
+
 /**
- * Schema de validacion para parametros de CREATE VENDING
+ * Schema de validacion para parametros de CREATE VENDING.
  *
  * Reglas:
  * - vendingType define el tipo de venta desde la ruta.
@@ -104,31 +116,20 @@ export const createVendingParamsSchema = z.object({
 }).strict();
 
 /**
- * Schema de validacion para CREATE VENDING
+ * Schema de validacion para CREATE VENDING.
  *
  * Reglas:
- * - idOrder: Pedido existente que se convertira en venta.
- * - order: Datos para crear pedido y luego venta.
- * - idSaleStatus: Estado inicial de la venta.
- * - paymentMethods: Metodos de pago usados en la venta.
- *
- * Nota:
- * - Debe enviarse idOrder u order, pero no ambos.
+ * - La venta recibe los datos necesarios para crear el pedido relacionado.
+ * - paymentMethods puede tener uno o varios metodos, todos con monto obligatorio.
+ * - La suma exacta contra el total calculado se valida en el use-case.
+ * - Si se usa Credito, se requieren los datos del credito.
  * - idEmployee puede venir en el body para pruebas/front; si no llega, se intenta resolver desde JWT/sesion.
- * - idSaleType NO se recibe en el body.
- * - El tipo de venta se resuelve desde params.vendingType.
- * - subtotal NO se recibe en el body, se calcula desde el pedido.
- * - saleDate NO se recibe en el body, lo asigna el sistema/BD.
+ * - idSaleType NO se recibe en el body; se resuelve desde params.vendingType.
+ * - subtotal NO se recibe en el body; se calcula desde el pedido.
+ * - saleDate NO se recibe en el body; lo asigna el sistema/BD.
  */
 export const createVendingSchema = z.object({
-  idOrder: z
-    .number()
-    .int("El ID del pedido debe ser un numero entero")
-    .positive("El ID del pedido debe ser positivo")
-    .optional(),
-
-  order:
-    orderSchema.optional(),
+  order: orderSchema,
 
   idEmployee: z
     .number()
@@ -147,40 +148,45 @@ export const createVendingSchema = z.object({
     .array(paymentMethodSchema, {
       error: "Debe enviar al menos un metodo de pago",
     })
-    .min(1, "Debe enviar al menos un metodo de pago")
-    .superRefine((paymentMethods, ctx) => {
-      const ids =
-        paymentMethods.map(
-          (item) => item.idPaymentMethod
-        );
+    .min(1, "Debe enviar al menos un metodo de pago"),
 
-      const duplicatedId =
-        ids.find(
-          (id, index) => ids.indexOf(id) !== index
-        );
-
-      if (duplicatedId) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "No se pueden repetir metodos de pago en la misma venta",
-        });
-      }
-    }),
+  credit: creditSchema.optional(),
 }).strict()
   .superRefine((data, ctx) => {
-    if (!data.idOrder && !data.order) {
+    const ids =
+      data.paymentMethods.map(
+        (item) => item.idPaymentMethod
+      );
+
+    const duplicatedId =
+      ids.find(
+        (id, index) => ids.indexOf(id) !== index
+      );
+
+    if (duplicatedId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["idOrder"],
-        message: "Debe enviar idOrder u order para crear la venta",
+        path: ["paymentMethods"],
+        message: "No se pueden repetir metodos de pago en la misma venta",
       });
     }
 
-    if (data.idOrder && data.order) {
+    const hasCredit =
+      ids.includes(CREDIT_PAYMENT_METHOD_ID);
+
+    if (hasCredit && !data.credit) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["order"],
-        message: "No puede enviar idOrder y order al mismo tiempo",
+        path: ["credit"],
+        message: "Debe enviar los datos del credito cuando usa metodo de pago Credito",
+      });
+    }
+
+    if (!hasCredit && data.credit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["credit"],
+        message: "No debe enviar datos de credito si no usa metodo de pago Credito",
       });
     }
   });
@@ -206,7 +212,7 @@ const formatZodErrors = (error) => {
 };
 
 /**
- * Validador de CreateVending
+ * Validador de CreateVending.
  *
  * @param {Object} data - Body de la peticion
  * @returns {Object} { success: boolean, data: Object|null, errors: Object|null }
@@ -233,7 +239,6 @@ export const validateCreateVending = (data) => {
       };
     }
 
-    // Error inesperado
     return {
       success: false,
       data: null,
@@ -246,7 +251,7 @@ export const validateCreateVending = (data) => {
 };
 
 /**
- * Validador de parametros para CreateVending
+ * Validador de parametros para CreateVending.
  *
  * @param {Object} params - Route params (req.params)
  * @returns {Object} { success: boolean, data: Object|null, errors: Object|null }
@@ -275,7 +280,6 @@ export const validateCreateVendingParams = (params) => {
       };
     }
 
-    // Error inesperado
     return {
       success: false,
       data: null,
@@ -286,4 +290,3 @@ export const validateCreateVendingParams = (params) => {
     };
   }
 };
-

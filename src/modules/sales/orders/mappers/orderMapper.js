@@ -70,13 +70,20 @@ export const mapOrder = (order) => {
     Number(subtotal) + Number(ivaAmount);
 
   const payments = mapPayments(order.order_payments || []);
-  const paidAmount = payments.reduce(
+  const paymentStatus = mapPaymentStatus(order);
+  const sale = mapSale(order.sales);
+  const isPaid =
+    paymentStatus.id === PAYMENT_STATUSES[2].id ||
+    paymentStatus.name === PAYMENT_STATUSES[2].name;
+  const rawPaidAmount = payments.reduce(
     (acc, payment) => acc + payment.amount,
     0
   );
+  const paidAmount =
+    isPaid && rawPaidAmount === 0
+      ? Number(total)
+      : rawPaidAmount;
   const pendingAmount = Math.max(Number(total) - paidAmount, 0);
-  const paymentStatus = mapPaymentStatus(order);
-  const sale = mapSale(order.sales);
 
   return {
     id: order.id_order,
@@ -89,6 +96,9 @@ export const mapOrder = (order) => {
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,
           address: order.clients.address || null,
+          clientType: order.clients.client_type || null,
+          credit: Number(order.clients.credit || 0),
+          creditBalance: Number(order.clients.credit_balance || 0),
         }
       : null,
     orderDate: order.order_date,

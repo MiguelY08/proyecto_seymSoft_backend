@@ -1,4 +1,9 @@
-﻿import { VendingRepository } from "../repositories/vendingRepository.js";
+﻿import {
+  ORDER_STATUSES,
+  PAYMENT_METHODS,
+  SALE_STATUSES,
+} from "../../../../shared/constants/generalStatuses.js";
+import { VendingRepository } from "../repositories/vendingRepository.js";
 import { CreateOrderDto } from "../../orders/dtos/createOrder.dto.js";
 import { CreateOrderUseCase } from "../../orders/use-cases/createOrderUseCase.js";
 import { OrderRepository } from "../../orders/repositories/orderRepository.js";
@@ -15,10 +20,10 @@ const EMPLOYEE_REQUIRED_TYPES = [
 ];
 
 const SYSTEM_EMPLOYEE_ID = 7;
-const CANCELLED_ORDER_STATUS_ID = 4;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 const roundMoney = (value) => {
-  return Math.round(Number(value) * 100) / 100;
+  return Math.round(Number(value || 0) * 100) / 100;
 };
 
 const getWebEmployeeId = () => {
@@ -36,6 +41,10 @@ const getOrderId = (order) => {
 
 const getOrderStatusId = (order) => {
   return order?.id_order_status ?? order?.status?.id;
+};
+
+const getOrderCustomerId = (order) => {
+  return order?.id_customer ?? order?.customerId ?? order?.customer?.id;
 };
 
 const getOrderDetails = (order) => {
@@ -96,34 +105,54 @@ const createOrder = async (orderData) => {
   ).execute(dto);
 };
 
+const getPaidAmount = (paymentMethods = []) =>
+  roundMoney(
+    paymentMethods.reduce(
+      (total, paymentMethod) =>
+        total + Number(paymentMethod.amount || 0),
+      0
+    )
+  );
+
+const getCreditAmount = (paymentMethods = []) =>
+  roundMoney(
+    paymentMethods
+      .filter((paymentMethod) => Number(paymentMethod.idPaymentMethod) === CREDIT_PAYMENT_METHOD_ID)
+      .reduce(
+        (total, paymentMethod) => total + Number(paymentMethod.amount || 0),
+        0
+      )
+  );
+
+const buildPaymentMethodsFromOrderPayments = (orderPayments = []) => {
+  const grouped = new Map();
+
+  for (const payment of orderPayments) {
+    const idPaymentMethod = Number(payment.id_payment_method);
+    const amount = Number(payment.amount || 0);
+
+    grouped.set(
+      idPaymentMethod,
+      roundMoney((grouped.get(idPaymentMethod) || 0) + amount)
+    );
+  }
+
+  return Array.from(grouped.entries()).map(
+    ([idPaymentMethod, amount]) => ({
+      idPaymentMethod,
+      amount,
+    })
+  );
+};
+
 /**
  * Use-Case: Crear venta
  *
- * Responsabilidades:
- * - Validar el tipo de venta recibido desde la ruta.
- * - Resolver el tipo de venta contra el catalogo sale_types.
- * - Crear un pedido con el modulo real de pedidos cuando no exista idOrder.
- * - Validar que el pedido exista, no este cancelado y no tenga venta asociada.
- * - Calcular el subtotal desde el pedido real.
- * - Validar estado de venta, empleado y metodos de pago.
- * - Crear la venta con sus metodos de pago.
- * - Descontar del stock los productos relacionados con el pedido.
- *
- * Reglas de negocio:
- * - Las ventas manuales y directas son generadas por un empleado autenticado.
- * - La venta web usa el empleado sistema si no hay empleado autenticado.
- * - idEmployee no viene del body; lo entrega la sesion/JWT al controller.
- * - idSaleType no viene del body; se resuelve desde vendingType.
- * - subtotal no viene del body; se toma del pedido real.
- * - Una venta no puede crearse dos veces para el mismo pedido.
- * - Una venta puede tener uno o varios metodos de pago.
- * - Si se envian montos por metodo, la suma no puede superar el total.
- *
- * @param {Object} params
- * @param {string} params.vendingType - manual, direct o web
- * @param {number} params.idEmployee - Empleado autenticado, excepto web
- * @param {number} params.idUser - Usuario autenticado para resolver empleado
- * @param {Object} params.data - Datos validados del body
+ * Reglas principales:
+ * - La API de Ventas crea primero el pedido y luego la venta.
+ * - La generacion automatica desde Pedidos puede usar idOrder interno.
+ * - Una venta exige pago completo: la suma de metodos debe igualar el total.
+ * - Si se usa Credito, se valida y descuenta el cupo del cliente en repository.
  */
 export const createVendingUseCase = async (params) => {
   try {
@@ -239,6 +268,7 @@ export const createVendingUseCase = async (params) => {
 
     let order;
     let createdOrder = null;
+    const createsOrderFromSale = Boolean(data.order);
 
     if (data.order) {
       try {
@@ -286,9 +316,7 @@ export const createVendingUseCase = async (params) => {
     }
 
     const rawOrder =
-      data.order
-        ? await VendingRepository.findOrderById(idOrder)
-        : order;
+      await VendingRepository.findOrderById(idOrder);
 
     if (!rawOrder) {
       return {
@@ -308,7 +336,7 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
-    if (getOrderStatusId(rawOrder) === CANCELLED_ORDER_STATUS_ID) {
+    if (getOrderStatusId(rawOrder) === ORDER_STATUSES[4].id) {
       return {
         success: false,
         data: null,
@@ -344,9 +372,21 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
-    const paymentMethods = [];
+    const paymentMethods =
+      data.paymentMethods?.length
+        ? data.paymentMethods
+        : buildPaymentMethodsFromOrderPayments(rawOrder.order_payments || []);
 
-    for (const paymentMethod of data.paymentMethods) {
+    if (!paymentMethods.length) {
+      return {
+        success: false,
+        data: null,
+        error: "Debe registrar al menos un metodo de pago para crear la venta",
+        errorCode: "PAYMENT_METHODS_REQUIRED",
+      };
+    }
+
+    for (const paymentMethod of paymentMethods) {
       const paymentMethodExists =
         await VendingRepository.findPaymentMethodById(
           paymentMethod.idPaymentMethod
@@ -360,38 +400,42 @@ export const createVendingUseCase = async (params) => {
           errorCode: "PAYMENT_METHOD_NOT_FOUND",
         };
       }
-
-      paymentMethods.push(paymentMethod);
     }
 
     const totals =
       calculateOrderTotals(rawOrder);
 
-    const paymentsWithAmount =
-      paymentMethods.filter(
-        (paymentMethod) =>
-          paymentMethod.amount !== undefined &&
-          paymentMethod.amount !== null
-      );
+    const paidAmount =
+      getPaidAmount(paymentMethods);
 
-    if (paymentsWithAmount.length > 0) {
-      const paidAmount =
-        roundMoney(
-          paymentsWithAmount.reduce(
-            (total, paymentMethod) =>
-              total + Number(paymentMethod.amount),
-            0
-          )
-        );
+    if (paidAmount !== totals.total) {
+      return {
+        success: false,
+        data: null,
+        error: "La suma de los metodos de pago debe ser igual al total de la venta",
+        errorCode: "PAYMENT_AMOUNT_MUST_MATCH_TOTAL",
+      };
+    }
 
-      if (paidAmount > totals.total) {
-        return {
-          success: false,
-          data: null,
-          error: "La suma de los metodos de pago no puede superar el total de la venta",
-          errorCode: "PAYMENT_AMOUNT_EXCEEDS_TOTAL",
-        };
-      }
+    const creditAmount =
+      getCreditAmount(paymentMethods);
+
+    if (creditAmount > 0 && !data.credit) {
+      return {
+        success: false,
+        data: null,
+        error: "Debe enviar los datos del credito cuando usa metodo de pago Credito",
+        errorCode: "CREDIT_DATA_REQUIRED",
+      };
+    }
+
+    if (data.credit && creditAmount <= 0) {
+      return {
+        success: false,
+        data: null,
+        error: "No debe enviar datos de credito si no usa metodo de pago Credito",
+        errorCode: "CREDIT_DATA_NOT_ALLOWED",
+      };
     }
 
     const sale =
@@ -402,12 +446,16 @@ export const createVendingUseCase = async (params) => {
         subtotal:
           totals.subtotal,
         idSaleStatus:
-          data.idSaleStatus,
+          data.idSaleStatus || SALE_STATUSES[1].id,
         idSaleType:
           saleType.id_sale_type,
         paymentMethods,
+        credit:
+          data.credit,
         orderDetails,
         decreaseStock: true,
+        markOrderAsPaid:
+          createsOrderFromSale,
       });
 
     return {
@@ -434,6 +482,11 @@ export const createVendingUseCase = async (params) => {
     if (error.code === "P2002") {
       errorCode =
         "DUPLICATE_SALE_ORDER";
+    }
+
+    if (error.message?.includes("credito")) {
+      errorCode =
+        "CREDIT_ERROR";
     }
 
     return {

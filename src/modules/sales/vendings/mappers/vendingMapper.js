@@ -40,6 +40,11 @@ export class VendingMapper {
           sale.sale_payment_methods
         ),
 
+      credit:
+        this.toCredit(
+          sale.credits
+        ),
+
       saleStatus:
         this.toSaleStatus(
           sale.sale_statuses
@@ -57,7 +62,7 @@ export class VendingMapper {
     };
   }
 
-  static toDomainList(sales) {
+  static toDomainList(sales = []) {
     return sales.map(
       (sale) => this.toDomain(sale)
     );
@@ -115,6 +120,27 @@ export class VendingMapper {
     );
   }
 
+  static toCredit(credit) {
+    if (!credit) return null;
+
+    return {
+      idCredit:
+        credit.id_credit,
+      idSale:
+        credit.id_sale,
+      idCustomer:
+        credit.id_customer,
+      dueDate:
+        toDate(credit.due_date),
+      idCreditStatus:
+        credit.id_credit_status,
+      creditAmount:
+        toNumber(credit.credit_amount),
+      remainingBalance:
+        toNumber(credit.remaining_balance),
+    };
+  }
+
   static toSaleStatus(saleStatus) {
     if (!saleStatus) return null;
 
@@ -159,6 +185,20 @@ export class VendingMapper {
         order.delivery_type,
       paymentStatus:
         order.payment_status,
+      paymentStatusDetail:
+        this.toPaymentStatus(
+          order.payment_statuses
+        ),
+      paymentDeadline:
+        toDate(order.payment_deadline),
+      paymentReminder6hSent:
+        Boolean(order.payment_reminder_6h_sent),
+      paymentReminder1hSent:
+        Boolean(order.payment_reminder_1h_sent),
+      paymentExpiredAt:
+        toDate(order.payment_expired_at),
+      paymentExpirationReason:
+        order.payment_expiration_reason || null,
       subtotal:
         toNumber(order.subtotal),
       ivaAmount:
@@ -176,6 +216,11 @@ export class VendingMapper {
           order.order_statuses
         ),
 
+      payments:
+        this.toOrderPayments(
+          order.order_payments || []
+        ),
+
       details:
         order.order_details
           ? this.toOrderDetails(
@@ -183,6 +228,44 @@ export class VendingMapper {
             )
           : [],
     };
+  }
+
+  static toPaymentStatus(paymentStatus) {
+    if (!paymentStatus) return null;
+
+    return {
+      idPaymentStatus:
+        paymentStatus.id_payment_status,
+      namePaymentStatus:
+        paymentStatus.name_payment_status,
+      description:
+        paymentStatus.description || null,
+    };
+  }
+
+  static toOrderPayments(orderPayments = []) {
+    return orderPayments.map((payment) => ({
+      idOrderPayment:
+        payment.id_order_payment,
+      idOrder:
+        payment.id_order,
+      idPaymentMethod:
+        payment.id_payment_method,
+      amount:
+        toNumber(payment.amount),
+      paymentDate:
+        toDate(payment.payment_date),
+      observations:
+        payment.observations || null,
+      reference:
+        payment.reference || null,
+      createdAt:
+        toDate(payment.created_at),
+      paymentMethod:
+        this.toPaymentMethod(
+          payment.payment_methods
+        ),
+    }));
   }
 
   static toCustomer(customer) {
@@ -230,7 +313,7 @@ export class VendingMapper {
     };
   }
 
-  static toOrderDetails(details) {
+  static toOrderDetails(details = []) {
     return details.map(
       (detail) => this.toOrderDetail(detail)
     );
@@ -302,6 +385,8 @@ export class VendingMapper {
         sale.employee,
       paymentMethods:
         sale.paymentMethods,
+      credit:
+        sale.credit,
       status:
         sale.saleStatus,
       type:
@@ -311,4 +396,3 @@ export class VendingMapper {
     };
   }
 }
-

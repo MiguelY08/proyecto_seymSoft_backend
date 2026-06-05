@@ -1,4 +1,7 @@
 ﻿import { z } from "zod";
+import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 const formatZodErrors = (error) => {
   const issues =
@@ -74,6 +77,7 @@ export const orderIdParamsSchema = z.object({
  *
  * Reglas:
  * - idPaymentMethod es obligatorio.
+ * - Credito no es valido en pagos de pedidos; solo se usa al crear ventas.
  * - amount debe ser mayor a cero.
  * - paymentDate, reference y observations son opcionales.
  * - Se aceptan nombres camelCase y snake_case para facilitar integraciones.
@@ -85,7 +89,10 @@ export const registerOrderPaymentSchema = z.object({
       error: "El ID del metodo de pago es obligatorio",
     })
     .int("El ID del metodo de pago debe ser un numero entero")
-    .positive("El ID del metodo de pago debe ser positivo"),
+    .positive("El ID del metodo de pago debe ser positivo")
+    .refine((value) => value !== CREDIT_PAYMENT_METHOD_ID, {
+      message: "El metodo Credito solo puede usarse al crear una venta",
+    }),
 
   amount: z
     .coerce
