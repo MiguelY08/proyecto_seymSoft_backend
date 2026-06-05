@@ -1,4 +1,4 @@
-import { prisma } from "../../../../config/prisma.js";
+﻿import { prisma } from "../../../../config/prisma.js";
 import { VendingMapper } from "../mappers/vendingMapper.js";
 
 const saleInclude = {
@@ -547,7 +547,7 @@ export class VendingRepository {
         return {
           success: false,
           error:
-            `El código de barras ${detail.barcode} no existe`,
+            `El cÃ³digo de barras ${detail.barcode} no existe`,
           errorCode:
             "BARCODE_NOT_FOUND",
         };
@@ -561,7 +561,7 @@ export class VendingRepository {
         return {
           success: false,
           error:
-            `Stock insuficiente para el código de barras ${detail.barcode}`,
+            `Stock insuficiente para el cÃ³digo de barras ${detail.barcode}`,
           errorCode:
             "INSUFFICIENT_STOCK",
         };
@@ -678,9 +678,12 @@ export class VendingRepository {
           Number(idOrder),
       },
       include: {
+        sales: true,
         order_details: true,
+        order_statuses: true,
       },
     });
   }
 }
+
 

@@ -1,4 +1,4 @@
-const toNumber = (value) => {
+﻿const toNumber = (value) => {
   if (value === null || value === undefined) return null;
 
   return Number(value);
@@ -11,7 +11,6 @@ const toDate = (value) => {
 };
 
 export class VendingMapper {
-
   static toDomain(sale) {
     if (!sale) return null;
 
@@ -152,8 +151,20 @@ export class VendingMapper {
         toDate(order.order_date),
       idOrderStatus:
         order.id_order_status,
+      deliveryAddress:
+        order.delivery_adress,
       deliveryAdress:
         order.delivery_adress,
+      deliveryType:
+        order.delivery_type,
+      paymentStatus:
+        order.payment_status,
+      subtotal:
+        toNumber(order.subtotal),
+      ivaAmount:
+        toNumber(order.iva_amount),
+      total:
+        toNumber(order.total),
 
       customer:
         this.toCustomer(
@@ -300,3 +311,4 @@ export class VendingMapper {
     };
   }
 }
+

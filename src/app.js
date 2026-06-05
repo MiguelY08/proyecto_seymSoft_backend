@@ -1,4 +1,4 @@
-// Express application setup
+﻿// Express application setup
 
 import express from "express";
 import cors from "cors";
@@ -16,10 +16,10 @@ import roleRoutes from "./modules/settings/roles/routes/roleRoutes.js";
 
 import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes.js";
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js";
-import clientRoutes from './modules/sales/clients/routes/clientRoutes.js';
+import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
-
+import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 
@@ -36,16 +36,11 @@ const __dirname = path.dirname(
  * Middlewares globales
  */
 app.use(cors());
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));  // ← AGREGAR ESTO
-
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
-/**
- * Health Check
- */
-/* Sesión (necesario para Passport) */
+/* Sesion necesaria para Passport */
 app.use(session({
   secret: process.env.JWT_ACCESS_SECRET,
   resave: false,
@@ -66,12 +61,10 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * Rutas de autenticación
+ * Rutas de autenticacion
  */
 app.use("/auth", authRoutes);
-/* Rutas de autenticación */
-app.use("/auth", authRoutes);
-app.use("/api/auth", authRoutes);  
+app.use("/api/auth", authRoutes);
 
 /**
  * Rutas de usuarios
@@ -79,22 +72,23 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 
 /**
- * Rutas de categorías y productos
+ * Rutas de categorias y productos
  */
 app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+
+/* Rutas de pedidos */
+app.use("/api/orders", orderRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
-app.use("/api/products", productRoutes);
 
 /**
  * Rutas de banners
  */
 app.use("/api/banners", bannerRoutes);
 
-/* Rutas de proveedores */
-app.use('/api/clients', clientRoutes);
-/* Rutas de Roles */
+/* Rutas de roles */
 app.use("/api/roles", roleRoutes);
 
 /* Rutas de clientes */

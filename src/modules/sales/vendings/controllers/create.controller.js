@@ -1,4 +1,4 @@
-import { createVendingUseCase } from "../use-cases/index.js";
+﻿import { createVendingUseCase } from "../use-cases/index.js";
 import {
   validateCreateVending,
   validateCreateVendingParams,
@@ -16,7 +16,7 @@ export const CreateVendingController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validaciÃ³n.",
         errors:
           paramsValidation.errors,
       });
@@ -32,7 +32,7 @@ export const CreateVendingController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validaciÃ³n.",
         errors:
           bodyValidation.errors,
       });
@@ -46,10 +46,15 @@ export const CreateVendingController = async (req, res) => {
       req.user?.idUser ||
       null;
 
+    const idEmployee =
+      bodyValidation.data.idEmployee ||
+      null;
+
     // Ejecutar use-case
     const result =
       await createVendingUseCase({
         vendingType,
+        idEmployee,
         idUser,
         data:
           bodyValidation.data,
@@ -64,8 +69,11 @@ export const CreateVendingController = async (req, res) => {
         EMPLOYEE_NOT_FOUND: 404,
         SALE_STATUS_NOT_FOUND: 404,
         INVALID_ORDER_ID: 400,
+        ORDER_CREATION_ERROR: 400,
+        INVALID_ORDER_RESPONSE: 500,
         ORDER_NOT_FOUND: 404,
         ORDER_ALREADY_SOLD: 409,
+        ORDER_CANCELLED: 409,
         ORDER_WITHOUT_DETAILS: 409,
         BARCODE_NOT_FOUND: 404,
         INSUFFICIENT_STOCK: 409,
@@ -107,3 +115,5 @@ export const CreateVendingController = async (req, res) => {
     });
   }
 };
+
+
