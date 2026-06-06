@@ -80,6 +80,18 @@ model clients {
   sales_orders          sales_orders[]
 }
 
+model credit_interests {
+  id_interest      Int      @id @default(autoincrement())
+  id_credit        Int
+  percentage       Decimal  @db.Decimal(5, 2)
+  base_amount      Decimal  @db.Decimal(12, 2)
+  generated_amount Decimal  @db.Decimal(12, 2)
+  created_at       DateTime @default(now())
+  credits          credits  @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade)
+
+  @@index([id_credit])
+}
+
 model credit_statuses {
   id_credit_status   Int            @id(map: "estados_credito_pkey") @default(autoincrement())
   name_credit_status String         @unique(map: "estados_credito_nombre_key") @db.VarChar(50)
@@ -88,43 +100,18 @@ model credit_statuses {
 }
 
 model credits {
-  id_credit Int @id(map: "creditos_pkey") @default(autoincrement())
-
-  id_sale Int @unique(map: "creditos_id_venta_key")
-
-  due_date DateTime @db.Date
-
-  id_credit_status Int
-
-  id_customer Int
-
-  sales sales @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
-
-  clients clients @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
-
-  credit_statuses credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
-
-  installments installments[]
-
-  credit_interests credit_interests[]
-}
-
-model credit_interests {
-  id_interest Int @id @default(autoincrement())
-
-  id_credit Int
-
-  percentage Decimal @db.Decimal(5, 2)
-
-  base_amount Decimal @db.Decimal(12, 2)
-
-  generated_amount Decimal @db.Decimal(12, 2)
-
-  created_at DateTime @default(now())
-
-  credits credits @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade)
-
-  @@index([id_credit])
+  id_credit         Int                @id(map: "creditos_pkey") @default(autoincrement())
+  id_sale           Int                @unique(map: "creditos_id_venta_key")
+  due_date          DateTime           @db.Date
+  id_credit_status  Int
+  id_customer       Int
+  credit_amount     Decimal            @db.Decimal(12, 2)
+  remaining_balance Decimal            @db.Decimal(12, 2)
+  credit_interests  credit_interests[]
+  sales             sales              @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
+  clients           clients            @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
+  credit_statuses   credit_statuses    @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
+  installments      installments[]
 }
 
 model employee_roles {
@@ -197,10 +184,10 @@ model installments {
   remaining_balance  Decimal         @db.Decimal(12, 2)
   id_credit_status   Int
   id_credit          Int
+  cancelled_at       DateTime?
   capital_paid       Decimal         @default(0) @db.Decimal(12, 2)
   interest_paid      Decimal         @default(0) @db.Decimal(12, 2)
   is_cancelled       Boolean         @default(false)
-  cancelled_at       DateTime?
   payment_methods    payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
   credits            credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
   credit_statuses    credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_abonos_estado_credito")
@@ -257,6 +244,7 @@ model payment_methods {
   id_payment_method    Int                    @id(map: "metodos_pago_pkey") @default(autoincrement())
   name_payment_method  String                 @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)
   installments         installments[]
+  order_payments       order_payments[]
   sale_payment_methods sale_payment_methods[]
 }
 
@@ -577,23 +565,31 @@ model sales {
 }
 
 model sales_orders {
-  id_order          Int             @id(map: "pedidos_venta_pkey") @default(autoincrement())
-  id_customer       Int
-  order_date        DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_order_status   Int
-  delivery_adress   String?         @db.VarChar(255)
-  subtotal          Decimal?        @default(0) @db.Decimal(12, 2)
-  iva_amount        Decimal?        @default(0) @db.Decimal(12, 2)
-  total             Decimal?        @default(0) @db.Decimal(12, 2)
-  payment_status    String?         @default("Pendiente") @db.VarChar(20)
-  delivery_type     String?         @default("Recoge") @db.VarChar(20)
-  assigned_employee Int?
-  hev               hev?
-  order_details     order_details[]
-  sales             sales?
-  employees         employees?      @relation(fields: [assigned_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_employee")
-  clients           clients         @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
-  order_statuses    order_statuses  @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
+  id_order                  Int              @id(map: "pedidos_venta_pkey") @default(autoincrement())
+  id_customer               Int
+  order_date                DateTime?        @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_order_status           Int
+  delivery_adress           String?          @db.VarChar(255)
+  subtotal                  Decimal?         @default(0) @db.Decimal(12, 2)
+  iva_amount                Decimal?         @default(0) @db.Decimal(12, 2)
+  total                     Decimal?         @default(0) @db.Decimal(12, 2)
+  payment_status            String?          @default("Pendiente") @db.VarChar(20)
+  delivery_type             String?          @default("Recoge") @db.VarChar(20)
+  assigned_employee         Int?
+  payment_deadline          DateTime?        @db.Timestamp(6)
+  payment_reminder_6h_sent  Boolean          @default(false)
+  payment_reminder_1h_sent  Boolean          @default(false)
+  payment_expired_at        DateTime?        @db.Timestamp(6)
+  payment_expiration_reason String?          @db.VarChar(255)
+  id_payment_status         Int
+  hev                       hev?
+  order_details             order_details[]
+  order_payments            order_payments[]
+  sales                     sales?
+  employees                 employees?       @relation(fields: [assigned_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_employee")
+  payment_statuses          payment_statuses @relation(fields: [id_payment_status], references: [id_payment_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_orders_payment_status")
+  clients                   clients          @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
+  order_statuses            order_statuses   @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
 }
 
 model sales_returns {
@@ -640,4 +636,26 @@ model users {
   clients          clients?
   employees        employees?
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+}
+
+model order_payments {
+  id_order_payment  Int             @id @default(autoincrement())
+  id_order          Int
+  id_payment_method Int
+  amount            Decimal         @db.Decimal(12, 2)
+  payment_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  observations      String?         @db.VarChar(255)
+  reference         String?         @db.VarChar(100)
+  created_at        DateTime?       @default(now()) @db.Timestamp(6)
+  sales_orders      sales_orders    @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payments_order")
+  payment_methods   payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payments_payment_method")
+
+  @@index([id_order], map: "idx_order_payments_id_order")
+}
+
+model payment_statuses {
+  id_payment_status   Int            @id @default(autoincrement())
+  name_payment_status String         @unique @db.VarChar(50)
+  description         String?        @db.VarChar(255)
+  sales_orders        sales_orders[]
 }
