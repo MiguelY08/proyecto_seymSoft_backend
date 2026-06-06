@@ -6,7 +6,7 @@ import {
 
 export const GetVendingMetricsController = async (req, res) => {
   try {
-    // Validar query parameters vacíos
+    // Validar query parameters vacios
     const queryValidation =
       validateGetVendingMetricsQuery(
         req.query
@@ -16,13 +16,13 @@ export const GetVendingMetricsController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           queryValidation.errors,
       });
     }
 
-    // Validar body vacío
+    // Validar body vacio
     const bodyValidation =
       validateGetVendingMetrics(
         req.body
@@ -32,7 +32,7 @@ export const GetVendingMetricsController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           bodyValidation.errors,
       });
@@ -60,7 +60,7 @@ export const GetVendingMetricsController = async (req, res) => {
     return res.status(200).json({
       success: true,
       message:
-        "Métricas de ventas obtenidas exitosamente.",
+        "Metricas de ventas obtenidas exitosamente.",
       data:
         result.data,
     });
@@ -74,7 +74,7 @@ export const GetVendingMetricsController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message:
-        "Error obteniendo métricas de ventas.",
+        "Error obteniendo metricas de ventas.",
       error:
         error.message,
     });

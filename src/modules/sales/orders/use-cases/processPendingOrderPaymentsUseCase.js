@@ -4,6 +4,8 @@
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 
+const EXPIRATION_REASON = 'Pedido cancelado automaticamente por vencimiento de pago.';
+
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
 
@@ -31,6 +33,26 @@ const getHoursUntilDeadline = (order, now) => {
 
   const diffMs = new Date(order.payment_deadline).getTime() - new Date(now).getTime();
   return Math.max(Math.ceil(diffMs / (60 * 60 * 1000)), 0);
+};
+
+const notifyOrderExpired = async (order) => {
+  const to = getCustomerEmail(order);
+
+  if (!to) {
+    return;
+  }
+
+  try {
+    await EmailService.sendOrderCancelledEmail({
+      to,
+      fullName: getCustomerName(order),
+      orderId: order.id_order,
+      reason: EXPIRATION_REASON,
+      total: roundMoney(order.total),
+    });
+  } catch (error) {
+    console.error('[ProcessPendingOrderPaymentsUseCase] Expiration email error:', error.message);
+  }
 };
 
 export class ProcessPendingOrderPaymentsUseCase {
@@ -114,8 +136,10 @@ export class ProcessPendingOrderPaymentsUseCase {
       try {
         const expiredOrder = await this.repo.expirePendingOrder(
           order.id_order,
-          'Pedido cancelado automaticamente por vencimiento de pago.'
+          EXPIRATION_REASON
         );
+
+        await notifyOrderExpired(expiredOrder);
 
         expirations.push({
           idOrder: order.id_order,

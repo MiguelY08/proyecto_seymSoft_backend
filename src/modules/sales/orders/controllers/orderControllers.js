@@ -24,6 +24,7 @@ export const createOrder = async (req, res, next) => {
 
     res.status(httpCodes.CREATED).json({
       success: true,
+      message: 'Pedido registrado exitosamente.',
       data,
     });
   } catch (err) {
@@ -31,14 +32,23 @@ export const createOrder = async (req, res, next) => {
   }
 };
 
-// Obtener todos los pedidos registrados.
+// Obtener todos los pedidos registrados con paginacion y filtros.
 export const getAllOrders = async (req, res, next) => {
   try {
-    const data = await new GetAllOrdersUseCase(repo).execute(req.query);
+    const result = await new GetAllOrdersUseCase(repo).execute(req.query);
 
     res.status(httpCodes.OK).json({
       success: true,
-      data,
+      message: 'Pedidos obtenidos exitosamente.',
+      data: result.orders,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+        hasNextPage: result.hasNextPage,
+        hasPrevPage: result.hasPrevPage,
+      },
     });
   } catch (err) {
     next(err);
@@ -52,6 +62,7 @@ export const getOrderById = async (req, res, next) => {
 
     res.status(httpCodes.OK).json({
       success: true,
+      message: 'Pedido obtenido exitosamente.',
       data,
     });
   } catch (err) {
@@ -68,6 +79,7 @@ export const updateOrder = async (req, res, next) => {
 
     res.status(httpCodes.OK).json({
       success: true,
+      message: 'Pedido actualizado exitosamente.',
       data,
     });
   } catch (err) {
@@ -82,6 +94,7 @@ export const cancelOrder = async (req, res, next) => {
 
     res.status(httpCodes.OK).json({
       success: true,
+      message: 'Pedido cancelado exitosamente.',
       data,
     });
   } catch (err) {
@@ -117,12 +130,19 @@ export const registerOrderPayment = async (req, res, next) => {
       bodyValidation.data
     );
 
+    const message = data.paymentSummary?.isPaid
+      ? 'Pago registrado exitosamente. El pedido quedo pagado y la venta fue generada.'
+      : 'Abono registrado exitosamente. El pedido continua pendiente de pago.';
+
     res.status(httpCodes.CREATED).json({
       success: true,
-      message: 'Pago registrado exitosamente.',
+      message: data.recoveredSale
+        ? 'Venta pendiente generada exitosamente para un pedido ya pagado.'
+        : message,
       data,
     });
   } catch (err) {
     next(err);
   }
 };
+

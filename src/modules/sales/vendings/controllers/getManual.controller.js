@@ -13,7 +13,7 @@ export const GetManualVendingsController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           validation.errors,
       });

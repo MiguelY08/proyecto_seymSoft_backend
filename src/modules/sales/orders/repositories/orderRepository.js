@@ -83,6 +83,9 @@ const orderInclude = {
 export class OrderRepository {
   async findAll(filters = {}) {
     const where = {};
+    const page = Math.max(Number(filters.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(filters.limit) || 10, 1), 100);
+    const skip = (page - 1) * limit;
 
     if (filters.statusId) {
       where.id_order_status = Number(filters.statusId);
@@ -104,21 +107,40 @@ export class OrderRepository {
       where.order_date = {};
 
       if (filters.startDate) {
-        where.order_date.gte = new Date(filters.startDate);
+        where.order_date.gte = new Date(`${filters.startDate}T00:00:00.000Z`);
       }
 
       if (filters.endDate) {
-        where.order_date.lte = new Date(filters.endDate);
+        where.order_date.lte = new Date(`${filters.endDate}T23:59:59.999Z`);
       }
     }
 
-    return prisma.sales_orders.findMany({
-      where,
-      ...orderInclude,
-      orderBy: {
-        id_order: 'desc',
-      },
-    });
+    const [orders, total] = await Promise.all([
+      prisma.sales_orders.findMany({
+        where,
+        ...orderInclude,
+        orderBy: {
+          id_order: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.sales_orders.count({
+        where,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      orders,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    };
   }
 
   async findById(id) {
@@ -144,7 +166,7 @@ export class OrderRepository {
   async create(data) {
     const paymentStatus = resolvePaymentStatus(data);
 
-    return prisma.$transaction(async (tx) => {
+    const idOrder = await prisma.$transaction(async (tx) => {
       const order = await tx.sales_orders.create({
         data: {
           id_customer: Number(data.idClient),
@@ -157,6 +179,9 @@ export class OrderRepository {
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
           total: data.total,
+        },
+        select: {
+          id_order: true,
         },
       });
 
@@ -172,22 +197,20 @@ export class OrderRepository {
         })),
       });
 
-      return tx.sales_orders.findUnique({
-        where: {
-          id_order: order.id_order,
-        },
-        ...orderInclude,
-      });
+      return order.id_order;
     });
+
+    return this.findById(idOrder);
   }
 
   async update(id, data) {
     const paymentStatus = resolvePaymentStatus(data);
+    const idOrder = Number(id);
 
-    return prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       await tx.sales_orders.update({
         where: {
-          id_order: Number(id),
+          id_order: idOrder,
         },
         data: {
           id_customer: Number(data.idClient),
@@ -205,13 +228,13 @@ export class OrderRepository {
 
       await tx.order_details.deleteMany({
         where: {
-          id_order: Number(id),
+          id_order: idOrder,
         },
       });
 
       await tx.order_details.createMany({
         data: data.items.map((item) => ({
-          id_order: Number(id),
+          id_order: idOrder,
           id_product: Number(item.idProduct),
           barcode: item.barcode,
           quantity: Number(item.quantity),
@@ -220,14 +243,9 @@ export class OrderRepository {
           iva_amount: item.ivaAmount,
         })),
       });
-
-      return tx.sales_orders.findUnique({
-        where: {
-          id_order: Number(id),
-        },
-        ...orderInclude,
-      });
     });
+
+    return this.findById(idOrder);
   }
 
   async cancel(id) {
@@ -433,3 +451,4 @@ export class OrderRepository {
     });
   }
 }
+

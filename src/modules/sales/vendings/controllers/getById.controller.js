@@ -6,7 +6,7 @@ import {
 
 export const GetVendingByIdController = async (req, res) => {
   try {
-    // Validar parámetros
+    // Validar parametros
     const paramsValidation =
       validateGetVendingByIdParams(
         req.params
@@ -16,13 +16,13 @@ export const GetVendingByIdController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           paramsValidation.errors,
       });
     }
 
-    // Validar body vacío
+    // Validar body vacio
     const bodyValidation =
       validateGetVendingById(
         req.body
@@ -32,7 +32,7 @@ export const GetVendingByIdController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           bodyValidation.errors,
       });

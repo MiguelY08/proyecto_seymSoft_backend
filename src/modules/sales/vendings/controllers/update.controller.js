@@ -6,7 +6,7 @@ import {
 
 export const UpdateVendingController = async (req, res) => {
   try {
-    // Validar parámetros
+    // Validar parametros
     const paramsValidation =
       validateUpdateVendingParams(
         req.params
@@ -16,7 +16,7 @@ export const UpdateVendingController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           paramsValidation.errors,
       });
@@ -32,7 +32,7 @@ export const UpdateVendingController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Errores de validación.",
+          "Errores de validacion.",
         errors:
           bodyValidation.errors,
       });

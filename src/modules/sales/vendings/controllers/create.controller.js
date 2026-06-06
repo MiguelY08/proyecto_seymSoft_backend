@@ -82,6 +82,7 @@ export const CreateVendingController = async (req, res) => {
         PAYMENT_AMOUNT_MUST_MATCH_TOTAL: 400,
         CREDIT_DATA_REQUIRED: 400,
         CREDIT_DATA_NOT_ALLOWED: 400,
+        CREDIT_STATUS_NOT_FOUND: 404,
         CREDIT_ERROR: 400,
         DUPLICATE_SALE_ORDER: 409,
         DATABASE_ERROR: 500,
@@ -119,3 +120,5 @@ export const CreateVendingController = async (req, res) => {
     });
   }
 };
+
+

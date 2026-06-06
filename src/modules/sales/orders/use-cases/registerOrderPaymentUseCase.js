@@ -1,10 +1,11 @@
-﻿import {
+import {
   ORDER_STATUSES,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   SALE_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
+import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
 
@@ -35,6 +36,63 @@ const getPaymentMethodsFromOrder = (payments = []) => {
   );
 };
 
+const generateSaleFromPaidOrder = async (repo, idOrder) => {
+  const orderWithPayments = await repo.findById(idOrder);
+  const paymentMethods = getPaymentMethodsFromOrder(
+    orderWithPayments.order_payments
+  );
+
+  const saleResult = await createVendingUseCase({
+    vendingType: DEFAULT_VENDING_TYPE,
+    data: {
+      idOrder: orderWithPayments.id_order,
+      idSaleStatus: SALE_STATUSES[1].id,
+      paymentMethods,
+    },
+  });
+
+  if (!saleResult.success) {
+    throw new AppError(
+      saleResult.error || 'Error generando la venta del pedido pagado.',
+      400
+    );
+  }
+
+  return saleResult.data?.sale || null;
+};
+const notifyPaymentRegistered = async ({
+  order,
+  paymentMethod,
+  amount,
+  paidAmount,
+  pendingAmount,
+  isPaid,
+  reference,
+}) => {
+  const mappedOrder = mapOrder(order);
+  const customer = mappedOrder.customer;
+
+  if (!customer?.email) {
+    return;
+  }
+
+  try {
+    await EmailService.sendOrderPaymentRegisteredEmail({
+      to: customer.email,
+      fullName: customer.name,
+      orderId: mappedOrder.id,
+      paymentMethod: paymentMethod.name_payment_method,
+      amount,
+      paidAmount,
+      pendingAmount,
+      isPaid,
+      reference,
+    });
+  } catch (error) {
+    console.error('[RegisterOrderPaymentUseCase] Email error:', error.message);
+  }
+};
+
 export class RegisterOrderPaymentUseCase {
   constructor(repo) {
     this.repo = repo;
@@ -56,6 +114,32 @@ export class RegisterOrderPaymentUseCase {
     }
 
     if (order.id_payment_status === PAYMENT_STATUSES[2].id) {
+      if (!order.sales) {
+        const generatedSale = await generateSaleFromPaidOrder(
+          this.repo,
+          order.id_order
+        );
+        const finalOrder = await this.repo.findById(order.id_order);
+
+        return {
+          order: mapOrder(finalOrder),
+          paymentSummary: {
+            orderTotal: roundMoney(order.total),
+            paidBefore: roundMoney(
+              await this.repo.sumPaymentsByOrderId(order.id_order)
+            ),
+            paidAfter: roundMoney(
+              await this.repo.sumPaymentsByOrderId(order.id_order)
+            ),
+            pendingBefore: 0,
+            pendingAfter: 0,
+            isPaid: true,
+          },
+          generatedSale,
+          recoveredSale: true,
+        };
+      }
+
       throw new AppError(
         'El pedido ya se encuentra pagado.',
         400
@@ -93,6 +177,34 @@ export class RegisterOrderPaymentUseCase {
     const pendingBefore = roundMoney(orderTotal - paidBefore);
 
     if (pendingBefore <= 0) {
+      if (!order.sales) {
+        const generatedSale = await generateSaleFromPaidOrder(
+          this.repo,
+          order.id_order
+        );
+
+        await this.repo.updatePaymentStatus(
+          order.id_order,
+          PAYMENT_STATUSES[2].id
+        );
+
+        const finalOrder = await this.repo.findById(order.id_order);
+
+        return {
+          order: mapOrder(finalOrder),
+          paymentSummary: {
+            orderTotal,
+            paidBefore,
+            paidAfter: paidBefore,
+            pendingBefore,
+            pendingAfter: 0,
+            isPaid: true,
+          },
+          generatedSale,
+          recoveredSale: true,
+        };
+      }
+
       throw new AppError(
         'El pedido no tiene saldo pendiente.',
         400
@@ -117,41 +229,34 @@ export class RegisterOrderPaymentUseCase {
     const pendingAfter = roundMoney(orderTotal - paidAfter);
     const isPaid = pendingAfter <= 0;
 
-    const updatedOrder = await this.repo.updatePaymentStatus(
+    let generatedSale = null;
+
+    // Al completar el pago, primero se genera la venta y luego se marca el pedido como Pagado.
+    if (isPaid && !order.sales) {
+      generatedSale = await generateSaleFromPaidOrder(
+        this.repo,
+        order.id_order
+      );
+    }
+
+    await this.repo.updatePaymentStatus(
       order.id_order,
       isPaid
         ? PAYMENT_STATUSES[2].id
         : PAYMENT_STATUSES[1].id
     );
 
-    let generatedSale = null;
-
-    // Al completar el pago, el pedido debe convertirse automaticamente en venta.
-    if (isPaid && !updatedOrder.sales) {
-      const paymentMethods = getPaymentMethodsFromOrder(
-        updatedOrder.order_payments
-      );
-
-      const saleResult = await createVendingUseCase({
-        vendingType: DEFAULT_VENDING_TYPE,
-        data: {
-          idOrder: updatedOrder.id_order,
-          idSaleStatus: SALE_STATUSES[1].id,
-          paymentMethods,
-        },
-      });
-
-      if (!saleResult.success) {
-        throw new AppError(
-          saleResult.error || 'Error generando la venta del pedido pagado.',
-          400
-        );
-      }
-
-      generatedSale = saleResult.data?.sale || null;
-    }
-
     const finalOrder = await this.repo.findById(order.id_order);
+
+    void notifyPaymentRegistered({
+      order: finalOrder,
+      paymentMethod,
+      amount,
+      paidAmount: paidAfter,
+      pendingAmount: Math.max(pendingAfter, 0),
+      isPaid,
+      reference: data.reference,
+    });
 
     return {
       order: mapOrder(finalOrder),

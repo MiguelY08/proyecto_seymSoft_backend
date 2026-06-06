@@ -109,7 +109,7 @@ const buildCreditData = ({ data, idCustomer, creditAmount }) => {
 export class VendingRepository {
 
   static async create(data) {
-    const sale =
+    const createdSaleId =
       await prisma.$transaction(async (tx) => {
         const creditAmount =
           getCreditAmount(data.paymentMethods);
@@ -199,8 +199,9 @@ export class VendingRepository {
                   data.saleDate,
               }),
             },
-            include:
-              saleInclude,
+            select: {
+              id_sale: true,
+            },
           });
 
         if (data.markOrderAsPaid) {
@@ -219,37 +220,43 @@ export class VendingRepository {
         }
 
         if (data.decreaseStock) {
-          for (const detail of data.orderDetails || []) {
-            await tx.barcodes.updateMany({
-              where: {
-                barcode:
-                  detail.barcode,
-              },
-              data: {
-                stock: {
-                  decrement:
-                    detail.quantity,
+          await Promise.all(
+            (data.orderDetails || []).map((detail) =>
+              tx.barcodes.updateMany({
+                where: {
+                  barcode:
+                    detail.barcode,
                 },
-              },
-            });
-          }
+                data: {
+                  stock: {
+                    decrement:
+                      detail.quantity,
+                  },
+                },
+              })
+            )
+          );
         }
 
-        return await tx.sales.findUnique({
-          where: {
-            id_sale:
-              createdSale.id_sale,
-          },
-          include:
-            saleInclude,
-        });
+        return createdSale.id_sale;
+      }, {
+        timeout: 15000,
+      });
+
+    const sale =
+      await prisma.sales.findUnique({
+        where: {
+          id_sale:
+            createdSaleId,
+        },
+        include:
+          saleInclude,
       });
 
     return VendingMapper.toDomain(
       sale
     );
   }
-
   static async update(idSale, data) {
     const sale =
       await prisma.$transaction(async (tx) => {
@@ -767,6 +774,14 @@ export class VendingRepository {
       },
     });
   }
+  static async findCreditStatusById(idCreditStatus) {
+    return await prisma.credit_statuses.findUnique({
+      where: {
+        id_credit_status:
+          Number(idCreditStatus),
+      },
+    });
+  }
 
   static async findSaleStatusByName(nameStatus) {
     return await prisma.sale_statuses.findUnique({
@@ -805,10 +820,14 @@ export class VendingRepository {
   }
 
   static async findSaleTypeByName(saleTypeName) {
-    return await prisma.sale_types.findUnique({
+    return await prisma.sale_types.findFirst({
       where: {
-        sale_type_name:
-          saleTypeName,
+        sale_type_name: {
+          equals:
+            saleTypeName,
+          mode:
+            "insensitive",
+        },
       },
     });
   }
@@ -856,3 +875,6 @@ export class VendingRepository {
     });
   }
 }
+
+
+

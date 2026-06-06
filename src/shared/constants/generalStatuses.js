@@ -29,6 +29,12 @@ export const ORDER_STATUSES = {
   4: { id: 4, name: "Cancelado", description: "Pedido cancelado" },
 };
 
+
+export const CREDIT_STATUSES = {
+  1: { id: 1, name: "Pendiente" },
+  2: { id: 2, name: "Pagado" },
+  3: { id: 3, name: "Vencido" },
+};
 export const CLIENT_TYPES = {
   RETAIL: "detal",
   WHOLESALE: "mayorista",
@@ -42,4 +48,5 @@ export const ORDER_PAYMENT_EXPIRATION = {
   REMINDER_6H: 6,
   REMINDER_1H: 1,
 };
+
 

@@ -4,6 +4,7 @@
   SALE_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
+import { EmailService } from "../../../../shared/services/emailService.js";
 import { CreateOrderDto } from "../../orders/dtos/createOrder.dto.js";
 import { CreateOrderUseCase } from "../../orders/use-cases/createOrderUseCase.js";
 import { OrderRepository } from "../../orders/repositories/orderRepository.js";
@@ -13,6 +14,12 @@ const VENDING_TYPES = [
   "direct",
   "web",
 ];
+
+const SALE_TYPE_CATALOG_NAMES = {
+  manual: "MANUAL",
+  direct: "DIRECTA",
+  web: "WEB",
+};
 
 const EMPLOYEE_REQUIRED_TYPES = [
   "manual",
@@ -93,16 +100,23 @@ const calculateOrderTotals = (order) => {
   };
 };
 
-const createOrder = async (orderData) => {
+const prepareOrder = async (orderData) => {
   const orderRepository =
     new OrderRepository();
 
   const dto =
     new CreateOrderDto(orderData);
 
-  return await new CreateOrderUseCase(
-    orderRepository
-  ).execute(dto);
+  const orderUseCase =
+    new CreateOrderUseCase(
+      orderRepository
+    );
+
+  return {
+    orderUseCase,
+    orderData:
+      await orderUseCase.prepare(dto),
+  };
 };
 
 const getPaidAmount = (paymentMethods = []) =>
@@ -123,6 +137,35 @@ const getCreditAmount = (paymentMethods = []) =>
         0
       )
   );
+
+
+const notifySaleCreated = async (sale) => {
+  const customer = sale?.order?.customer;
+  const user = customer?.user;
+
+  if (!user?.email) {
+    return;
+  }
+
+  try {
+    await EmailService.sendSaleCreatedEmail({
+      to: user.email,
+      fullName: user.fullName,
+      saleId: sale.idSale,
+      orderId: sale.idOrder,
+      paymentMethods: sale.paymentMethods,
+      details: sale.order?.details,
+      subtotal: sale.subtotal,
+      total: sale.order?.total || sale.subtotal,
+      credit: sale.credit,
+    });
+  } catch (error) {
+    console.error(
+      "[CreateVendingUseCase] Email error:",
+      error.message
+    );
+  }
+};
 
 const buildPaymentMethodsFromOrderPayments = (orderPayments = []) => {
   const grouped = new Map();
@@ -179,7 +222,7 @@ export const createVendingUseCase = async (params) => {
 
     const saleType =
       await VendingRepository.findSaleTypeByName(
-        normalizedType
+        SALE_TYPE_CATALOG_NAMES[normalizedType] || normalizedType
       );
 
     if (!saleType) {
@@ -268,23 +311,56 @@ export const createVendingUseCase = async (params) => {
 
     let order;
     let createdOrder = null;
+    let rawOrder = null;
+    let idOrder = null;
+    let orderDetails = [];
+    let totals = null;
+    let preparedOrder = null;
     const createsOrderFromSale = Boolean(data.order);
 
     if (data.order) {
       try {
-        createdOrder =
-          await createOrder(data.order);
+        preparedOrder =
+          await prepareOrder(data.order);
+
+        totals = {
+          subtotal:
+            roundMoney(preparedOrder.orderData.subtotal),
+          ivaAmount:
+            roundMoney(preparedOrder.orderData.ivaAmount),
+          total:
+            roundMoney(preparedOrder.orderData.total),
+        };
+
+        orderDetails =
+          preparedOrder.orderData.items.map((item) => ({
+            id_product:
+              Number(item.idProduct ?? item.id_product),
+            idProduct:
+              Number(item.idProduct ?? item.id_product),
+            barcode:
+              item.barcode,
+            quantity:
+              Number(item.quantity),
+            unit_price:
+              item.unitPrice,
+            unitPrice:
+              item.unitPrice,
+            subtotal:
+              item.subtotal,
+            iva_amount:
+              item.ivaAmount,
+            ivaAmount:
+              item.ivaAmount,
+          }));
       } catch (orderError) {
         return {
           success: false,
           data: null,
-          error: "Error creando pedido: " + orderError.message,
+          error: "Error validando pedido: " + orderError.message,
           errorCode: "ORDER_CREATION_ERROR",
         };
       }
-
-      order =
-        createdOrder;
     }
 
     if (data.idOrder) {
@@ -292,9 +368,90 @@ export const createVendingUseCase = async (params) => {
         await VendingRepository.findOrderById(
           data.idOrder
         );
+
+      if (!order) {
+        return {
+          success: false,
+          data: null,
+          error: "Pedido no encontrado",
+          errorCode: "ORDER_NOT_FOUND",
+        };
+      }
+
+      idOrder =
+        getOrderId(order);
+
+      if (!idOrder) {
+        return {
+          success: false,
+          data: null,
+          error: "El pedido no tiene un ID valido",
+          errorCode: "INVALID_ORDER_RESPONSE",
+        };
+      }
+
+      rawOrder =
+        await VendingRepository.findOrderById(idOrder);
+
+      if (!rawOrder) {
+        return {
+          success: false,
+          data: null,
+          error: "Pedido no encontrado",
+          errorCode: "ORDER_NOT_FOUND",
+        };
+      }
+
+      if (rawOrder.sales) {
+        return {
+          success: false,
+          data: null,
+          error: "El pedido ya tiene una venta asociada",
+          errorCode: "ORDER_ALREADY_SOLD",
+        };
+      }
+
+      if (getOrderStatusId(rawOrder) === ORDER_STATUSES[4].id) {
+        return {
+          success: false,
+          data: null,
+          error: "No se puede crear una venta para un pedido cancelado",
+          errorCode: "ORDER_CANCELLED",
+        };
+      }
+
+      orderDetails =
+        getOrderDetails(rawOrder);
+
+      if (!orderDetails.length) {
+        return {
+          success: false,
+          data: null,
+          error: "El pedido no tiene detalles",
+          errorCode: "ORDER_WITHOUT_DETAILS",
+        };
+      }
+
+      const stockValidation =
+        await VendingRepository.validateStockForOrder({
+          details:
+            orderDetails,
+        });
+
+      if (!stockValidation.success) {
+        return {
+          success: false,
+          data: null,
+          error: stockValidation.error,
+          errorCode: stockValidation.errorCode,
+        };
+      }
+
+      totals =
+        calculateOrderTotals(rawOrder);
     }
 
-    if (!order) {
+    if (!data.order && !data.idOrder) {
       return {
         success: false,
         data: null,
@@ -302,80 +459,10 @@ export const createVendingUseCase = async (params) => {
         errorCode: "ORDER_NOT_FOUND",
       };
     }
-
-    const idOrder =
-      getOrderId(order);
-
-    if (!idOrder) {
-      return {
-        success: false,
-        data: null,
-        error: "El pedido no tiene un ID valido",
-        errorCode: "INVALID_ORDER_RESPONSE",
-      };
-    }
-
-    const rawOrder =
-      await VendingRepository.findOrderById(idOrder);
-
-    if (!rawOrder) {
-      return {
-        success: false,
-        data: null,
-        error: "Pedido no encontrado",
-        errorCode: "ORDER_NOT_FOUND",
-      };
-    }
-
-    if (rawOrder.sales) {
-      return {
-        success: false,
-        data: null,
-        error: "El pedido ya tiene una venta asociada",
-        errorCode: "ORDER_ALREADY_SOLD",
-      };
-    }
-
-    if (getOrderStatusId(rawOrder) === ORDER_STATUSES[4].id) {
-      return {
-        success: false,
-        data: null,
-        error: "No se puede crear una venta para un pedido cancelado",
-        errorCode: "ORDER_CANCELLED",
-      };
-    }
-
-    const orderDetails =
-      getOrderDetails(rawOrder);
-
-    if (!orderDetails.length) {
-      return {
-        success: false,
-        data: null,
-        error: "El pedido no tiene detalles",
-        errorCode: "ORDER_WITHOUT_DETAILS",
-      };
-    }
-
-    const stockValidation =
-      await VendingRepository.validateStockForOrder({
-        details:
-          orderDetails,
-      });
-
-    if (!stockValidation.success) {
-      return {
-        success: false,
-        data: null,
-        error: stockValidation.error,
-        errorCode: stockValidation.errorCode,
-      };
-    }
-
     const paymentMethods =
       data.paymentMethods?.length
         ? data.paymentMethods
-        : buildPaymentMethodsFromOrderPayments(rawOrder.order_payments || []);
+        : buildPaymentMethodsFromOrderPayments(rawOrder?.order_payments || []);
 
     if (!paymentMethods.length) {
       return {
@@ -401,9 +488,6 @@ export const createVendingUseCase = async (params) => {
         };
       }
     }
-
-    const totals =
-      calculateOrderTotals(rawOrder);
 
     const paidAmount =
       getPaidAmount(paymentMethods);
@@ -438,6 +522,47 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
+    if (creditAmount > 0) {
+      const creditStatus =
+        await VendingRepository.findCreditStatusById(
+          data.credit.idCreditStatus
+        );
+
+      if (!creditStatus) {
+        return {
+          success: false,
+          data: null,
+          error: "Estado de credito no encontrado",
+          errorCode: "CREDIT_STATUS_NOT_FOUND",
+        };
+      }
+    }
+
+    if (createsOrderFromSale) {
+      try {
+        createdOrder =
+          await preparedOrder.orderUseCase.createPrepared(
+            preparedOrder.orderData
+          );
+
+        idOrder =
+          getOrderId(createdOrder);
+
+        rawOrder =
+          await VendingRepository.findOrderById(idOrder);
+
+        orderDetails =
+          getOrderDetails(rawOrder);
+      } catch (orderError) {
+        return {
+          success: false,
+          data: null,
+          error: "Error creando pedido: " + orderError.message,
+          errorCode: "ORDER_CREATION_ERROR",
+        };
+      }
+    }
+
     const sale =
       await VendingRepository.create({
         idOrder,
@@ -457,6 +582,8 @@ export const createVendingUseCase = async (params) => {
         markOrderAsPaid:
           createsOrderFromSale,
       });
+
+    void notifySaleCreated(sale);
 
     return {
       success: true,
@@ -502,3 +629,8 @@ export const createVendingUseCase = async (params) => {
 
 export const create =
   createVendingUseCase;
+
+
+
+
+

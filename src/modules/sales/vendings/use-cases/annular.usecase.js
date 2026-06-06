@@ -1,7 +1,8 @@
-﻿import {
+import {
   ORDER_STATUSES,
   SALE_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
+import { EmailService } from "../../../../shared/services/emailService.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
 
 const ANNULLED_SALE_STATUS_ID = SALE_STATUSES[4].id;
@@ -32,6 +33,32 @@ const isAnnulledStatus = (status) => {
   return name.includes("anulad");
 };
 
+const notifySaleAnnulled = async ({ sale, reason }) => {
+  const customer = sale?.order?.customer;
+  const user = customer?.user;
+
+  if (!user?.email) {
+    return;
+  }
+
+  try {
+    await EmailService.sendSaleAnnulledEmail({
+      to: user.email,
+      fullName: user.fullName,
+      saleId: sale.idSale,
+      orderId: sale.idOrder,
+      reason,
+      total: sale.order?.total || sale.subtotal,
+      creditRestoredAmount: sale.credit?.remainingBalance || 0,
+    });
+  } catch (error) {
+    console.error(
+      "[AnnularVendingUseCase] Email error:",
+      error.message
+    );
+  }
+};
+
 /**
  * Use-Case: Anular venta
  *
@@ -41,6 +68,7 @@ const isAnnulledStatus = (status) => {
  * - Cambiar el estado del pedido a Cancelado.
  * - Retornar al stock los productos relacionados con el pedido.
  * - Restaurar cupo del cliente si la venta tenia credito.
+ * - Notificar al cliente el motivo de anulacion.
  * - Exigir motivo de anulacion desde el validator/controller.
  *
  * Reglas de negocio:
@@ -135,6 +163,9 @@ export const annularVendingUseCase = async (params) => {
       };
     }
 
+    const reason =
+      String(annulmentReason).trim();
+
     const updatedSale =
       await VendingRepository.annular(
         Number(idSale),
@@ -144,7 +175,7 @@ export const annularVendingUseCase = async (params) => {
           idOrderStatus:
             cancelledOrderStatus.id_order_status,
           annulmentReason:
-            String(annulmentReason).trim(),
+            reason,
         }
       );
 
@@ -159,13 +190,18 @@ export const annularVendingUseCase = async (params) => {
       };
     }
 
+    void notifySaleAnnulled({
+      sale: updatedSale,
+      reason,
+    });
+
     return {
       success: true,
       data: {
         sale:
           updatedSale,
         annulmentReason:
-          String(annulmentReason).trim(),
+          reason,
       },
       error: null,
       errorCode: null,

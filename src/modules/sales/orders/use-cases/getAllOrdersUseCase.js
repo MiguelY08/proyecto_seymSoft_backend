@@ -6,8 +6,17 @@ export class GetAllOrdersUseCase {
   }
 
   async execute(filters = {}) {
-    // Delegar filtros al repository y normalizar la respuesta con el mapper.
-    const orders = await this.repo.findAll(filters);
-    return mapOrders(orders);
+    // Delegar filtros y paginacion al repository, luego normalizar la lista.
+    const result = await this.repo.findAll(filters);
+
+    return {
+      orders: mapOrders(result.orders),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    };
   }
 }
