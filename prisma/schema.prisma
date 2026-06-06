@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model access {
   id_access         Int       @id(map: "acceso_pkey") @default(autoincrement())
   id_user           Int
@@ -16,7 +15,6 @@ model access {
   users             users     @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "acceso_id_usuario_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model assigned_permissions {
   id_permission  Int              @id(map: "permisos_asignados_pkey") @default(autoincrement())
   id_role        Int
@@ -30,7 +28,6 @@ model assigned_permissions {
   @@unique([id_role, id_module, id_privilege], map: "permisos_asignados_id_rol_id_modulo_id_privilegio_key")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model banner_img {
   id_img           Int              @id(map: "imagenes_carrusel_pkey") @default(autoincrement())
   img_url          String           @unique(map: "imagenes_carrusel_ruta_imagen_key") @db.VarChar(255)
@@ -39,7 +36,6 @@ model banner_img {
   general_statuses general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "imagenes_carrusel_estado_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model barcodes {
   id_barcode              Int                       @id(map: "codigo_de_barras_pkey") @default(autoincrement())
   barcode                 String                    @unique(map: "codigo_de_barras_codigo_de_barras_key") @db.VarChar(100)
@@ -52,7 +48,6 @@ model barcodes {
   sale_return_details     sale_return_details[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model categories {
   id_category             Int                       @id(map: "categorias_pkey") @default(autoincrement())
   category_name           String                    @unique(map: "categorias_nombre_categoria_key") @db.VarChar(100)
@@ -66,7 +61,6 @@ model categories {
   subcategories           subcategories[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model clients {
   id_client             Int            @id(map: "clientes_pkey") @default(autoincrement())
   person_type           String         @db.VarChar(20)
@@ -86,7 +80,6 @@ model clients {
   sales_orders          sales_orders[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model credit_interests {
   id_interest      Int      @id @default(autoincrement())
   id_credit        Int
@@ -99,7 +92,6 @@ model credit_interests {
   @@index([id_credit])
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model credit_statuses {
   id_credit_status   Int            @id(map: "estados_credito_pkey") @default(autoincrement())
   name_credit_status String         @unique(map: "estados_credito_nombre_key") @db.VarChar(50)
@@ -107,7 +99,6 @@ model credit_statuses {
   installments       installments[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model credits {
   id_credit        Int                @id(map: "creditos_pkey") @default(autoincrement())
   id_sale          Int                @unique(map: "creditos_id_venta_key")
@@ -121,7 +112,6 @@ model credits {
   installments     installments[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model employee_roles {
   id_employee_role       Int                  @id(map: "empleados_rol_pkey") @default(autoincrement())
   id_employee            Int                  @unique(map: "empleados_rol_id_empleado_key")
@@ -130,7 +120,6 @@ model employee_roles {
   assigned_permissions   assigned_permissions @relation(fields: [id_assigned_permission], references: [id_permission], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_permisos_asignados_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model employees {
   id_employee      Int               @id(map: "empleados_pkey") @default(autoincrement())
   id_user          Int               @unique(map: "empleados_id_usuario_key")
@@ -142,7 +131,6 @@ model employees {
   sales_orders     sales_orders[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model general_statuses {
   id_status     Int             @id(map: "estados_generales_pkey") @default(autoincrement())
   name_status   String          @unique(map: "estados_generales_nombre_key") @db.VarChar(50)
@@ -156,7 +144,6 @@ model general_statuses {
   users         users[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model hedv {
   id_return_status      Int                 @id @default(autoincrement())
   id_sale_return_detail Int
@@ -165,7 +152,6 @@ model hedv {
   sale_return_details   sale_return_details @relation(fields: [id_sale_return_detail], references: [id_sale_return_detail], onDelete: NoAction, onUpdate: NoAction, map: "hedv_id_detalle_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model hev {
   id_order        Int           @id
   id_sales_return Int?
@@ -175,7 +161,6 @@ model hev {
   sales_orders    sales_orders  @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "hev_id_pedido_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model hsp {
   id_history_status_purchase Int               @id(map: "hec_pkey") @default(autoincrement())
   id_purchase_return         Int
@@ -187,7 +172,6 @@ model hsp {
   purchase_details           purchase_details  @relation(fields: [id_purchase_detail], references: [id_purchase_detail], onDelete: NoAction, onUpdate: NoAction, map: "hec_id_detalle_compra_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model installments {
   id_installment     Int             @id(map: "abonos_pkey") @default(autoincrement())
   id_sale            Int
@@ -207,7 +191,6 @@ model installments {
   credit_statuses    credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_abonos_estado_credito")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model modules {
   id_module            Int                    @id(map: "modulos_pkey") @default(autoincrement())
   name_module          String                 @unique(map: "modulos_nombre_modulo_key") @db.VarChar(50)
@@ -215,7 +198,6 @@ model modules {
   assigned_permissions assigned_permissions[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model non_conforming_products {
   id_ncp            Int        @id(map: "producto_no_conforme_pkey") @default(autoincrement())
   affected_quantity Int
@@ -227,7 +209,6 @@ model non_conforming_products {
   barcodes          barcodes   @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model order_details {
   id_order_detail Int          @id(map: "detalles_pedidos_pkey") @default(autoincrement())
   id_order        Int
@@ -241,7 +222,6 @@ model order_details {
   products        products     @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_producto")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model order_payments {
   id_order_payment  Int             @id @default(autoincrement())
   id_order          Int
@@ -257,7 +237,6 @@ model order_payments {
   @@index([id_order], map: "idx_order_payments_id_order")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model order_statuses {
   id_order_status Int            @id(map: "estados_pedidos_pkey") @default(autoincrement())
   name_status     String         @unique(map: "estados_pedidos_nombre_key") @db.VarChar(50)
@@ -265,7 +244,6 @@ model order_statuses {
   sales_orders    sales_orders[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model password_resets {
   id_reset        Int      @id @default(autoincrement())
   id_user         Int
@@ -275,7 +253,6 @@ model password_resets {
   used            Boolean  @default(false)
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model payment_methods {
   id_payment_method    Int                    @id(map: "metodos_pago_pkey") @default(autoincrement())
   name_payment_method  String                 @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)
@@ -284,7 +261,6 @@ model payment_methods {
   sale_payment_methods sale_payment_methods[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model payment_statuses {
   id_payment_status   Int            @id @default(autoincrement())
   name_payment_status String         @unique @db.VarChar(50)
@@ -292,7 +268,6 @@ model payment_statuses {
   sales_orders        sales_orders[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model prd {
   id_purchase_return_details Int               @id(map: "detalle_devolucion_compra_pkey") @default(autoincrement())
   id_purchase_return         Int
@@ -311,7 +286,6 @@ model prd {
   prsh                       prsh[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model privileges {
   id_privilege         Int                    @id(map: "privilegios_pkey") @default(autoincrement())
   name_privilege       String                 @unique(map: "privilegios_nombre_privilegio_key") @db.VarChar(50)
@@ -319,7 +293,6 @@ model privileges {
   assigned_permissions assigned_permissions[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model product_categories {
   id_product_category Int        @id @default(autoincrement())
   id_product          Int
@@ -333,7 +306,6 @@ model product_categories {
   @@index([id_product], map: "idx_product_categories_product")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model product_images {
   id_image   Int       @id @default(autoincrement())
   id_product Int
@@ -345,7 +317,6 @@ model product_images {
   @@index([id_product], map: "idx_product_images")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model product_providers {
   id_product_provider Int       @id(map: "productos_proveedores_pkey") @default(autoincrement())
   id_product          Int
@@ -356,7 +327,6 @@ model product_providers {
   @@unique([id_product, id_provider], map: "productos_proveedores_id_producto_id_proveedor_key")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model product_subcategories {
   id_product_subcategory Int           @id @default(autoincrement())
   id_product             Int
@@ -370,7 +340,6 @@ model product_subcategories {
   @@index([id_subcategory], map: "idx_product_subcategories_subcategory")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model product_unit_measures {
   id_product      Int
   id_unit_measure Int
@@ -380,7 +349,6 @@ model product_unit_measures {
   @@id([id_product, id_unit_measure], map: "producto_unidad_medida_pkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model products {
   id_product             Int                     @id(map: "productos_pkey") @default(autoincrement())
   name                   String                  @db.VarChar(255)
@@ -412,7 +380,6 @@ model products {
   unit_measures          unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model provider_categories {
   id_provider Int
   id_category Int
@@ -424,7 +391,6 @@ model provider_categories {
   @@index([id_provider], map: "idx_provider_categories_provider")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model providers {
   id_provider           Int                   @id(map: "proveedores_pkey") @default(autoincrement())
   person_type           String                @db.VarChar(25)
@@ -448,7 +414,6 @@ model providers {
   purchases             purchases[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model prsh {
   id_status_history Int       @id(map: "hedc_pkey") @default(autoincrement())
   id_detail         Int
@@ -457,7 +422,6 @@ model prsh {
   prd               prd       @relation(fields: [id_detail], references: [id_purchase_return_details], onDelete: NoAction, onUpdate: NoAction, map: "hedc_id_detalle_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model purchase_details {
   id_purchase_detail  Int       @id(map: "detalle_compra_pkey") @default(autoincrement())
   id_purchase         Int
@@ -477,7 +441,6 @@ model purchase_details {
   purchases           purchases @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_compra_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model purchase_statuses {
   id_purchase_status  Int         @id(map: "estados_compras_pkey") @default(autoincrement())
   name_puchase_status String      @unique(map: "estados_compras_nombre_key") @db.VarChar(50)
@@ -485,7 +448,6 @@ model purchase_statuses {
   purchases           purchases[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model purchases {
   id_purchase        Int                 @id(map: "compras_pkey") @default(autoincrement())
   invoice_number     String              @unique(map: "compras_no_recibo_key") @db.VarChar(50)
@@ -499,7 +461,6 @@ model purchases {
   purchases_returns  purchases_returns[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model purchases_returns {
   id_purchase_return Int             @id(map: "devoluciones_compras_pkey") @default(autoincrement())
   id_purchase        Int
@@ -511,7 +472,6 @@ model purchases_returns {
   return_statuses    return_statuses @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_estado_devolucion_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model refresh_tokens {
   id_token        Int      @id @default(autoincrement())
   id_user         Int
@@ -520,7 +480,6 @@ model refresh_tokens {
   created_at      DateTime @default(now())
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model return_methods {
   id_return_method    Int                   @id(map: "metodo_devolucion_pkey") @default(autoincrement())
   description         String                @unique(map: "metodo_devolucion_descripcion_key") @db.VarChar(50)
@@ -528,7 +487,6 @@ model return_methods {
   sale_return_details sale_return_details[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model return_reasons {
   id_return_reason    Int                   @id(map: "motivos_devolucion_pkey") @default(autoincrement())
   description         String                @unique(map: "motivos_devolucion_descripcion_key") @db.VarChar(50)
@@ -536,7 +494,6 @@ model return_reasons {
   sale_return_details sale_return_details[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model return_statuses {
   id_return_status     Int                   @id(map: "estado_devoluciones_pkey") @default(autoincrement())
   name_status          String                @unique(map: "estado_devoluciones_nombre_key") @db.VarChar(25)
@@ -548,7 +505,6 @@ model return_statuses {
   sales_returns        sales_returns[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model roles {
   id_role              Int                    @id @default(autoincrement())
   name_role            String                 @unique(map: "roles_nombre_rol_key") @db.VarChar(20)
@@ -559,7 +515,6 @@ model roles {
   general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale_payment_methods {
   id_sale_payment_method Int             @id @default(autoincrement())
   id_sale                Int
@@ -572,7 +527,6 @@ model sale_payment_methods {
   @@unique([id_sale, id_payment_method], map: "sale_payment_methods_sale_payment_unique")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale_return_details {
   id_sale_return_detail Int             @id(map: "detalle_devolucion_venta_pkey") @default(autoincrement())
   id_sales_return       Int
@@ -591,7 +545,6 @@ model sale_return_details {
   barcodes              barcodes?       @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_dev_codigo_barras")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale_return_evidence {
   id_evidence       Int           @id(map: "evidencia_devolucion_ventas_pkey") @default(autoincrement())
   image_path        String        @unique(map: "evidencia_devolucion_ventas_ruta_imagen_key") @db.VarChar(255)
@@ -600,7 +553,6 @@ model sale_return_evidence {
   sales_returns     sales_returns @relation(fields: [id_sales_return], references: [id_sales_return], onDelete: NoAction, onUpdate: NoAction, map: "evidencia_devolucion_ventas_id_devolucion_venta_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale_statuses {
   id_sale_status Int     @id(map: "estados_ventas_pkey") @default(autoincrement())
   name_status    String  @unique(map: "estados_ventas_nombre_key") @db.VarChar(50)
@@ -609,14 +561,12 @@ model sale_statuses {
   sales          sales[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale_types {
   id_sale_type   Int     @id @default(autoincrement())
   sale_type_name String  @unique @db.VarChar(50)
   sales          sales[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sales {
   id_sale              Int                    @id(map: "ventas_pkey") @default(autoincrement())
   id_order             Int                    @unique(map: "ventas_id_pedido_key")
@@ -634,7 +584,6 @@ model sales {
   sales_returns        sales_returns[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sales_orders {
   id_order                  Int              @id(map: "pedidos_venta_pkey") @default(autoincrement())
   id_customer               Int
@@ -663,7 +612,6 @@ model sales_orders {
   order_statuses            order_statuses   @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sales_returns {
   id_sales_return      Int                    @id(map: "devoluciones_ventas_pkey") @default(autoincrement())
   id_sale              Int
@@ -675,7 +623,6 @@ model sales_returns {
   sales                sales                  @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_venta_fkey")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model subcategories {
   id_subcategory        Int                     @id(map: "subcategorias_pkey") @default(autoincrement())
   name_subcategory      String                  @db.VarChar(100)
@@ -687,7 +634,6 @@ model subcategories {
   general_statuses      general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_subcategorias_estado")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model unit_measures {
   id_unit_measure       Int                     @id(map: "unidad_medida_pkey") @default(autoincrement())
   name_unit_measure     String                  @unique(map: "unidad_medida_nombre_key") @db.VarChar(50)
@@ -696,7 +642,6 @@ model unit_measures {
   products              products[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model users {
   id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
   full_name        String            @db.VarChar(255)
