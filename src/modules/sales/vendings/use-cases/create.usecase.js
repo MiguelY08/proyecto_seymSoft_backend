@@ -33,6 +33,63 @@ const roundMoney = (value) => {
   return Math.round(Number(value || 0) * 100) / 100;
 };
 
+const resolveEmployeeFromSession = async ({ idEmployee, idUser }) => {
+  const userId = Number(idUser);
+
+  if (userId && !isNaN(userId)) {
+    const employeeByUser =
+      await VendingRepository.findEmployeeByUserId(
+        userId
+      );
+
+    if (employeeByUser) {
+      return {
+        employee: employeeByUser,
+        idEmployee:
+          employeeByUser.id_employee,
+        source: "user",
+      };
+    }
+  }
+
+  const receivedEmployeeId = Number(idEmployee);
+
+  if (receivedEmployeeId && !isNaN(receivedEmployeeId)) {
+    const employeeById =
+      await VendingRepository.findEmployeeById(
+        receivedEmployeeId
+      );
+
+    if (employeeById) {
+      return {
+        employee: employeeById,
+        idEmployee:
+          employeeById.id_employee,
+        source: "employee",
+      };
+    }
+
+    const employeeByUser =
+      await VendingRepository.findEmployeeByUserId(
+        receivedEmployeeId
+      );
+
+    if (employeeByUser) {
+      return {
+        employee: employeeByUser,
+        idEmployee:
+          employeeByUser.id_employee,
+        source: "employeeBodyAsUser",
+      };
+    }
+  }
+
+  return {
+    employee: null,
+    idEmployee: null,
+    source: null,
+  };
+};
 const getWebEmployeeId = () => {
   const idEmployee =
     Number(process.env.WEB_SALES_EMPLOYEE_ID);
@@ -234,23 +291,17 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
+    const resolvedEmployee =
+      await resolveEmployeeFromSession({
+        idEmployee,
+        idUser,
+      });
+
     let resolvedEmployeeId =
-      Number(idEmployee);
+      resolvedEmployee.idEmployee;
 
-    if (
-      (!resolvedEmployeeId || isNaN(resolvedEmployeeId)) &&
-      idUser
-    ) {
-      const employeeByUser =
-        await VendingRepository.findEmployeeByUserId(
-          idUser
-        );
-
-      if (employeeByUser) {
-        resolvedEmployeeId =
-          employeeByUser.id_employee;
-      }
-    }
+    let employee =
+      resolvedEmployee.employee;
 
     if (
       normalizedType === "web" &&
@@ -258,6 +309,11 @@ export const createVendingUseCase = async (params) => {
     ) {
       resolvedEmployeeId =
         getWebEmployeeId();
+
+      employee =
+        await VendingRepository.findEmployeeById(
+          resolvedEmployeeId
+        );
     }
 
     if (
@@ -267,8 +323,8 @@ export const createVendingUseCase = async (params) => {
       return {
         success: false,
         data: null,
-        error: "Empleado autenticado requerido para registrar esta venta",
-        errorCode: "EMPLOYEE_REQUIRED",
+        error: "El usuario autenticado no esta relacionado con un empleado",
+        errorCode: "EMPLOYEE_USER_NOT_LINKED",
       };
     }
 
@@ -281,20 +337,21 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
-    const employee =
-      await VendingRepository.findEmployeeById(
-        resolvedEmployeeId
-      );
+    if (!employee) {
+      employee =
+        await VendingRepository.findEmployeeById(
+          resolvedEmployeeId
+        );
+    }
 
     if (!employee) {
       return {
         success: false,
         data: null,
-        error: "Empleado no encontrado",
+        error: "Empleado no encontrado o usuario no relacionado con empleado",
         errorCode: "EMPLOYEE_NOT_FOUND",
       };
     }
-
     const saleStatus =
       await VendingRepository.findSaleStatusById(
         data.idSaleStatus
@@ -629,6 +686,7 @@ export const createVendingUseCase = async (params) => {
 
 export const create =
   createVendingUseCase;
+
 
 
 

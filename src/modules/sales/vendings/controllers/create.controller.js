@@ -64,6 +64,7 @@ export const CreateVendingController = async (req, res) => {
         INVALID_SALE_TYPE: 400,
         SALE_TYPE_NOT_FOUND: 404,
         EMPLOYEE_REQUIRED: 401,
+        EMPLOYEE_USER_NOT_LINKED: 401,
         WEB_EMPLOYEE_NOT_CONFIGURED: 500,
         EMPLOYEE_NOT_FOUND: 404,
         SALE_STATUS_NOT_FOUND: 404,
@@ -120,5 +121,6 @@ export const CreateVendingController = async (req, res) => {
     });
   }
 };
+
 
 

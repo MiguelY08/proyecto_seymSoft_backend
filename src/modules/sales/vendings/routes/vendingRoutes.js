@@ -42,5 +42,4 @@ router.post("/:id/annular", AnnularVendingController);
 // Actualizar venta
 router.put("/:id", UpdateVendingController);
 
-
 export default router;
