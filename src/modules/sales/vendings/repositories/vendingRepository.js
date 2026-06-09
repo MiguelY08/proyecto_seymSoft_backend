@@ -331,7 +331,7 @@ export class VendingRepository {
   }
 
   static async annular(idSale, data) {
-    const sale =
+    const annulledSaleId =
       await prisma.$transaction(async (tx) => {
         const currentSale =
           await tx.sales.findUnique({
@@ -341,7 +341,6 @@ export class VendingRepository {
             },
             include: {
               credits: true,
-              sale_payment_methods: true,
               sales_orders: {
                 include: {
                   order_details: true,
@@ -391,36 +390,46 @@ export class VendingRepository {
           });
         }
 
-        for (const detail of currentSale.sales_orders.order_details || []) {
-          await tx.barcodes.updateMany({
-            where: {
-              barcode:
-                detail.barcode,
-            },
-            data: {
-              stock: {
-                increment:
-                  detail.quantity,
+        await Promise.all(
+          (currentSale.sales_orders.order_details || []).map((detail) =>
+            tx.barcodes.updateMany({
+              where: {
+                barcode:
+                  detail.barcode,
               },
-            },
-          });
-        }
+              data: {
+                stock: {
+                  increment:
+                    detail.quantity,
+                },
+              },
+            })
+          )
+        );
 
-        return await tx.sales.findUnique({
-          where: {
-            id_sale:
-              Number(idSale),
-          },
-          include:
-            saleInclude,
-        });
+        return Number(idSale);
+      }, {
+        timeout: 15000,
+      });
+
+    if (!annulledSaleId) {
+      return null;
+    }
+
+    const sale =
+      await prisma.sales.findUnique({
+        where: {
+          id_sale:
+            annulledSaleId,
+        },
+        include:
+          saleInclude,
       });
 
     return VendingMapper.toDomain(
       sale
     );
   }
-
   static async findById(idSale) {
     const sale =
       await prisma.sales.findUnique({
@@ -875,6 +884,7 @@ export class VendingRepository {
     });
   }
 }
+
 
 
 
