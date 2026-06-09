@@ -1,17 +1,18 @@
 export class CreateOrderDto {
   constructor(data) {
     this.idClient = data.idClient ?? data.id_client;
-    this.idOrderStatus = data.idOrderStatus ?? data.id_order_status ?? 1;
-    this.deliveryType = data.deliveryType ?? 'Recoge';
-    this.deliveryAddress =
-      data.deliveryAddress ??
-      data.delivery_adress ??
-      'El cliente lo recoge';
+this.idOrderStatus = data.idOrderStatus ?? data.id_order_status ?? 1;
+this.idPaymentStatus = data.idPaymentStatus ?? data.id_payment_status ?? 1;
 
-    this.orderStatusId = data.orderStatusId ?? 1;
-    this.paymentStatus = data.paymentStatus ?? 'Pendiente';
+this.deliveryType = data.deliveryType ?? 'Recoge';
+this.deliveryAddress =
+  data.deliveryAddress ??
+  data.delivery_adress ??
+  'El cliente lo recoge';
 
-    this.items = data.items ?? [];
+this.paymentStatus = data.paymentStatus ?? 'Pendiente';
+
+this.items = data.items ?? [];
 
     if (!this.idClient) {
   throw new Error('El cliente es obligatorio.');

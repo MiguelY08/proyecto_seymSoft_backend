@@ -101,6 +101,7 @@ export class OrderRepository {
         data: {
           id_customer: Number(data.idClient),
           id_order_status: Number(data.idOrderStatus || 1),
+          id_payment_status: Number(data.idPaymentStatus || 1),
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
           payment_status: data.paymentStatus || 'Pendiente',
@@ -140,6 +141,7 @@ export class OrderRepository {
         data: {
           id_customer: Number(data.idClient),
           id_order_status: Number(data.idOrderStatus || 1),
+          id_payment_status: Number(data.idPaymentStatus || 1),
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType,
           payment_status: data.paymentStatus,

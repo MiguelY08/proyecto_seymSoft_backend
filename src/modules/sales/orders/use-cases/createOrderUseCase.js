@@ -67,6 +67,7 @@ export class CreateOrderUseCase {
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
       idOrderStatus: dto.idOrderStatus || 1,
+      idPaymentStatus: dto.idPaymentStatus || 1,
       paymentStatus: dto.paymentStatus || 'Pendiente',
       items: calculated.items,
       subtotal: calculated.subtotal,
