@@ -1,4 +1,4 @@
-import { AppError } from '../../../../shared/errors/AppError.js';
+﻿import { AppError } from '../../../../shared/errors/appError.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 
 export class GetOrderByIdUseCase {
@@ -13,6 +13,7 @@ export class GetOrderByIdUseCase {
       throw new AppError('Pedido no encontrado.', 404);
     }
 
+    // Entregar el pedido con el formato publico definido por el mapper.
     return mapOrder(order);
   }
 }

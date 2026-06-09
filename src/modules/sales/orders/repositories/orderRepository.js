@@ -1,4 +1,28 @@
-import { prisma } from '../../../../config/prisma.js';
+﻿import { prisma } from '../../../../config/prisma.js';
+import {
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+} from '../../../../shared/constants/generalStatuses.js';
+
+const getPaymentStatusById = (id) =>
+  PAYMENT_STATUSES[Number(id)] || PAYMENT_STATUSES[1];
+
+const getPaymentStatusByName = (name) =>
+  Object.values(PAYMENT_STATUSES).find(
+    (status) => status.name === name
+  ) || PAYMENT_STATUSES[1];
+
+const resolvePaymentStatus = (data = {}) => {
+  if (data.idPaymentStatus) {
+    return getPaymentStatusById(data.idPaymentStatus);
+  }
+
+  if (data.paymentStatus) {
+    return getPaymentStatusByName(data.paymentStatus);
+  }
+
+  return PAYMENT_STATUSES[1];
+};
 
 const orderInclude = {
   include: {
@@ -15,21 +39,39 @@ const orderInclude = {
       },
     },
     order_statuses: true,
+    payment_statuses: true,
+    order_payments: {
+      include: {
+        payment_methods: true,
+      },
+      orderBy: {
+        id_order_payment: 'asc',
+      },
+    },
+    sales: {
+      select: {
+        id_sale: true,
+        id_order: true,
+        id_sale_status: true,
+        id_sale_type: true,
+        subtotal: true,
+        sale_date: true,
+      },
+    },
     order_details: {
       include: {
         products: {
-        select: {
-          id_product: true,
-          name: true,
-          reference: true,
-          iva_percentage: true,
-
-          retail_price: true,
-          wholesale_price: true,
-          partner_price: true,
-          bulk_price: true,
+          select: {
+            id_product: true,
+            name: true,
+            reference: true,
+            iva_percentage: true,
+            retail_price: true,
+            wholesale_price: true,
+            partner_price: true,
+            bulk_price: true,
+          },
         },
-      },
       },
       orderBy: {
         id_order_detail: 'asc',
@@ -41,9 +83,16 @@ const orderInclude = {
 export class OrderRepository {
   async findAll(filters = {}) {
     const where = {};
+    const page = Math.max(Number(filters.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(filters.limit) || 10, 1), 100);
+    const skip = (page - 1) * limit;
 
     if (filters.statusId) {
       where.id_order_status = Number(filters.statusId);
+    }
+
+    if (filters.paymentStatusId) {
+      where.id_payment_status = Number(filters.paymentStatusId);
     }
 
     if (filters.paymentStatus && filters.paymentStatus !== 'Todos') {
@@ -58,21 +107,40 @@ export class OrderRepository {
       where.order_date = {};
 
       if (filters.startDate) {
-        where.order_date.gte = new Date(filters.startDate);
+        where.order_date.gte = new Date(`${filters.startDate}T00:00:00.000Z`);
       }
 
       if (filters.endDate) {
-        where.order_date.lte = new Date(filters.endDate);
+        where.order_date.lte = new Date(`${filters.endDate}T23:59:59.999Z`);
       }
     }
 
-    return prisma.sales_orders.findMany({
-      where,
-      ...orderInclude,
-      orderBy: {
-        id_order: 'desc',
-      },
-    });
+    const [orders, total] = await Promise.all([
+      prisma.sales_orders.findMany({
+        where,
+        ...orderInclude,
+        orderBy: {
+          id_order: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.sales_orders.count({
+        where,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      orders,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    };
   }
 
   async findById(id) {
@@ -96,25 +164,31 @@ export class OrderRepository {
   }
 
   async create(data) {
-    return prisma.$transaction(async (tx) => {
+    const paymentStatus = resolvePaymentStatus(data);
+
+    const idOrder = await prisma.$transaction(async (tx) => {
       const order = await tx.sales_orders.create({
         data: {
           id_customer: Number(data.idClient),
-          id_order_status: Number(data.idOrderStatus || 1),
-          id_payment_status: Number(data.idPaymentStatus || 1),
+          id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
-          payment_status: data.paymentStatus || 'Pendiente',
+          payment_status: paymentStatus.name,
+          id_payment_status: paymentStatus.id,
+          payment_deadline: data.paymentDeadline || data.payment_deadline || null,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
           total: data.total,
+        },
+        select: {
+          id_order: true,
         },
       });
 
       await tx.order_details.createMany({
         data: data.items.map((item) => ({
           id_order: order.id_order,
-          id_product: item.idProduct ?? item.id_product,
+          id_product: Number(item.idProduct ?? item.id_product),
           barcode: item.barcode,
           quantity: Number(item.quantity),
           unit_price: item.unitPrice,
@@ -123,28 +197,29 @@ export class OrderRepository {
         })),
       });
 
-      return tx.sales_orders.findUnique({
-        where: {
-          id_order: order.id_order,
-        },
-        ...orderInclude,
-      });
+      return order.id_order;
     });
+
+    return this.findById(idOrder);
   }
 
   async update(id, data) {
-    return prisma.$transaction(async (tx) => {
+    const paymentStatus = resolvePaymentStatus(data);
+    const idOrder = Number(id);
+
+    await prisma.$transaction(async (tx) => {
       await tx.sales_orders.update({
         where: {
-          id_order: Number(id),
+          id_order: idOrder,
         },
         data: {
           id_customer: Number(data.idClient),
-          id_order_status: Number(data.idOrderStatus || 1),
-          id_payment_status: Number(data.idPaymentStatus || 1),
+          id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType,
-          payment_status: data.paymentStatus,
+          payment_status: paymentStatus.name,
+          id_payment_status: paymentStatus.id,
+          payment_deadline: data.paymentDeadline || data.payment_deadline || undefined,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
           total: data.total,
@@ -153,13 +228,13 @@ export class OrderRepository {
 
       await tx.order_details.deleteMany({
         where: {
-          id_order: Number(id),
+          id_order: idOrder,
         },
       });
 
       await tx.order_details.createMany({
         data: data.items.map((item) => ({
-          id_order: Number(id),
+          id_order: idOrder,
           id_product: Number(item.idProduct),
           barcode: item.barcode,
           quantity: Number(item.quantity),
@@ -168,14 +243,9 @@ export class OrderRepository {
           iva_amount: item.ivaAmount,
         })),
       });
-
-      return tx.sales_orders.findUnique({
-        where: {
-          id_order: Number(id),
-        },
-        ...orderInclude,
-      });
     });
+
+    return this.findById(idOrder);
   }
 
   async cancel(id) {
@@ -184,44 +254,200 @@ export class OrderRepository {
         id_order: Number(id),
       },
       data: {
-        id_order_status: 4,
+        id_order_status: ORDER_STATUSES[4].id,
       },
       ...orderInclude,
     });
   }
 
-async findClientById(idClient) {
-  return prisma.clients.findUnique({
-    where: {
-      id_client: Number(idClient),
-    },
-    include: {
-      users: true,
-    },
-  });
-}
+  async createPayment(idOrder, data) {
+    return prisma.order_payments.create({
+      data: {
+        id_order: Number(idOrder),
+        id_payment_method: Number(data.idPaymentMethod),
+        amount: Number(data.amount),
+        observations: data.observations || null,
+        reference: data.reference || null,
+        payment_date: data.paymentDate || data.payment_date || undefined,
+      },
+      include: {
+        payment_methods: true,
+      },
+    });
+  }
 
+  async sumPaymentsByOrderId(idOrder) {
+    const result = await prisma.order_payments.aggregate({
+      where: {
+        id_order: Number(idOrder),
+      },
+      _sum: {
+        amount: true,
+      },
+    });
 
-async findBarcodeByProduct(idProduct, barcode) {
-  return prisma.barcodes.findFirst({
-    where: {
-      id_product: Number(idProduct),
-      barcode,
-    },
-    include: {
-      products: {
-        select: {
-          id_product: true,
-          name: true,
-          iva_percentage: true,
+    return Number(result._sum.amount || 0);
+  }
 
-          retail_price: true,
-          wholesale_price: true,
-          partner_price: true,
-          bulk_price: true,
+  async updatePaymentStatus(idOrder, idPaymentStatus) {
+    const paymentStatus = getPaymentStatusById(idPaymentStatus);
+
+    return prisma.sales_orders.update({
+      where: {
+        id_order: Number(idOrder),
+      },
+      data: {
+        id_payment_status: paymentStatus.id,
+        payment_status: paymentStatus.name,
+      },
+      ...orderInclude,
+    });
+  }
+
+  async findPendingOrdersForPaymentReminders(now = new Date()) {
+    const currentDate = new Date(now);
+    const reminder6hLimit = new Date(currentDate.getTime() + 6 * 60 * 60 * 1000);
+    const reminder1hLimit = new Date(currentDate.getTime() + 1 * 60 * 60 * 1000);
+
+    return prisma.sales_orders.findMany({
+      where: {
+        id_payment_status: PAYMENT_STATUSES[1].id,
+        id_order_status: {
+          not: ORDER_STATUSES[4].id,
+        },
+        payment_deadline: {
+          not: null,
+          gt: currentDate,
+        },
+        payment_expired_at: null,
+        OR: [
+          {
+            payment_reminder_6h_sent: false,
+            payment_deadline: {
+              gt: currentDate,
+              lte: reminder6hLimit,
+            },
+          },
+          {
+            payment_reminder_1h_sent: false,
+            payment_deadline: {
+              gt: currentDate,
+              lte: reminder1hLimit,
+            },
+          },
+        ],
+      },
+      ...orderInclude,
+      orderBy: {
+        payment_deadline: 'asc',
+      },
+    });
+  }
+
+  async findExpiredPendingOrders(now = new Date()) {
+    return prisma.sales_orders.findMany({
+      where: {
+        id_payment_status: PAYMENT_STATUSES[1].id,
+        id_order_status: {
+          not: ORDER_STATUSES[4].id,
+        },
+        payment_deadline: {
+          not: null,
+          lte: new Date(now),
+        },
+        payment_expired_at: null,
+      },
+      ...orderInclude,
+      orderBy: {
+        payment_deadline: 'asc',
+      },
+    });
+  }
+
+  async markPaymentReminder6hSent(idOrder) {
+    return prisma.sales_orders.update({
+      where: {
+        id_order: Number(idOrder),
+      },
+      data: {
+        payment_reminder_6h_sent: true,
+      },
+      ...orderInclude,
+    });
+  }
+
+  async markPaymentReminder1hSent(idOrder) {
+    return prisma.sales_orders.update({
+      where: {
+        id_order: Number(idOrder),
+      },
+      data: {
+        payment_reminder_1h_sent: true,
+      },
+      ...orderInclude,
+    });
+  }
+
+  async expirePendingOrder(idOrder, reason = 'Pedido cancelado por vencimiento de pago.') {
+    return prisma.sales_orders.update({
+      where: {
+        id_order: Number(idOrder),
+      },
+      data: {
+        id_order_status: ORDER_STATUSES[4].id,
+        payment_expired_at: new Date(),
+        payment_expiration_reason: reason,
+      },
+      ...orderInclude,
+    });
+  }
+
+  async findPaymentMethodById(idPaymentMethod) {
+    return prisma.payment_methods.findUnique({
+      where: {
+        id_payment_method: Number(idPaymentMethod),
+      },
+    });
+  }
+
+  async findSaleByOrderId(idOrder) {
+    return prisma.sales.findUnique({
+      where: {
+        id_order: Number(idOrder),
+      },
+    });
+  }
+
+  async findClientById(idClient) {
+    return prisma.clients.findUnique({
+      where: {
+        id_client: Number(idClient),
+      },
+      include: {
+        users: true,
+      },
+    });
+  }
+
+  async findBarcodeByProduct(idProduct, barcode) {
+    return prisma.barcodes.findFirst({
+      where: {
+        id_product: Number(idProduct),
+        barcode,
+      },
+      include: {
+        products: {
+          select: {
+            id_product: true,
+            name: true,
+            iva_percentage: true,
+            retail_price: true,
+            wholesale_price: true,
+            partner_price: true,
+            bulk_price: true,
+          },
         },
       },
-    },
-  });
-}
+    });
+  }
 }

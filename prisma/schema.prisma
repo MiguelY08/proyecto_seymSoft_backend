@@ -96,6 +96,7 @@ model credit_statuses {
   id_credit_status   Int       @id(map: "estados_credito_pkey") @default(autoincrement())
   name_credit_status String    @unique(map: "estados_credito_nombre_key") @db.VarChar(50)
   credits            credits[]
+  installments       installments[]
 }
 
 model credits {
@@ -174,22 +175,22 @@ model hsp {
 }
 
 model installments {
-  id_installment      Int             @id(map: "abonos_pkey") @default(autoincrement())
-  installment_amount  Decimal         @db.Decimal(12, 2)
-  installment_date    DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_payment_method   Int
-  observations        String?         @db.VarChar(255)
-  id_credit           Int
-  cancelled_at        DateTime?
-  capital_paid        Decimal         @default(0) @db.Decimal(12, 2)
-  interest_paid       Decimal         @default(0) @db.Decimal(12, 2)
-  is_cancelled        Boolean         @default(false)
-  created_at          DateTime        @default(now())
-  cancellation_reason String?         @db.VarChar(255)
-  cancelled_by        Int?
-  credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-  users               users?          @relation(fields: [cancelled_by], references: [id_user])
-  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
+  id_installment     Int             @id(map: "abonos_pkey") @default(autoincrement())
+  id_sale            Int
+  installment_amount Decimal         @db.Decimal(12, 2)
+  installment_date   DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_payment_method  Int
+  observations       String?         @db.VarChar(255)
+  remaining_balance  Decimal         @db.Decimal(12, 2)
+  id_credit_status   Int
+  id_credit          Int
+  cancelled_at       DateTime?
+  capital_paid       Decimal         @default(0) @db.Decimal(12, 2)
+  interest_paid      Decimal         @default(0) @db.Decimal(12, 2)
+  is_cancelled       Boolean         @default(false)
+  payment_methods    payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
+  credits            credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
+  credit_statuses    credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_abonos_estado_credito")
 }
 
 model modules {
@@ -656,6 +657,5 @@ model users {
   access           access[]
   clients          clients?
   employees        employees?
-  installments     installments[]
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
