@@ -189,7 +189,7 @@ model installments {
   cancelled_by        Int?
   credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
   users               users?          @relation(fields: [cancelled_by], references: [id_user])
-  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
+  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model modules {

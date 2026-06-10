@@ -19,6 +19,8 @@ import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.
 import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
+import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes/supplierPurchaseRoutes.js";
+
 import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
@@ -82,6 +84,8 @@ app.use("/api/orders", orderRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/supplier-purchases", supplierPurchaseRoutes);
 
 /**
  * Rutas de banners
