@@ -6,8 +6,6 @@
 export class UpdateOrderDto {
   constructor(data) {
     this.idClient = data.idClient ?? data.id_client;
-    this.deliveryType = data.deliveryType;
-    this.deliveryAddress = data.deliveryAddress ?? data.delivery_adress;
     this.idOrderStatus =
       data.idOrderStatus ??
       data.id_order_status ??
@@ -20,7 +18,11 @@ export class UpdateOrderDto {
       data.paymentStatus ??
       data.payment_status ??
       PAYMENT_STATUSES[1].name;
-
+    this.deliveryType = data.deliveryType ?? 'Recoge';
+    this.deliveryAddress =
+      data.deliveryAddress ??
+      data.delivery_adress ??
+      'El cliente lo recoge';
     this.items = data.items ?? [];
 
     if (!this.idClient) {

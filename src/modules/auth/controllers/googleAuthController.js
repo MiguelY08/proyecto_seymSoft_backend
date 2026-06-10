@@ -1,4 +1,3 @@
-
 import { GoogleLoginUseCase } from "../use-cases/googleLoginUseCase.js";
 
 export class GoogleAuthController {
@@ -71,4 +70,3 @@ export class GoogleAuthController {
   }
 
 }
-

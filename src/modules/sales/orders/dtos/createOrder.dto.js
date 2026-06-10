@@ -1,4 +1,4 @@
-﻿import {
+import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
@@ -25,6 +25,11 @@ export class CreateOrderDto {
       'El cliente lo recoge';
 
     this.items = data.items ?? [];
+    this.initialPayments =
+      data.initialPayments ??
+      data.paymentMethods ??
+      data.payments ??
+      [];
 
     if (!this.idClient) {
       throw new Error('El cliente es obligatorio.');
@@ -32,6 +37,28 @@ export class CreateOrderDto {
 
     if (!Array.isArray(this.items) || this.items.length === 0) {
       throw new Error('El pedido debe tener al menos un producto.');
+    }
+
+    if (this.initialPayments && !Array.isArray(this.initialPayments)) {
+      throw new Error('Los pagos iniciales deben enviarse como una lista.');
+    }
+
+    this.initialPayments = this.initialPayments.map((payment) => ({
+      idPaymentMethod: payment.idPaymentMethod ?? payment.id_payment_method,
+      amount: Number(payment.amount),
+      observations: payment.observations,
+      reference: payment.reference,
+      paymentDate: payment.paymentDate ?? payment.payment_date,
+    }));
+
+    for (const payment of this.initialPayments) {
+      if (!payment.idPaymentMethod) {
+        throw new Error('Cada pago debe tener metodo de pago.');
+      }
+
+      if (!payment.amount || payment.amount <= 0) {
+        throw new Error('El monto de cada pago debe ser mayor a 0.');
+      }
     }
 
     // Normalizar productos recibidos desde frontend o API externa.

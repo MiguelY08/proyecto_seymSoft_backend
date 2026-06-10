@@ -1,6 +1,7 @@
-﻿import {
+import {
   ORDER_STATUSES,
   PAYMENT_METHODS,
+  PAYMENT_STATUSES,
   SALE_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
@@ -33,6 +34,63 @@ const roundMoney = (value) => {
   return Math.round(Number(value || 0) * 100) / 100;
 };
 
+const resolveEmployeeFromSession = async ({ idEmployee, idUser }) => {
+  const userId = Number(idUser);
+
+  if (userId && !isNaN(userId)) {
+    const employeeByUser =
+      await VendingRepository.findEmployeeByUserId(
+        userId
+      );
+
+    if (employeeByUser) {
+      return {
+        employee: employeeByUser,
+        idEmployee:
+          employeeByUser.id_employee,
+        source: "user",
+      };
+    }
+  }
+
+  const receivedEmployeeId = Number(idEmployee);
+
+  if (receivedEmployeeId && !isNaN(receivedEmployeeId)) {
+    const employeeById =
+      await VendingRepository.findEmployeeById(
+        receivedEmployeeId
+      );
+
+    if (employeeById) {
+      return {
+        employee: employeeById,
+        idEmployee:
+          employeeById.id_employee,
+        source: "employee",
+      };
+    }
+
+    const employeeByUser =
+      await VendingRepository.findEmployeeByUserId(
+        receivedEmployeeId
+      );
+
+    if (employeeByUser) {
+      return {
+        employee: employeeByUser,
+        idEmployee:
+          employeeByUser.id_employee,
+        source: "employeeBodyAsUser",
+      };
+    }
+  }
+
+  return {
+    employee: null,
+    idEmployee: null,
+    source: null,
+  };
+};
 const getWebEmployeeId = () => {
   const idEmployee =
     Number(process.env.WEB_SALES_EMPLOYEE_ID);
@@ -138,6 +196,46 @@ const getCreditAmount = (paymentMethods = []) =>
       )
   );
 
+const validateClientCreditLimit = async ({ idCustomer, creditAmount }) => {
+  if (creditAmount <= 0) {
+    return {
+      success: true,
+      error: null,
+      errorCode: null,
+    };
+  }
+
+  const client =
+    await VendingRepository.findClientById(
+      idCustomer
+    );
+
+  if (!client) {
+    return {
+      success: false,
+      error: "Cliente no encontrado",
+      errorCode: "CLIENT_NOT_FOUND",
+    };
+  }
+
+  const creditBalance =
+    roundMoney(client.credit_balance || 0);
+
+  if (creditAmount > creditBalance) {
+    return {
+      success: false,
+      error: "El cupo disponible del cliente no es suficiente para la venta a credito",
+      errorCode: "CREDIT_LIMIT_EXCEEDED",
+    };
+  }
+
+  return {
+    success: true,
+    error: null,
+    errorCode: null,
+  };
+};
+
 
 const notifySaleCreated = async (sale) => {
   const customer = sale?.order?.customer;
@@ -234,23 +332,17 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
+    const resolvedEmployee =
+      await resolveEmployeeFromSession({
+        idEmployee,
+        idUser,
+      });
+
     let resolvedEmployeeId =
-      Number(idEmployee);
+      resolvedEmployee.idEmployee;
 
-    if (
-      (!resolvedEmployeeId || isNaN(resolvedEmployeeId)) &&
-      idUser
-    ) {
-      const employeeByUser =
-        await VendingRepository.findEmployeeByUserId(
-          idUser
-        );
-
-      if (employeeByUser) {
-        resolvedEmployeeId =
-          employeeByUser.id_employee;
-      }
-    }
+    let employee =
+      resolvedEmployee.employee;
 
     if (
       normalizedType === "web" &&
@@ -258,6 +350,11 @@ export const createVendingUseCase = async (params) => {
     ) {
       resolvedEmployeeId =
         getWebEmployeeId();
+
+      employee =
+        await VendingRepository.findEmployeeById(
+          resolvedEmployeeId
+        );
     }
 
     if (
@@ -267,8 +364,8 @@ export const createVendingUseCase = async (params) => {
       return {
         success: false,
         data: null,
-        error: "Empleado autenticado requerido para registrar esta venta",
-        errorCode: "EMPLOYEE_REQUIRED",
+        error: "El usuario autenticado no esta relacionado con un empleado",
+        errorCode: "EMPLOYEE_USER_NOT_LINKED",
       };
     }
 
@@ -281,20 +378,21 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
-    const employee =
-      await VendingRepository.findEmployeeById(
-        resolvedEmployeeId
-      );
+    if (!employee) {
+      employee =
+        await VendingRepository.findEmployeeById(
+          resolvedEmployeeId
+        );
+    }
 
     if (!employee) {
       return {
         success: false,
         data: null,
-        error: "Empleado no encontrado",
+        error: "Empleado no encontrado o usuario no relacionado con empleado",
         errorCode: "EMPLOYEE_NOT_FOUND",
       };
     }
-
     const saleStatus =
       await VendingRepository.findSaleStatusById(
         data.idSaleStatus
@@ -536,10 +634,51 @@ export const createVendingUseCase = async (params) => {
           errorCode: "CREDIT_STATUS_NOT_FOUND",
         };
       }
+
+      const idCustomer =
+        data.order
+          ? preparedOrder.orderData.idClient
+          : getOrderCustomerId(rawOrder);
+
+      const creditLimitValidation =
+        await validateClientCreditLimit({
+          idCustomer,
+          creditAmount,
+        });
+
+      if (!creditLimitValidation.success) {
+        return {
+          success: false,
+          data: null,
+          error:
+            creditLimitValidation.error,
+          errorCode:
+            creditLimitValidation.errorCode,
+        };
+      }
     }
 
     if (createsOrderFromSale) {
       try {
+        preparedOrder.orderData = {
+          ...preparedOrder.orderData,
+          idPaymentStatus:
+            PAYMENT_STATUSES[2].id,
+          paymentStatus:
+            PAYMENT_STATUSES[2].name,
+          paymentDeadline:
+            null,
+          initialPayments:
+            paymentMethods.map((paymentMethod) => ({
+              idPaymentMethod:
+                paymentMethod.idPaymentMethod,
+              amount:
+                paymentMethod.amount,
+              observations:
+                'Pago registrado desde ventas.',
+            })),
+        };
+
         createdOrder =
           await preparedOrder.orderUseCase.createPrepared(
             preparedOrder.orderData
@@ -590,7 +729,7 @@ export const createVendingUseCase = async (params) => {
       data: {
         sale,
         order:
-          createdOrder,
+          sale.order || createdOrder,
         totals,
       },
       error: null,
@@ -629,6 +768,7 @@ export const createVendingUseCase = async (params) => {
 
 export const create =
   createVendingUseCase;
+
 
 
 
