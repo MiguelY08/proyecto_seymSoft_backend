@@ -1,11 +1,15 @@
-// Server entry point
+﻿// Server entry point
 
-import app from './app.js';
 import { env } from './config/env.js';
-import dotenv from "dotenv";
+import app from './app.js';
+import {
+  startOrderPaymentExpirationJob,
+  stopOrderPaymentExpirationJob,
+} from './modules/sales/orders/jobs/orderPaymentExpirationJob.js';
 // import { prisma } from './config/prisma.js';
 
-dotenv.config();
+const shouldStartJobs = () =>
+  process.env.ORDER_PAYMENT_JOB_ENABLED !== 'false';
 
 const startServer = async () => {
   try {
@@ -13,13 +17,27 @@ const startServer = async () => {
     // await prisma.$connect();
     // console.log('Conectado a la base de datos');
 
-    app.listen(env.PORT, () => {
-      console.log("DATABASE_URL:", process.env.DATABASE_URL);
-      console.log("DATABASE_URL type:", typeof process.env.DATABASE_URL);
+    const server = app.listen(env.PORT, () => {
       console.log(`Servidor escuchando en el puerto ${env.PORT}`);
+
+      if (shouldStartJobs()) {
+        startOrderPaymentExpirationJob();
+      }
     });
+
+    const shutdown = () => {
+      stopOrderPaymentExpirationJob();
+
+      server.close(() => {
+        console.log('Servidor detenido correctamente');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
   } catch (error) {
-    console.error(' Error:', error);
+    console.error('Error:', error);
     process.exit(1);
   }
 };
