@@ -1,4 +1,4 @@
-﻿import { prisma } from "../../../../config/prisma.js";
+import { prisma } from "../../../../config/prisma.js";
 import {
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
@@ -103,6 +103,79 @@ const buildCreditData = ({ data, idCustomer, creditAmount }) => {
     id_customer: Number(idCustomer),
     credit_amount: creditAmount,
     remaining_balance: creditAmount,
+  };
+};
+const annulmentSaleSelect = {
+  id_sale: true,
+  id_order: true,
+  id_sale_status: true,
+  subtotal: true,
+  credits: {
+    select: {
+      id_customer: true,
+      remaining_balance: true,
+    },
+  },
+  sales_orders: {
+    select: {
+      id_order: true,
+      id_order_status: true,
+      total: true,
+      cancellation_reason: true,
+      cancelled_at: true,
+      clients: {
+        select: {
+          users: {
+            select: {
+              full_name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      order_details: {
+        select: {
+          barcode: true,
+          quantity: true,
+        },
+      },
+    },
+  },
+};
+
+const mapAnnulledSaleSummary = (sale) => {
+  if (!sale) return null;
+
+  return {
+    idSale: sale.id_sale,
+    idOrder: sale.id_order,
+    idSaleStatus: sale.id_sale_status,
+    subtotal: Number(sale.subtotal || 0),
+    annulmentReason: sale.sales_orders?.cancellation_reason || null,
+    annulledAt: sale.sales_orders?.cancelled_at || null,
+    credit: sale.credits
+      ? {
+          idCustomer: sale.credits.id_customer,
+          remainingBalance: Number(sale.credits.remaining_balance || 0),
+        }
+      : null,
+    order: {
+      idOrder: sale.sales_orders?.id_order || sale.id_order,
+      idOrderStatus: sale.sales_orders?.id_order_status || null,
+      total: Number(sale.sales_orders?.total || sale.subtotal || 0),
+      cancellationReason: sale.sales_orders?.cancellation_reason || null,
+      cancelledAt: sale.sales_orders?.cancelled_at || null,
+      customer: sale.sales_orders?.clients
+        ? {
+            user: sale.sales_orders.clients.users
+              ? {
+                  fullName: sale.sales_orders.clients.users.full_name,
+                  email: sale.sales_orders.clients.users.email,
+                }
+              : null,
+          }
+        : null,
+    },
   };
 };
 
@@ -211,8 +284,12 @@ export class VendingRepository {
                 Number(data.idOrder),
             },
             data: {
-              id_payment_status:
-                PAYMENT_STATUSES[2].id,
+              payment_statuses: {
+                connect: {
+                  id_payment_status:
+                    PAYMENT_STATUSES[2].id,
+                },
+              },
               payment_status:
                 PAYMENT_STATUSES[2].name,
             },
@@ -308,8 +385,12 @@ export class VendingRepository {
                   data.deliveryType,
               }),
               ...(data.idOrderStatus !== undefined && {
-                id_order_status:
-                  data.idOrderStatus,
+                order_statuses: {
+                  connect: {
+                    id_order_status:
+                      data.idOrderStatus,
+                  },
+                },
               }),
             },
           });
@@ -330,8 +411,33 @@ export class VendingRepository {
     );
   }
 
-  static async annular(idSale, data) {
+  static async findAnnulmentStateById(idSale) {
     const sale =
+      await prisma.sales.findUnique({
+        where: {
+          id_sale:
+            Number(idSale),
+        },
+        select: {
+          id_sale: true,
+          id_sale_status: true,
+        },
+      });
+
+    if (!sale) return null;
+
+    return {
+      idSale:
+        sale.id_sale,
+      saleStatus: {
+        idSaleStatus:
+          sale.id_sale_status,
+      },
+    };
+  }
+
+  static async annular(idSale, data) {
+    const annulledSale =
       await prisma.$transaction(async (tx) => {
         const currentSale =
           await tx.sales.findUnique({
@@ -339,15 +445,7 @@ export class VendingRepository {
               id_sale:
                 Number(idSale),
             },
-            include: {
-              credits: true,
-              sale_payment_methods: true,
-              sales_orders: {
-                include: {
-                  order_details: true,
-                },
-              },
-            },
+            select: annulmentSaleSelect,
           });
 
         if (!currentSale) {
@@ -371,8 +469,16 @@ export class VendingRepository {
               currentSale.id_order,
           },
           data: {
-            id_order_status:
-              data.idOrderStatus,
+            order_statuses: {
+              connect: {
+                id_order_status:
+                  data.idOrderStatus,
+              },
+            },
+            cancellation_reason:
+              data.annulmentReason,
+            cancelled_at:
+              new Date(),
           },
         });
 
@@ -391,36 +497,38 @@ export class VendingRepository {
           });
         }
 
-        for (const detail of currentSale.sales_orders.order_details || []) {
-          await tx.barcodes.updateMany({
-            where: {
-              barcode:
-                detail.barcode,
-            },
-            data: {
-              stock: {
-                increment:
-                  detail.quantity,
+        await Promise.all(
+          (currentSale.sales_orders.order_details || []).map((detail) =>
+            tx.barcodes.updateMany({
+              where: {
+                barcode:
+                  detail.barcode,
               },
-            },
-          });
-        }
+              data: {
+                stock: {
+                  increment:
+                    detail.quantity,
+                },
+              },
+            })
+          )
+        );
 
         return await tx.sales.findUnique({
           where: {
             id_sale:
               Number(idSale),
           },
-          include:
-            saleInclude,
+          select: annulmentSaleSelect,
         });
+      }, {
+        timeout: 15000,
       });
 
-    return VendingMapper.toDomain(
-      sale
+    return mapAnnulledSaleSummary(
+      annulledSale
     );
   }
-
   static async findById(idSale) {
     const sale =
       await prisma.sales.findUnique({
@@ -875,6 +983,7 @@ export class VendingRepository {
     });
   }
 }
+
 
 
 

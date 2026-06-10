@@ -112,6 +112,7 @@ export class UpdateOrderUseCase {
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
       idOrderStatus: dto.idOrderStatus || ORDER_STATUSES[1].id,
+      idPaymentStatus: dto.idPaymentStatus || PAYMENT_STATUSES[1].id,
       paymentStatus: dto.paymentStatus || PAYMENT_STATUSES[1].name,
       items: calculated.items,
       subtotal: calculated.subtotal,

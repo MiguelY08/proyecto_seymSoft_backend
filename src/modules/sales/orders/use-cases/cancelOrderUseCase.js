@@ -32,6 +32,12 @@ export class CancelOrderUseCase {
   }
 
   async execute(id, reason = DEFAULT_CANCEL_REASON) {
+    const normalizedReason = String(reason || DEFAULT_CANCEL_REASON).trim() || DEFAULT_CANCEL_REASON;
+
+    if (normalizedReason.length > 255) {
+      throw new AppError('El motivo de cancelacion no puede exceder 255 caracteres.', 400);
+    }
+
     const order = await this.repo.findById(id);
 
     if (!order) {
@@ -43,11 +49,11 @@ export class CancelOrderUseCase {
       throw new AppError('El pedido ya esta cancelado.', 400);
     }
 
-    const canceled = await this.repo.cancel(id);
+    const canceled = await this.repo.cancel(id, normalizedReason);
 
     void notifyOrderCancelled({
       order: canceled,
-      reason,
+      reason: normalizedReason,
     });
 
     return mapOrder(canceled);

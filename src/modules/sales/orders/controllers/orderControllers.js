@@ -1,4 +1,4 @@
-﻿import { httpCodes } from '../../../../shared/constants/httpCodes.js';
+import { httpCodes } from '../../../../shared/constants/httpCodes.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
@@ -90,7 +90,15 @@ export const updateOrder = async (req, res, next) => {
 // Cancelar un pedido existente.
 export const cancelOrder = async (req, res, next) => {
   try {
-    const data = await new CancelOrderUseCase(repo).execute(req.params.id);
+    const cancellationReason =
+      req.body?.cancellationReason ||
+      req.body?.cancelReason ||
+      req.body?.reason;
+
+    const data = await new CancelOrderUseCase(repo).execute(
+      req.params.id,
+      cancellationReason
+    );
 
     res.status(httpCodes.OK).json({
       success: true,

@@ -1,6 +1,7 @@
-﻿import {
+import {
   ORDER_PAYMENT_EXPIRATION,
   ORDER_STATUSES,
+  PAYMENT_METHODS,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
@@ -11,6 +12,17 @@ import {
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
 
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+
+const roundMoney = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+const sumPayments = (payments = []) =>
+  roundMoney(
+    payments.reduce(
+      (total, payment) => total + Number(payment.amount || 0),
+      0
+    )
+  );
 const buildPaymentDeadline = () => {
   const now = new Date();
   return new Date(
@@ -101,15 +113,51 @@ export class CreateOrderUseCase {
     );
 
     const calculated = calculateOrderTotals(enrichedItems);
+    const initialPayments = dto.initialPayments || [];
+
+    for (const payment of initialPayments) {
+      if (Number(payment.idPaymentMethod) === CREDIT_PAYMENT_METHOD_ID) {
+        throw new AppError(
+          'El metodo Credito solo puede usarse al crear una venta.',
+          400
+        );
+      }
+
+      const paymentMethod = await this.repo.findPaymentMethodById(
+        payment.idPaymentMethod
+      );
+
+      if (!paymentMethod) {
+        throw new AppError(
+          `El metodo de pago ${payment.idPaymentMethod} no existe.`,
+          404
+        );
+      }
+    }
+
+    const paidAmount = sumPayments(initialPayments);
+
+    if (paidAmount > calculated.total) {
+      throw new AppError(
+        'La suma de pagos no puede superar el total del pedido.',
+        400
+      );
+    }
+
+    const isPaid = paidAmount >= calculated.total && calculated.total > 0;
+    const paymentStatus = isPaid
+      ? PAYMENT_STATUSES[2]
+      : PAYMENT_STATUSES[1];
 
     return {
       idClient: dto.idClient,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
       idOrderStatus: dto.idOrderStatus || ORDER_STATUSES[1].id,
-      idPaymentStatus: dto.idPaymentStatus || PAYMENT_STATUSES[1].id,
-      paymentStatus: dto.paymentStatus || PAYMENT_STATUSES[1].name,
-      paymentDeadline: dto.paymentDeadline || buildPaymentDeadline(),
+      idPaymentStatus: paymentStatus.id,
+      paymentStatus: paymentStatus.name,
+      paymentDeadline: isPaid ? null : dto.paymentDeadline || buildPaymentDeadline(),
+      initialPayments,
       items: calculated.items,
       subtotal: calculated.subtotal,
       ivaAmount: calculated.ivaAmount,

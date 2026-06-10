@@ -19,12 +19,9 @@ import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.
 import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
-<<<<<<< HEAD
 import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes/supplierPurchaseRoutes.js";
 
-=======
 import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
->>>>>>> 8ad142076d3d430162fd169a668de97338dc97e2
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 
@@ -87,11 +84,8 @@ app.use("/api/orders", orderRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
-<<<<<<< HEAD
 app.use("/api/products", productRoutes);
 app.use("/api/supplier-purchases", supplierPurchaseRoutes);
-=======
->>>>>>> 8ad142076d3d430162fd169a668de97338dc97e2
 
 /**
  * Rutas de banners
