@@ -1,4 +1,4 @@
-﻿import { PAYMENT_STATUSES } from '../../../../shared/constants/generalStatuses.js';
+import { PAYMENT_STATUSES } from '../../../../shared/constants/generalStatuses.js';
 
 const mapPaymentStatus = (order) => {
   if (order.payment_statuses) {
@@ -117,6 +117,8 @@ export const mapOrder = (order) => {
     paymentReminder1hSent: Boolean(order.payment_reminder_1h_sent),
     paymentExpiredAt: order.payment_expired_at || null,
     paymentExpirationReason: order.payment_expiration_reason || null,
+    cancellationReason: order.cancellation_reason || null,
+    cancelledAt: order.cancelled_at || null,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
     total: Number(total),

@@ -1,4 +1,4 @@
-﻿import { prisma } from '../../../../config/prisma.js';
+import { prisma } from '../../../../config/prisma.js';
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -169,12 +169,24 @@ export class OrderRepository {
     const idOrder = await prisma.$transaction(async (tx) => {
       const order = await tx.sales_orders.create({
         data: {
-          id_customer: Number(data.idClient),
-          id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+          clients: {
+            connect: {
+              id_client: Number(data.idClient),
+            },
+          },
+          order_statuses: {
+            connect: {
+              id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+            },
+          },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
           payment_status: paymentStatus.name,
-          id_payment_status: paymentStatus.id,
+          payment_statuses: {
+            connect: {
+              id_payment_status: paymentStatus.id,
+            },
+          },
           payment_deadline: data.paymentDeadline || data.payment_deadline || null,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
@@ -197,6 +209,19 @@ export class OrderRepository {
         })),
       });
 
+      if (data.initialPayments?.length) {
+        await tx.order_payments.createMany({
+          data: data.initialPayments.map((payment) => ({
+            id_order: order.id_order,
+            id_payment_method: Number(payment.idPaymentMethod),
+            amount: Number(payment.amount),
+            observations: payment.observations || 'Pago registrado desde ventas.',
+            reference: payment.reference || null,
+            payment_date: payment.paymentDate || undefined,
+          })),
+        });
+      }
+
       return order.id_order;
     });
 
@@ -213,12 +238,24 @@ export class OrderRepository {
           id_order: idOrder,
         },
         data: {
-          id_customer: Number(data.idClient),
-          id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+          clients: {
+            connect: {
+              id_client: Number(data.idClient),
+            },
+          },
+          order_statuses: {
+            connect: {
+              id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+            },
+          },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType,
           payment_status: paymentStatus.name,
-          id_payment_status: paymentStatus.id,
+          payment_statuses: {
+            connect: {
+              id_payment_status: paymentStatus.id,
+            },
+          },
           payment_deadline: data.paymentDeadline || data.payment_deadline || undefined,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
@@ -248,13 +285,19 @@ export class OrderRepository {
     return this.findById(idOrder);
   }
 
-  async cancel(id) {
+  async cancel(id, reason = 'Pedido cancelado.') {
     return prisma.sales_orders.update({
       where: {
         id_order: Number(id),
       },
       data: {
-        id_order_status: ORDER_STATUSES[4].id,
+        order_statuses: {
+          connect: {
+            id_order_status: ORDER_STATUSES[4].id,
+          },
+        },
+        cancellation_reason: reason,
+        cancelled_at: new Date(),
       },
       ...orderInclude,
     });
@@ -297,7 +340,11 @@ export class OrderRepository {
         id_order: Number(idOrder),
       },
       data: {
-        id_payment_status: paymentStatus.id,
+        payment_statuses: {
+          connect: {
+            id_payment_status: paymentStatus.id,
+          },
+        },
         payment_status: paymentStatus.name,
       },
       ...orderInclude,
@@ -394,9 +441,15 @@ export class OrderRepository {
         id_order: Number(idOrder),
       },
       data: {
-        id_order_status: ORDER_STATUSES[4].id,
+        order_statuses: {
+          connect: {
+            id_order_status: ORDER_STATUSES[4].id,
+          },
+        },
         payment_expired_at: new Date(),
         payment_expiration_reason: reason,
+        cancellation_reason: reason,
+        cancelled_at: new Date(),
       },
       ...orderInclude,
     });
@@ -451,4 +504,3 @@ export class OrderRepository {
     });
   }
 }
-

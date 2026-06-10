@@ -1,6 +1,7 @@
-﻿import {
+import {
   ORDER_STATUSES,
   PAYMENT_METHODS,
+  PAYMENT_STATUSES,
   SALE_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
@@ -194,6 +195,46 @@ const getCreditAmount = (paymentMethods = []) =>
         0
       )
   );
+
+const validateClientCreditLimit = async ({ idCustomer, creditAmount }) => {
+  if (creditAmount <= 0) {
+    return {
+      success: true,
+      error: null,
+      errorCode: null,
+    };
+  }
+
+  const client =
+    await VendingRepository.findClientById(
+      idCustomer
+    );
+
+  if (!client) {
+    return {
+      success: false,
+      error: "Cliente no encontrado",
+      errorCode: "CLIENT_NOT_FOUND",
+    };
+  }
+
+  const creditBalance =
+    roundMoney(client.credit_balance || 0);
+
+  if (creditAmount > creditBalance) {
+    return {
+      success: false,
+      error: "El cupo disponible del cliente no es suficiente para la venta a credito",
+      errorCode: "CREDIT_LIMIT_EXCEEDED",
+    };
+  }
+
+  return {
+    success: true,
+    error: null,
+    errorCode: null,
+  };
+};
 
 
 const notifySaleCreated = async (sale) => {
@@ -593,10 +634,51 @@ export const createVendingUseCase = async (params) => {
           errorCode: "CREDIT_STATUS_NOT_FOUND",
         };
       }
+
+      const idCustomer =
+        data.order
+          ? preparedOrder.orderData.idClient
+          : getOrderCustomerId(rawOrder);
+
+      const creditLimitValidation =
+        await validateClientCreditLimit({
+          idCustomer,
+          creditAmount,
+        });
+
+      if (!creditLimitValidation.success) {
+        return {
+          success: false,
+          data: null,
+          error:
+            creditLimitValidation.error,
+          errorCode:
+            creditLimitValidation.errorCode,
+        };
+      }
     }
 
     if (createsOrderFromSale) {
       try {
+        preparedOrder.orderData = {
+          ...preparedOrder.orderData,
+          idPaymentStatus:
+            PAYMENT_STATUSES[2].id,
+          paymentStatus:
+            PAYMENT_STATUSES[2].name,
+          paymentDeadline:
+            null,
+          initialPayments:
+            paymentMethods.map((paymentMethod) => ({
+              idPaymentMethod:
+                paymentMethod.idPaymentMethod,
+              amount:
+                paymentMethod.amount,
+              observations:
+                'Pago registrado desde ventas.',
+            })),
+        };
+
         createdOrder =
           await preparedOrder.orderUseCase.createPrepared(
             preparedOrder.orderData
@@ -647,7 +729,7 @@ export const createVendingUseCase = async (params) => {
       data: {
         sale,
         order:
-          createdOrder,
+          sale.order || createdOrder,
         totals,
       },
       error: null,
