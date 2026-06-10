@@ -93,10 +93,9 @@ model credit_interests {
 }
 
 model credit_statuses {
-  id_credit_status   Int            @id(map: "estados_credito_pkey") @default(autoincrement())
-  name_credit_status String         @unique(map: "estados_credito_nombre_key") @db.VarChar(50)
+  id_credit_status   Int       @id(map: "estados_credito_pkey") @default(autoincrement())
+  name_credit_status String    @unique(map: "estados_credito_nombre_key") @db.VarChar(50)
   credits            credits[]
-  installments       installments[]
 }
 
 model credits {
@@ -175,22 +174,22 @@ model hsp {
 }
 
 model installments {
-  id_installment     Int             @id(map: "abonos_pkey") @default(autoincrement())
-  id_sale            Int
-  installment_amount Decimal         @db.Decimal(12, 2)
-  installment_date   DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_payment_method  Int
-  observations       String?         @db.VarChar(255)
-  remaining_balance  Decimal         @db.Decimal(12, 2)
-  id_credit_status   Int
-  id_credit          Int
-  cancelled_at       DateTime?
-  capital_paid       Decimal         @default(0) @db.Decimal(12, 2)
-  interest_paid      Decimal         @default(0) @db.Decimal(12, 2)
-  is_cancelled       Boolean         @default(false)
-  payment_methods    payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
-  credits            credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-  credit_statuses    credit_statuses @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_abonos_estado_credito")
+  id_installment      Int             @id(map: "abonos_pkey") @default(autoincrement())
+  installment_amount  Decimal         @db.Decimal(12, 2)
+  installment_date    DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_payment_method   Int
+  observations        String?         @db.VarChar(255)
+  id_credit           Int
+  cancelled_at        DateTime?
+  capital_paid        Decimal         @default(0) @db.Decimal(12, 2)
+  interest_paid       Decimal         @default(0) @db.Decimal(12, 2)
+  is_cancelled        Boolean         @default(false)
+  created_at          DateTime        @default(now())
+  cancellation_reason String?         @db.VarChar(255)
+  cancelled_by        Int?
+  credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
+  users               users?          @relation(fields: [cancelled_by], references: [id_user])
+  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model modules {
@@ -224,6 +223,21 @@ model order_details {
   products        products     @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_producto")
 }
 
+model order_payments {
+  id_order_payment  Int             @id @default(autoincrement())
+  id_order          Int
+  id_payment_method Int
+  amount            Decimal         @db.Decimal(12, 2)
+  payment_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  observations      String?         @db.VarChar(255)
+  reference         String?         @db.VarChar(100)
+  created_at        DateTime?       @default(now()) @db.Timestamp(6)
+  sales_orders      sales_orders    @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payments_order")
+  payment_methods   payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payments_payment_method")
+
+  @@index([id_order], map: "idx_order_payments_id_order")
+}
+
 model order_statuses {
   id_order_status Int            @id(map: "estados_pedidos_pkey") @default(autoincrement())
   name_status     String         @unique(map: "estados_pedidos_nombre_key") @db.VarChar(50)
@@ -246,6 +260,13 @@ model payment_methods {
   installments         installments[]
   order_payments       order_payments[]
   sale_payment_methods sale_payment_methods[]
+}
+
+model payment_statuses {
+  id_payment_status   Int            @id @default(autoincrement())
+  name_payment_status String         @unique @db.VarChar(50)
+  description         String?        @db.VarChar(255)
+  sales_orders        sales_orders[]
 }
 
 model prd {
@@ -582,6 +603,8 @@ model sales_orders {
   payment_expired_at        DateTime?        @db.Timestamp(6)
   payment_expiration_reason String?          @db.VarChar(255)
   id_payment_status         Int
+  cancellation_reason       String?          @db.VarChar(255)
+  cancelled_at              DateTime?        @db.Timestamp(6)
   hev                       hev?
   order_details             order_details[]
   order_payments            order_payments[]
@@ -635,72 +658,6 @@ model users {
   access           access[]
   clients          clients?
   employees        employees?
+  installments     installments[]
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-<<<<<<< HEAD
-model product_categories {
-  id_product_category Int        @id @default(autoincrement())
-  id_product          Int
-  id_category         Int
-  created_at          DateTime?  @default(now()) @db.Timestamp(6)
-  categories          categories @relation(fields: [id_category], references: [id_category], onDelete: Cascade, onUpdate: NoAction)
-  products            products   @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([id_product, id_category])
-  @@index([id_category], map: "idx_product_categories_category")
-  @@index([id_product], map: "idx_product_categories_product")
-}
-
-model product_subcategories {
-  id_product_subcategory Int           @id @default(autoincrement())
-  id_product             Int
-  id_subcategory         Int
-  created_at             DateTime?     @default(now()) @db.Timestamp(6)
-  products               products      @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction)
-  subcategories          subcategories @relation(fields: [id_subcategory], references: [id_subcategory], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([id_product, id_subcategory])
-  @@index([id_product], map: "idx_product_subcategories_product")
-  @@index([id_subcategory], map: "idx_product_subcategories_subcategory")
-}
-
-model sale_payment_methods {
-  id_sale_payment_method Int             @id @default(autoincrement())
-  id_sale                Int
-  id_payment_method      Int
-  amount                 Decimal?        @db.Decimal(12, 2)
-  creation_date          DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  payment_methods        payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
-  sales                  sales           @relation(fields: [id_sale], references: [id_sale], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([id_sale, id_payment_method], map: "sale_payment_methods_sale_payment_unique")
-}
-
-model sale_types {
-  id_sale_type   Int     @id @default(autoincrement())
-  sale_type_name String  @unique @db.VarChar(50)
-  sales          sales[]
-=======
-model order_payments {
-  id_order_payment  Int             @id @default(autoincrement())
-  id_order          Int
-  id_payment_method Int
-  amount            Decimal         @db.Decimal(12, 2)
-  payment_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  observations      String?         @db.VarChar(255)
-  reference         String?         @db.VarChar(100)
-  created_at        DateTime?       @default(now()) @db.Timestamp(6)
-  sales_orders      sales_orders    @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payments_order")
-  payment_methods   payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payments_payment_method")
-
-  @@index([id_order], map: "idx_order_payments_id_order")
-}
-
-model payment_statuses {
-  id_payment_status   Int            @id @default(autoincrement())
-  name_payment_status String         @unique @db.VarChar(50)
-  description         String?        @db.VarChar(255)
-  sales_orders        sales_orders[]
->>>>>>> 8ad142076d3d430162fd169a668de97338dc97e2
 }
