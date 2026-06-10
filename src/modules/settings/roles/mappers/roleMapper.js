@@ -77,7 +77,9 @@ export class RoleMapper {
         role.name_role?.toLowerCase()==="administrator",
 
       total_permissions:
-        role.assigned_permissions?.length || 0
+        role.assigned_permissions?.length || 0,
+
+
 
     };
 
