@@ -2,33 +2,30 @@
  * Distribuye un abono entre intereses y capital.
  *
  * Regla:
- * 1. Se pagan primero los intereses.
- * 2. El excedente se aplica al capital.
+ * 1. Primero se pagan intereses.
+ * 2. Luego se paga capital.
  */
 export default function calculateInstallmentDistribution({
-  amount,
+  installmentAmount,
   pendingInterest,
-  pendingCapital
+  pendingCapital,
 }) {
-  let remainingAmount = amount;
+  let remainingAmount = Number(installmentAmount);
 
   const interestPaid = Math.min(
     remainingAmount,
-    pendingInterest
+    Number(pendingInterest)
   );
 
   remainingAmount -= interestPaid;
 
   const capitalPaid = Math.min(
     remainingAmount,
-    pendingCapital
+    Number(pendingCapital)
   );
-
-  remainingAmount -= capitalPaid;
 
   return {
     interestPaid,
     capitalPaid,
-    remainingAmount
   };
 }

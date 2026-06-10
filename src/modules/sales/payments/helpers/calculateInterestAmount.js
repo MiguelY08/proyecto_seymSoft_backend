@@ -6,12 +6,10 @@
  */
 export default function calculateInterestAmount({
   pendingCapital,
-  percentage
+  percentage,
 }) {
   const generatedAmount =
-    (pendingCapital * percentage) / 100;
+    (Number(pendingCapital) * Number(percentage)) / 100;
 
-  return Number(
-    generatedAmount.toFixed(2)
-  );
+  return Number(generatedAmount.toFixed(2));
 }
