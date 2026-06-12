@@ -1,15 +1,40 @@
-/**
- * Mapper: InstallmentMapper
- * Responsibility: Convert installment domain models to DTOs and vice-versa.
- */
-import InvoiceInstallmentsDto from "../dtos/InvoiceInstallmentsDto.js";
+import InstallmentDto from "../dtos/InstallmentDto.js";
 
 export default class InstallmentMapper {
-  static toDto(entity = {}) {
-    return new InvoiceInstallmentsDto(entity);
-  }
+  static toDto(data) {
+    return new InstallmentDto({
+      idInstallment:
+        data.idInstallment,
 
-  static toDomain(dto = {}) {
-    return { ...dto };
+      installmentAmount:
+        data.installmentAmount,
+
+      capitalPaid:
+        data.capitalPaid,
+
+      interestPaid:
+        data.interestPaid,
+
+      installmentDate:
+        data.installmentDate,
+
+      observations:
+        data.observations,
+
+      isCancelled:
+        data.isCancelled,
+
+      cancelledAt:
+        data.cancelledAt,
+
+      cancellationReason:
+        data.cancellationReason,
+
+      cancelledBy:
+        data.cancelledBy,
+
+      paymentMethod:
+        data.paymentMethod,
+    });
   }
 }

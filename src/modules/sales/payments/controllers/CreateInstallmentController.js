@@ -1,20 +1,39 @@
-/**
- * Controller: CreateInstallmentController
- * Responsibility: Handle HTTP requests to create a new installment for an invoice.
- */
-import CreateInstallmentUseCase from "../use-cases/CreateInstallmentUseCase.js";
+import { PaymentsRepository } from "../repositories/PaymentsRepository.js";
+import { CreateInstallmentUseCase } from "../use-cases/CreateInstallmentUseCase.js";
 
-export default class CreateInstallmentController {
-  constructor({ useCase = new CreateInstallmentUseCase() } = {}) {
-    this.useCase = useCase;
-  }
+import {
+  validateCreateInstallment,
+} from "../validators/paymentsValidators.js";
 
-  async handle(req, res, next) {
+const repository =
+  new PaymentsRepository();
+
+const useCase =
+  new CreateInstallmentUseCase(
+    repository
+  );
+
+export const createInstallmentController =
+  async (
+    req,
+    res,
+    next
+  ) => {
     try {
-      const result = await this.useCase.execute(req.body);
-      return res.status(201).json(result);
-    } catch (err) {
-      return next(err);
+      validateCreateInstallment(
+        req.body
+      );
+
+      const result =
+        await useCase.execute(
+          req.body
+        );
+
+      return res.status(201).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
     }
-  }
-}
+  };

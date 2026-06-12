@@ -1,18 +1,24 @@
-/**
- * Repository: PaymentsRepository
- * Responsibility: Data access for payments-related entities (invoices, installments, etc.).
- */
-import prisma from "../../src/config/prisma.js";
+import {prisma } from "../../../../config/prisma.js";
+import { CREDIT_STATUS } from "../constants/creditStatus.constants.js";
 
-export default class PaymentsRepository {
+export class PaymentsRepository {
+  constructor() {
+    this.prisma = prisma;
+  }
 
-// obtener clientes con créditos activos y sus detalles relacionados (ventas, cuotas, intereses)
-    async getCreditCustomers() {
-    return prisma.clients.findMany({
+  // =====================================================
+  // CONSULTAS
+  // =====================================================
+
+  /**
+   * Obtiene todos los clientes con créditos.
+   */
+  async getCreditCustomers() {
+    return this.prisma.clients.findMany({
       where: {
         credits: {
-          some: {}
-        }
+          some: {},
+        },
       },
 
       include: {
@@ -20,145 +26,425 @@ export default class PaymentsRepository {
 
         credits: {
           include: {
-            sales: true,
+            credit_interests: true,
 
             installments: {
               where: {
-                is_cancelled: false
-              }
+                is_cancelled: false,
+              },
             },
-
-            credit_interests: true
-          }
-        }
-      }
+          },
+        },
+      },
     });
   }
 
-// ver informacion detallada de un cliente específico, incluyendo sus créditos, ventas, cuotas e intereses
+  /**
+   * Obtiene todos los créditos de un cliente.
+   */
   async getCustomerCredits(id_customer) {
-    return prisma.credits.findMany({
+    return this.prisma.credits.findMany({
       where: {
-        id_customer
+        id_customer,
       },
 
       include: {
-        sales: true,
-
-        installments: {
-          where: {
-            is_cancelled: false
-          }
+        clients: {
+          include: {
+            users: true,
+          },
         },
 
-        credit_interests: true
-      }
-    });
-  }
-
-// obtener información detallada de un crédito específico, incluyendo su venta asociada, cuotas pendientes e intereses generados
-  async getCreditById(id_credit) {
-    return prisma.credits.findUnique({
-      where: {
-        id_credit
-      },
-
-      include: {
         sales: true,
 
-        installments: true,
+        credit_statuses: true,
 
         credit_interests: true,
 
-        clients: {
-          include: {
-            users: true
-          }
-        }
-      }
-    });
-  }
-
-// historial de pagos realizados para un crédito específico, incluyendo detalles de cada cuota pagada y los intereses asociados a cada pago
-
-  async getInstallmentsByCredit(id_credit) {
-    return prisma.installments.findMany({
-        where: {
-          id_credit
+        installments: {
+          where: {
+            is_cancelled: false,
+          },
         },
-
-        include: {
-          payment_methods: true
-        },
-
-        orderBy: {
-          installment_date: 'desc'
-        }
-      });
-    
-  }
-
-  async createInstallment(data) {
-    return prisma.installments.create({
-      data
-    });
-  }
-
-  // cancelar una cuota específica, marcándola como cancelada y registrando la fecha de cancelación
-  async cancelInstallment(id_installment) {
-    return prisma.installments.update({
-      where: {
-        id_installment
       },
 
-      data: {
-        is_cancelled: true,
-        cancelled_at: new Date()
-      }
+      orderBy: {
+        due_date: "asc",
+      },
     });
   }
 
-    // registrar un nuevo interés generado para un crédito específico, incluyendo el monto del interés, la fecha de generación y el porcentaje aplicado
-  async createInterest(data) {
-    return prisma.credit_interests.create({
-      data
-    });
-  }
-
-  // contactar al cliente para recordarle el pago pendiente, utilizando la información de contacto almacenada en la base de datos (correo electrónico, teléfono, etc.)
-    async getCustomerLastPayment(id_customer) {
-      return prisma.installments.findFirst({
+  /**
+   * Obtiene un crédito por id.
+   */
+    async getCreditById(id_credit) {
+      return this.prisma.credits.findUnique({
         where: {
-          credits: {
-            id_customer
-          },
-
-          is_cancelled: false
-        },
-
-        orderBy: {
-          installment_date: 'desc'
-        }
-      });
-    }
-
-    async getOverdueCreditsByCustomer(id_customer) {
-      return prisma.credits.findMany({
-        where: {
-          id_customer
+          id_credit,
         },
 
         include: {
-          sales: true,
-
-          installments: {
-            where: {
-              is_cancelled: false
-            }
+          clients: {
+            include: {
+              users: true,
+            },
           },
 
-          credit_interests: true
-        }
+          sales: true,
+
+          credit_statuses: true,
+
+          credit_interests: true,
+
+          installments: {
+            include: {
+              payment_methods: true,
+
+              cancelled_by_user: {
+                select: {
+                  id_user: true,
+                  full_name: true,
+                },
+              },
+            },
+
+            orderBy: {
+              installment_date: "desc",
+            },
+          },
+        },
       });
     }
+
+  /**
+   * Obtiene historial de abonos.
+   */
+async getInstallmentsByCredit(id_credit) {
+  return this.prisma.installments.findMany({
+    where: {
+      id_credit,
+    },
+
+    include: {
+      payment_methods: true,
+
+      cancelled_by_user: {
+        select: {
+          id_user: true,
+          full_name: true,
+        },
+      },
+    },
+
+    orderBy: {
+      installment_date: "desc",
+    },
+  });
+}
+
+  /**
+   * Obtiene un abono específico.
+   */
+async getInstallmentById(id_installment) {
+  return this.prisma.installments.findUnique({
+    where: {
+      id_installment,
+    },
+
+    include: {
+      payment_methods: true,
+
+      cancelled_by_user: true,
+
+      credits: {
+        include: {
+          clients: {
+            include: {
+              users: true,
+            },
+          },
+
+          credit_interests: true,
+        },
+      },
+    },
+  });
+}
+  /**
+   * Obtiene intereses de un crédito.
+   */
+  async getCreditInterests(id_credit) {
+    return this.prisma.credit_interests.findMany({
+      where: {
+        id_credit,
+      },
+
+      orderBy: {
+        created_at: "asc",
+      },
+    });
+  }
+
+  /**
+   * Obtiene métodos de pago válidos para abonos.
+   */
+  async getPaymentMethods() {
+    return this.prisma.payment_methods.findMany({
+      where: {
+        NOT: {
+          name_payment_method: "Crédito",
+        },
+      },
+
+      orderBy: {
+        name_payment_method: "asc",
+      },
+    });
+  }
+
+  /**
+   * Obtiene catálogo de estados.
+   */
+  async getCreditStatuses() {
+    return this.prisma.credit_statuses.findMany({
+      orderBy: {
+        id_credit_status: "asc",
+      },
+    });
+  }
+
+  /**
+   * Obtiene un estado por nombre.
+   */
+  async getCreditStatusByName(
+    name_credit_status
+  ) {
+    return this.prisma.credit_statuses.findFirst({
+      where: {
+        name_credit_status,
+      },
+    });
+  }
+
+  /**
+   * Obtiene mapa de estados.
+   */
+  async getCreditStatusesMap() {
+    const statuses =
+      await this.prisma.credit_statuses.findMany();
+
+    return {
+      pending:
+        statuses.find(
+          (status) =>
+            status.name_credit_status ===
+            CREDIT_STATUS.PENDING
+        )?.id_credit_status,
+
+      paid:
+        statuses.find(
+          (status) =>
+            status.name_credit_status ===
+            CREDIT_STATUS.PAID
+        )?.id_credit_status,
+
+      overdue:
+        statuses.find(
+          (status) =>
+            status.name_credit_status ===
+            CREDIT_STATUS.OVERDUE
+        )?.id_credit_status,
+    };
+  }
+
+  /**
+   * Obtiene un cliente.
+   */
+  async getClientById(id_customer) {
+    return this.prisma.clients.findUnique({
+      where: {
+        id_client: id_customer,
+      },
+
+      include: {
+        users: true,
+      },
+    });
+  }
+
+  /**
+   * Obtiene crédito a partir de una venta.
+   */
+  async getCreditBySaleId(id_sale) {
+    return this.prisma.credits.findFirst({
+      where: {
+        id_sale,
+      },
+
+      include: {
+        sales: true,
+
+        clients: {
+          include: {
+            users: true,
+          },
+        },
+
+        installments: {
+          include: {
+            payment_methods: true,
+
+            cancelled_by_user: {
+              select: {
+                id_user: true,
+                full_name: true,
+              },
+            },
+          },
+
+          orderBy: {
+            installment_date: "desc",
+          },
+        },
+      },
+    });
+}
+
+  // =====================================================
+  // TRANSACCIONES DE NEGOCIO
+  // =====================================================
+
+  /**
+   * Procesa un abono.
+   *
+   * - Crea el abono.
+   * - Actualiza saldo del crédito.
+   * - Actualiza estado del crédito.
+   * - Libera cupo al cliente.
+   */
+  async processInstallment({
+    installmentData,
+    id_credit,
+    remaining_balance,
+    id_credit_status,
+    id_customer,
+    credit_balance,
+  }) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const installment =
+          await tx.installments.create({
+            data: installmentData,
+          });
+
+        await tx.credits.update({
+          where: {
+            id_credit,
+          },
+
+          data: {
+            remaining_balance,
+            id_credit_status,
+          },
+        });
+
+        await tx.clients.update({
+          where: {
+            id_client: id_customer,
+          },
+
+          data: {
+            credit_balance,
+          },
+        });
+
+        return installment;
+      }
+    );
+  }
+
+  /**
+   * Anula un abono.
+   *
+   * - Marca el abono como anulado.
+   * - Revierte saldo del crédito.
+   * - Revierte cupo liberado.
+   * - Actualiza estado.
+   */
+async cancelInstallmentTransaction({
+  id_installment,
+
+  cancelled_at,
+  cancellation_reason,
+  cancelled_by,
+
+  id_credit,
+  remaining_balance,
+  id_credit_status,
+
+  id_customer,
+  credit_balance,
+}) {
+  return this.prisma.$transaction(
+    async (tx) => {
+      await tx.installments.update({
+        where: {
+          id_installment,
+        },
+
+        data: {
+          is_cancelled: true,
+          cancelled_at,
+          cancellation_reason,
+          cancelled_by,
+        },
+      });
+
+      await tx.credits.update({
+        where: {
+          id_credit,
+        },
+
+        data: {
+          remaining_balance,
+          id_credit_status,
+        },
+      });
+
+      await tx.clients.update({
+        where: {
+          id_client: id_customer,
+        },
+
+        data: {
+          credit_balance,
+        },
+      });
+    }
+  );
+}
+
+  /**
+   * Registra un nuevo interés.
+   */
+  async createInterestTransaction(
+    interestData
+  ) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        return tx.credit_interests.create({
+          data: interestData,
+        });
+      }
+    );
+  }
+  
+
+  async getUserById(id_user) {
+  return this.prisma.users.findUnique({
+    where: {
+      id_user,
+    },
+  });
+}
 }

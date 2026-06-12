@@ -1,20 +1,44 @@
-/**
- * Controller: GetInvoiceInstallmentsController
- * Responsibility: Handle HTTP requests to fetch installments for an invoice.
- */
+import { PaymentsRepository } from "../repositories/PaymentsRepository.js";
 import GetInvoiceInstallmentsUseCase from "../use-cases/GetInvoiceInstallmentsUseCase.js";
 
-export default class GetInvoiceInstallmentsController {
-  constructor({ useCase = new GetInvoiceInstallmentsUseCase() } = {}) {
-    this.useCase = useCase;
-  }
+import {
+  validateInvoiceInstallments,
+} from "../validators/paymentsValidators.js";
 
-  async handle(req, res, next) {
+const repository =
+  new PaymentsRepository();
+
+const useCase =
+  new GetInvoiceInstallmentsUseCase({
+    repository,
+  });
+
+export const getInvoiceInstallmentsController =
+  async (
+    req,
+    res,
+    next
+  ) => {
     try {
-      const result = await this.useCase.execute({ params: req.params });
-      return res.json(result);
-    } catch (err) {
-      return next(err);
+      const id_sale =
+        Number(
+          req.params.idSale
+        );
+
+      validateInvoiceInstallments({
+        id_sale,
+      });
+
+      const data =
+        await useCase.execute(
+          id_sale
+        );
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      next(error);
     }
-  }
-}
+  };

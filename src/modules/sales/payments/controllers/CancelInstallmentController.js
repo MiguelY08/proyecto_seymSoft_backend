@@ -1,23 +1,58 @@
-/**
- * Controller: CancelInstallmentController
- * Responsibility: Handle HTTP requests to cancel an installment.
- */
-import CancelInstallmentUseCase from "../use-cases/CancelInstallmentUseCase.js";
+import { PaymentsRepository } from "../repositories/PaymentsRepository.js";
+import { CancelInstallmentUseCase } from "../use-cases/CancelInstallmentUseCase.js";
 
-export default class CancelInstallmentController {
-  constructor({ useCase = new CancelInstallmentUseCase() } = {}) {
-    this.useCase = useCase;
-  }
+import {
+  validateCancelInstallment,
+} from "../validators/paymentsValidators.js";
 
-  async handle(req, res, next) {
+const repository =
+  new PaymentsRepository();
+
+const useCase =
+  new CancelInstallmentUseCase(
+    repository
+  );
+
+export const cancelInstallmentController =
+  async (
+    req,
+    res,
+    next
+  ) => {
     try {
-      const result = await this.useCase.execute({
-        params: req.params,
-        body: req.body,
+      const id_installment =
+        Number(
+          req.params.idInstallment
+        );
+
+      const {
+        reason,
+        password,
+      } = req.body;
+
+      validateCancelInstallment({
+        id_installment,
+        reason,
+        password,
       });
-      return res.json(result);
-    } catch (err) {
-      return next(err);
+
+      const result =
+        await useCase.execute({
+          id_installment,
+
+          reason,
+
+          password,
+
+          userId:
+            req.user.id_user,
+        });
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
     }
-  }
-}
+  };
