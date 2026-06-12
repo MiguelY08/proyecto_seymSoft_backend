@@ -1,4 +1,4 @@
-﻿import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
 const mailConfig = {
   host: process.env.EMAIL_HOST,
@@ -41,6 +41,29 @@ const getName = (fullName) => fullName || "usuario";
 const getFrontendUrl = () =>
   process.env.FRONTEND_URL || "http://localhost:3000";
 
+const COLORS = {
+  primary: "#004D77",
+  primaryLight: "#DCEBF3",
+  softGray: "#F3F4F6",
+  white: "#FFFFFF",
+  text: "#1F2937",
+  muted: "#6B7280",
+  dangerSoft: "#FDECEC",
+  danger: "#B42318",
+};
+
+const renderActionLink = (href, label) => `
+  <a href="${href}" style="display: inline-block; background: ${COLORS.primary}; color: ${COLORS.white}; text-decoration: none; padding: 10px 16px; border-radius: 4px; font-weight: 700; margin-top: 12px;">
+    ${label}
+  </a>
+`;
+
+const renderInfoCard = (content, options = {}) => `
+  <div style="background: ${options.background || COLORS.softGray}; border-left: 4px solid ${options.borderColor || COLORS.primary}; padding: 14px 16px; margin: 18px 0; border-radius: 4px;">
+    ${content}
+  </div>
+`;
+
 const sendMail = async ({ to, subject, text, html }) => {
   await transporter.sendMail({
     from: getEmailFrom(),
@@ -53,29 +76,33 @@ const sendMail = async ({ to, subject, text, html }) => {
 
 const renderDetailsRows = (details = []) => {
   if (!details.length) {
-    return "<tr><td colspan=\"5\">Sin detalles registrados.</td></tr>";
+    return `<tr><td colspan="5" style="padding: 10px; border: 1px solid ${COLORS.primaryLight}; color: ${COLORS.muted};">Sin detalles registrados.</td></tr>`;
   }
 
-  return details.map((item) => `
-    <tr>
-      <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.productName || item.name || item.product?.name || "Producto"}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.barcode || "N/A"}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${item.quantity || 0}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatMoney(item.unitPrice || item.unit_price || 0)}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatMoney(item.subtotal || 0)}</td>
-    </tr>
-  `).join("");
+  return details.map((item, index) => {
+    const background = index % 2 === 0 ? COLORS.white : COLORS.softGray;
+
+    return `
+      <tr style="background: ${background};">
+        <td style="padding: 9px; border: 1px solid ${COLORS.primaryLight}; vertical-align: middle;">${item.productName || item.name || item.product?.name || "Producto"}</td>
+        <td style="padding: 9px; border: 1px solid ${COLORS.primaryLight}; vertical-align: middle;">${item.barcode || "N/A"}</td>
+        <td style="padding: 9px; border: 1px solid ${COLORS.primaryLight}; text-align: right; vertical-align: middle;">${item.quantity || 0}</td>
+        <td style="padding: 9px; border: 1px solid ${COLORS.primaryLight}; text-align: right; vertical-align: middle;">${formatMoney(item.unitPrice || item.unit_price || 0)}</td>
+        <td style="padding: 9px; border: 1px solid ${COLORS.primaryLight}; text-align: right; vertical-align: middle; font-weight: 700;">${formatMoney(item.total || item.subtotal || 0)}</td>
+      </tr>
+    `;
+  }).join("");
 };
 
 const renderDetailsTable = (details = []) => `
   <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
     <thead>
-      <tr style="background: #f8f9fa;">
-        <th style="padding: 8px; text-align: left;">Producto</th>
-        <th style="padding: 8px; text-align: left;">Codigo</th>
-        <th style="padding: 8px; text-align: right;">Cantidad</th>
-        <th style="padding: 8px; text-align: right;">Precio</th>
-        <th style="padding: 8px; text-align: right;">Subtotal</th>
+      <tr style="background: ${COLORS.primary}; color: ${COLORS.white};">
+        <th style="padding: 10px; text-align: left; border: 1px solid ${COLORS.primary};">Producto</th>
+        <th style="padding: 10px; text-align: left; border: 1px solid ${COLORS.primary};">Codigo</th>
+        <th style="padding: 10px; text-align: right; border: 1px solid ${COLORS.primary};">Cantidad</th>
+        <th style="padding: 10px; text-align: right; border: 1px solid ${COLORS.primary};">Precio</th>
+        <th style="padding: 10px; text-align: right; border: 1px solid ${COLORS.primary};">Total</th>
       </tr>
     </thead>
     <tbody>${renderDetailsRows(details)}</tbody>
@@ -84,23 +111,35 @@ const renderDetailsTable = (details = []) => `
 
 const renderPaymentMethods = (paymentMethods = []) => {
   if (!paymentMethods.length) {
-    return "<p>No hay metodos de pago registrados.</p>";
+    return `<p style="color: ${COLORS.muted};">No hay metodos de pago registrados.</p>`;
   }
 
   return `
-    <ul>
+    <div style="margin: 12px 0;">
       ${paymentMethods.map((payment) => `
-        <li>${payment.name || payment.paymentMethod?.namePaymentMethod || payment.paymentMethod?.name || "Metodo"}: ${formatMoney(payment.amount)}</li>
+        <div style="background: ${COLORS.softGray}; border: 1px solid ${COLORS.primaryLight}; border-radius: 4px; padding: 10px 12px; margin-bottom: 8px;">
+          <span style="color: ${COLORS.primary}; font-weight: 700;">${payment.name || payment.paymentMethod?.namePaymentMethod || payment.paymentMethod?.name || "Metodo"}</span>
+          <span style="float: right; font-weight: 700; color: ${COLORS.text};">${formatMoney(payment.amount)}</span>
+        </div>
       `).join("")}
-    </ul>
+    </div>
   `;
 };
 
-const baseLayout = ({ title, body }) => `
-  <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px; color: #333;">
-    <h2 style="color: #222;">${title}</h2>
-    ${body}
-    <p style="color: #666; font-size: 12px; margin-top: 30px;">Saludos,<br><strong>Equipo SeymSoft</strong></p>
+const baseLayout = ({ title, body, badge }) => `
+  <div style="background: ${COLORS.softGray}; padding: 24px 0; font-family: 'Segoe UI', Arial, sans-serif; color: ${COLORS.text};">
+    <div style="max-width: 680px; margin: 0 auto; background: ${COLORS.white}; border-radius: 6px; overflow: hidden; border: 1px solid ${COLORS.primaryLight};">
+      <div style="background: ${COLORS.primary}; color: ${COLORS.white}; padding: 22px 26px;">
+        <h1 style="margin: 0; font-size: 22px; line-height: 1.3; color: ${COLORS.white};">${title}</h1>
+        ${badge ? `<div style="display: inline-block; margin-top: 10px; padding: 5px 10px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.35); border-radius: 999px; font-size: 12px; font-weight: 700;">${badge}</div>` : ""}
+      </div>
+      <div style="padding: 24px 26px; background: ${COLORS.white};">
+        ${body}
+      </div>
+      <div style="background: ${COLORS.softGray}; padding: 16px 26px; color: ${COLORS.muted}; font-size: 12px; border-top: 1px solid ${COLORS.primaryLight};">
+        <p style="margin: 0;">Saludos,<br><strong style="color: ${COLORS.primary};">Equipo SeymSoft</strong></p>
+      </div>
+    </div>
   </div>
 `;
 
@@ -120,9 +159,9 @@ export class EmailService {
       body: `
         <p>Hola ${name},</p>
         <p>Tu codigo de verificacion es:</p>
-        <h2 style="color: #007bff;">${verificationCode}</h2>
+        <h2 style="color: #004D77;">${verificationCode}</h2>
         <p>Ingresa este codigo en la pantalla de recuperacion de contrasena.</p>
-        <p><a href="${resetPageUrl}">${resetPageUrl}</a></p>
+        ${renderActionLink(resetPageUrl, "Restablecer contrasena")}
       `,
     });
 
@@ -144,10 +183,10 @@ export class EmailService {
       body: `
         <p>Tu cuenta ha sido creada exitosamente.</p>
         <p><strong>Tu contrasena temporal es:</strong></p>
-        <div style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;">
-          <h3 style="color: #007bff; margin: 0; font-size: 24px; letter-spacing: 2px;">${tempPassword}</h3>
+        <div style="background: #F3F4F6; border-left: 4px solid #004D77; padding: 15px; margin: 20px 0;">
+          <h3 style="color: #004D77; margin: 0; font-size: 24px; letter-spacing: 2px;">${tempPassword}</h3>
         </div>
-        <p>Inicia sesion en: <a href="${loginPageUrl}">${loginPageUrl}</a></p>
+        ${renderActionLink(loginPageUrl, "Iniciar sesion")}
       `,
     });
 
@@ -167,7 +206,7 @@ export class EmailService {
       title: `Bienvenido a Papeleria Magic, ${name}`,
       body: `
         <p>Tu cuenta ha sido creada exitosamente y ya esta lista para usar.</p>
-        <p><a href="${loginPageUrl}">Iniciar sesion</a></p>
+        ${renderActionLink(loginPageUrl, "Iniciar sesion")}
       `,
     });
 
@@ -220,7 +259,7 @@ export class EmailService {
         <p><strong>Fecha limite de pago:</strong> ${formatDate(paymentDeadline)}</p>
         <p><strong>Entrega:</strong> ${deliveryType || "No especificado"}</p>
         <p><strong>Direccion:</strong> ${deliveryAddress || "No aplica"}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -254,7 +293,7 @@ export class EmailService {
         <p><strong>Saldo pendiente:</strong> ${formatMoney(pendingAmount)}</p>
         <p><strong>Estado:</strong> ${isPaid ? "Pagado" : "Pendiente"}</p>
         <p><strong>Referencia:</strong> ${reference || "No aplica"}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -284,7 +323,7 @@ export class EmailService {
         <p><strong>Nuevo estado:</strong> ${newStatus}</p>
         <p><strong>Entrega:</strong> ${deliveryType || "No especificado"}</p>
         <p><strong>Direccion:</strong> ${deliveryAddress || "No aplica"}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -310,7 +349,7 @@ export class EmailService {
         <p>Tu pedido fue cancelado.</p>
         <p><strong>Motivo:</strong> ${reason || "No especificado"}</p>
         <p><strong>Total:</strong> ${formatMoney(total)}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -348,13 +387,13 @@ export class EmailService {
         <p><strong>Metodos de pago:</strong></p>
         ${renderPaymentMethods(paymentMethods)}
         ${credit ? `
-          <div style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;">
+          <div style="background: #F3F4F6; border-left: 4px solid #004D77; padding: 15px; margin: 20px 0;">
             <p><strong>Credito:</strong> ${formatMoney(credit.creditAmount || credit.credit_amount)}</p>
             <p><strong>Saldo credito:</strong> ${formatMoney(credit.remainingBalance || credit.remaining_balance)}</p>
             <p><strong>Vencimiento:</strong> ${formatDate(credit.dueDate || credit.due_date)}</p>
           </div>
         ` : ""}
-        <p><a href="${saleUrl}">Ver venta</a></p>
+        ${renderActionLink(saleUrl, "Ver venta")}
       `,
     });
 
@@ -384,7 +423,7 @@ export class EmailService {
         <p><strong>Motivo:</strong> ${reason || "No especificado"}</p>
         <p><strong>Total:</strong> ${formatMoney(total)}</p>
         <p><strong>Cupo restaurado:</strong> ${formatMoney(creditRestoredAmount)}</p>
-        <p><a href="${saleUrl}">Ver venta</a></p>
+        ${renderActionLink(saleUrl, "Ver venta")}
       `,
     });
 
@@ -411,7 +450,7 @@ export class EmailService {
       body: `
         <p>Hola ${name},</p>
         <p>Tu pedido <strong>#${orderId}</strong> aun tiene un saldo pendiente de pago.</p>
-        <div style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <div style="background: #F3F4F6; border-left: 4px solid #004D77; padding: 15px; margin: 20px 0; border-radius: 4px;">
           <p><strong>Total del pedido:</strong> ${formatMoney(orderTotal)}</p>
           <p><strong>Total abonado:</strong> ${formatMoney(paidAmount)}</p>
           <p><strong>Saldo pendiente:</strong> ${formatMoney(pendingAmount)}</p>
@@ -419,7 +458,7 @@ export class EmailService {
           <p><strong>Tiempo restante:</strong> ${hoursRemaining} hora(s)</p>
         </div>
         <p>Si el pedido no se paga por completo antes de la fecha limite, sera cancelado automaticamente.</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
