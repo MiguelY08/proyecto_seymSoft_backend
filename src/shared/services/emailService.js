@@ -1,4 +1,4 @@
-﻿import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
 const mailConfig = {
   host: process.env.EMAIL_HOST,
@@ -41,6 +41,226 @@ const getName = (fullName) => fullName || "usuario";
 const getFrontendUrl = () =>
   process.env.FRONTEND_URL || "http://localhost:3000";
 
+const COLORS = {
+  primary: "#004D77",
+  primaryDark: "#003B5C",
+  primaryLight: "#E5F1F7",
+  primarySoft: "#F3FAFD",
+
+  white: "#FFFFFF",
+  background: "#F3F4F6",
+  surface: "#FFFFFF",
+
+  text: "#1F2937",
+  muted: "#6B7280",
+  softText: "#9CA3AF",
+
+  border: "#E5E7EB",
+  borderStrong: "#CBD5E1",
+
+  success: "#047857",
+  successSoft: "#ECFDF5",
+
+  warning: "#B45309",
+  warningSoft: "#FFFBEB",
+
+  danger: "#B42318",
+  dangerSoft: "#FEF2F2",
+};
+
+const renderActionLink = (href, label) => `
+  <a href="${href}" style="
+    display: inline-block;
+    background: ${COLORS.primary};
+    color: ${COLORS.white};
+    text-decoration: none;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-top: 16px;
+    box-shadow: 0 8px 18px rgba(0, 77, 119, 0.22);
+  ">
+    ${label}
+  </a>
+`;
+
+const renderInfoCard = (content, options = {}) => `
+  <div style="
+    background: ${options.background || COLORS.primarySoft};
+    border: 1px solid ${options.borderColor || COLORS.primaryLight};
+    border-left: 4px solid ${options.accentColor || COLORS.primary};
+    padding: 16px;
+    margin: 18px 0;
+    border-radius: 12px;
+  ">
+    ${content}
+  </div>
+`;
+
+// ----- HELPERS -----
+const renderSectionTitle = (title, subtitle = "") => `
+  <div style="margin: 24px 0 12px;">
+    <h2 style="
+      margin: 0;
+      color: ${COLORS.text};
+      font-size: 17px;
+      line-height: 1.3;
+    ">
+      ${title}
+    </h2>
+    ${subtitle ? `
+      <p style="
+        margin: 4px 0 0;
+        color: ${COLORS.muted};
+        font-size: 13px;
+      ">
+        ${subtitle}
+      </p>
+    ` : ""}
+  </div>
+`;
+
+const renderBadge = (label, tone = "primary") => {
+  const styles = {
+    primary: {
+      background: COLORS.primaryLight,
+      color: COLORS.primary,
+      border: COLORS.primaryLight,
+    },
+    success: {
+      background: COLORS.successSoft,
+      color: COLORS.success,
+      border: COLORS.successSoft,
+    },
+    warning: {
+      background: COLORS.warningSoft,
+      color: COLORS.warning,
+      border: COLORS.warningSoft,
+    },
+    danger: {
+      background: COLORS.dangerSoft,
+      color: COLORS.danger,
+      border: COLORS.dangerSoft,
+    },
+  };
+
+  const selected = styles[tone] || styles.primary;
+
+  return `
+    <span style="
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: ${selected.background};
+      color: ${selected.color};
+      border: 1px solid ${selected.border};
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+    ">
+      ${label}
+    </span>
+  `;
+};
+
+const renderDivider = () => `
+  <div style="
+    height: 1px;
+    background: ${COLORS.border};
+    margin: 24px 0;
+  "></div>
+`;
+
+const renderAlertBox = (content, tone = "primary") => {
+  const styles = {
+    primary: {
+      background: COLORS.primarySoft,
+      border: COLORS.primaryLight,
+      accent: COLORS.primary,
+      color: COLORS.text,
+    },
+    success: {
+      background: COLORS.successSoft,
+      border: COLORS.successSoft,
+      accent: COLORS.success,
+      color: COLORS.text,
+    },
+    warning: {
+      background: COLORS.warningSoft,
+      border: COLORS.warningSoft,
+      accent: COLORS.warning,
+      color: COLORS.text,
+    },
+    danger: {
+      background: COLORS.dangerSoft,
+      border: COLORS.dangerSoft,
+      accent: COLORS.danger,
+      color: COLORS.text,
+    },
+  };
+
+  const selected = styles[tone] || styles.primary;
+
+  return `
+    <div style="
+      background: ${selected.background};
+      border: 1px solid ${selected.border};
+      border-left: 4px solid ${selected.accent};
+      color: ${selected.color};
+      padding: 16px;
+      border-radius: 12px;
+      margin: 18px 0;
+    ">
+      ${content}
+    </div>
+  `;
+};
+
+const renderSummaryCard = (label, value, options = {}) => `
+  <div style="
+    background: ${options.background || COLORS.white};
+    border: 1px solid ${options.borderColor || COLORS.border};
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  ">
+    <p style="
+      margin: 0 0 6px;
+      color: ${COLORS.muted};
+      font-size: 12px;
+      font-weight: 600;
+    ">
+      ${label}
+    </p>
+    <p style="
+      margin: 0;
+      color: ${options.valueColor || COLORS.text};
+      font-size: 16px;
+      font-weight: 800;
+    ">
+      ${value}
+    </p>
+  </div>
+`;
+
+const renderSummaryGrid = (items = []) => {
+  if (!items.length) return "";
+
+  return `
+    <div style="
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    ">
+      ${items.map((item) =>
+        renderSummaryCard(item.label, item.value, item.options)
+      ).join("")}
+    </div>
+  `;
+};
+
 const sendMail = async ({ to, subject, text, html }) => {
   await transporter.sendMail({
     from: getEmailFrom(),
@@ -53,54 +273,271 @@ const sendMail = async ({ to, subject, text, html }) => {
 
 const renderDetailsRows = (details = []) => {
   if (!details.length) {
-    return "<tr><td colspan=\"5\">Sin detalles registrados.</td></tr>";
+    return `
+      <tr>
+        <td colspan="5" style="
+          padding: 16px;
+          border-top: 1px solid ${COLORS.border};
+          color: ${COLORS.muted};
+          text-align: center;
+          font-size: 13px;
+        ">
+          Sin detalles registrados.
+        </td>
+      </tr>
+    `;
   }
 
-  return details.map((item) => `
-    <tr>
-      <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.productName || item.name || item.product?.name || "Producto"}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.barcode || "N/A"}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${item.quantity || 0}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatMoney(item.unitPrice || item.unit_price || 0)}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatMoney(item.subtotal || 0)}</td>
-    </tr>
-  `).join("");
+  return details.map((item, index) => {
+    const background = index % 2 === 0 ? COLORS.white : COLORS.primarySoft;
+
+    return `
+      <tr style="background: ${background};">
+        <td style="
+          padding: 12px;
+          border-top: 1px solid ${COLORS.border};
+          vertical-align: middle;
+          color: ${COLORS.text};
+          font-weight: 600;
+        ">
+          ${item.productName || item.name || item.product?.name || "Producto"}
+        </td>
+
+        <td style="
+          padding: 12px;
+          border-top: 1px solid ${COLORS.border};
+          vertical-align: middle;
+          color: ${COLORS.muted};
+          font-size: 13px;
+        ">
+          ${item.barcode || "N/A"}
+        </td>
+
+        <td style="
+          padding: 12px;
+          border-top: 1px solid ${COLORS.border};
+          text-align: right;
+          vertical-align: middle;
+          color: ${COLORS.text};
+        ">
+          ${item.quantity || 0}
+        </td>
+
+        <td style="
+          padding: 12px;
+          border-top: 1px solid ${COLORS.border};
+          text-align: right;
+          vertical-align: middle;
+          color: ${COLORS.text};
+        ">
+          ${formatMoney(item.unitPrice || item.unit_price || 0)}
+        </td>
+
+        <td style="
+          padding: 12px;
+          border-top: 1px solid ${COLORS.border};
+          text-align: right;
+          vertical-align: middle;
+          color: ${COLORS.primary};
+          font-weight: 800;
+        ">
+          ${formatMoney(item.total || item.subtotal || 0)}
+        </td>
+      </tr>
+    `;
+  }).join("");
 };
 
 const renderDetailsTable = (details = []) => `
-  <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
-    <thead>
-      <tr style="background: #f8f9fa;">
-        <th style="padding: 8px; text-align: left;">Producto</th>
-        <th style="padding: 8px; text-align: left;">Codigo</th>
-        <th style="padding: 8px; text-align: right;">Cantidad</th>
-        <th style="padding: 8px; text-align: right;">Precio</th>
-        <th style="padding: 8px; text-align: right;">Subtotal</th>
-      </tr>
-    </thead>
-    <tbody>${renderDetailsRows(details)}</tbody>
-  </table>
+  <div style="
+    margin: 20px 0;
+    border: 1px solid ${COLORS.border};
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  ">
+    <table style="
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background: ${COLORS.white};
+    ">
+      <thead>
+        <tr style="background: ${COLORS.primary}; color: ${COLORS.white};">
+          <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
+            Producto
+          </th>
+          <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
+            Codigo
+          </th>
+          <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
+            Cantidad
+          </th>
+          <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
+            Precio
+          </th>
+          <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
+            Total
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        ${renderDetailsRows(details)}
+      </tbody>
+    </table>
+  </div>
 `;
 
 const renderPaymentMethods = (paymentMethods = []) => {
   if (!paymentMethods.length) {
-    return "<p>No hay metodos de pago registrados.</p>";
+    return renderAlertBox(
+      `<p style="margin: 0; color: ${COLORS.muted};">No hay metodos de pago registrados.</p>`,
+      "primary"
+    );
   }
 
   return `
-    <ul>
-      ${paymentMethods.map((payment) => `
-        <li>${payment.name || payment.paymentMethod?.namePaymentMethod || payment.paymentMethod?.name || "Metodo"}: ${formatMoney(payment.amount)}</li>
-      `).join("")}
-    </ul>
+    <div style="margin: 14px 0;">
+      ${paymentMethods.map((payment) => {
+        const paymentName =
+          payment.name ||
+          payment.paymentMethod?.namePaymentMethod ||
+          payment.paymentMethod?.name ||
+          "Metodo";
+
+        return `
+          <div style="
+            background: ${COLORS.white};
+            border: 1px solid ${COLORS.border};
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+          ">
+            <div style="
+              display: table;
+              width: 100%;
+            ">
+              <div style="
+                display: table-cell;
+                vertical-align: middle;
+              ">
+                <p style="
+                  margin: 0;
+                  color: ${COLORS.primary};
+                  font-weight: 800;
+                  font-size: 14px;
+                ">
+                  ${paymentName}
+                </p>
+                <p style="
+                  margin: 2px 0 0;
+                  color: ${COLORS.muted};
+                  font-size: 12px;
+                ">
+                  Metodo de pago
+                </p>
+              </div>
+
+              <div style="
+                display: table-cell;
+                vertical-align: middle;
+                text-align: right;
+                color: ${COLORS.text};
+                font-weight: 800;
+                font-size: 15px;
+              ">
+                ${formatMoney(payment.amount)}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
   `;
 };
 
-const baseLayout = ({ title, body }) => `
-  <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px; color: #333;">
-    <h2 style="color: #222;">${title}</h2>
-    ${body}
-    <p style="color: #666; font-size: 12px; margin-top: 30px;">Saludos,<br><strong>Equipo SeymSoft</strong></p>
+const baseLayout = ({ title, body, badge }) => `
+  <div style="
+    margin: 0;
+    padding: 28px 12px;
+    background: ${COLORS.background};
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: ${COLORS.text};
+  ">
+    <div style="
+      max-width: 720px;
+      margin: 0 auto;
+      background: ${COLORS.surface};
+      border: 1px solid ${COLORS.border};
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+    ">
+      <div style="
+        background: linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryDark});
+        color: ${COLORS.white};
+        padding: 26px 28px;
+      ">
+        <div style="
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.78);
+          margin-bottom: 8px;
+        ">
+          SeymSoft
+        </div>
+
+        <h1 style="
+          margin: 0;
+          font-size: 24px;
+          line-height: 1.3;
+          color: ${COLORS.white};
+        ">
+          ${title}
+        </h1>
+
+        ${badge ? `
+          <div style="
+            display: inline-block;
+            margin-top: 12px;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.16);
+            border: 1px solid rgba(255,255,255,0.32);
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: ${COLORS.white};
+          ">
+            ${badge}
+          </div>
+        ` : ""}
+      </div>
+
+      <div style="
+        padding: 28px;
+        background: ${COLORS.white};
+        font-size: 15px;
+        line-height: 1.65;
+      ">
+        ${body}
+      </div>
+
+      <div style="
+        background: ${COLORS.primarySoft};
+        padding: 18px 28px;
+        color: ${COLORS.muted};
+        font-size: 12px;
+        border-top: 1px solid ${COLORS.border};
+      ">
+        <p style="margin: 0;">
+          Saludos,<br>
+          <strong style="color: ${COLORS.primary};">Equipo SeymSoft</strong>
+        </p>
+      </div>
+    </div>
   </div>
 `;
 
@@ -114,15 +551,50 @@ export class EmailService {
     const name = getName(fullName);
     const resetPageUrl = `${frontendUrl}/resetpassword`;
     const subject = "Codigo para restablecer tu contrasena";
+
     const text = `Hola ${name},\n\nTu codigo de verificacion es: ${verificationCode}\n\nIngresa este codigo en la pantalla de recuperacion de contrasena.\n\n${resetPageUrl}\n\nSi no solicitaste este cambio, ignora este mensaje.`;
+
     const html = baseLayout({
       title: "Restablecer contrasena",
+      badge: "Seguridad de cuenta",
       body: `
-        <p>Hola ${name},</p>
-        <p>Tu codigo de verificacion es:</p>
-        <h2 style="color: #007bff;">${verificationCode}</h2>
-        <p>Ingresa este codigo en la pantalla de recuperacion de contrasena.</p>
-        <p><a href="${resetPageUrl}">${resetPageUrl}</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Recibimos una solicitud para restablecer la contrasena de tu cuenta.
+          Usa el siguiente codigo de verificacion para continuar el proceso.
+        </p>
+
+        ${renderInfoCard(`
+          <p style="
+            margin: 0 0 8px;
+            color: ${COLORS.muted};
+            font-size: 13px;
+            font-weight: 600;
+          ">
+            Codigo de verificacion
+          </p>
+
+          <div style="
+            display: inline-block;
+            color: ${COLORS.primary};
+            font-size: 30px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            line-height: 1;
+          ">
+            ${verificationCode}
+          </div>
+        `)}
+
+        ${renderAlertBox(`
+          <p style="margin: 0;">
+            Si no solicitaste este cambio, puedes ignorar este correo.
+            Tu contrasena actual seguira siendo valida.
+          </p>
+        `, "warning")}
+
+        ${renderActionLink(resetPageUrl, "Restablecer contrasena")}
       `,
     });
 
@@ -138,16 +610,51 @@ export class EmailService {
     const name = getName(fullName);
     const loginPageUrl = `${frontendUrl}/login`;
     const subject = "Bienvenido. Acceso a tu cuenta";
+
     const text = `Hola ${name},\n\nTu cuenta ha sido creada exitosamente.\n\nTu contrasena temporal es: ${tempPassword}\n\nInicia sesion en: ${loginPageUrl}`;
+
     const html = baseLayout({
       title: `Bienvenido, ${name}`,
+      badge: "Cuenta creada",
       body: `
-        <p>Tu cuenta ha sido creada exitosamente.</p>
-        <p><strong>Tu contrasena temporal es:</strong></p>
-        <div style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;">
-          <h3 style="color: #007bff; margin: 0; font-size: 24px; letter-spacing: 2px;">${tempPassword}</h3>
-        </div>
-        <p>Inicia sesion en: <a href="${loginPageUrl}">${loginPageUrl}</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Tu cuenta ha sido creada exitosamente en SeymSoft.
+          Ya puedes ingresar al sistema con la contrasena temporal asignada.
+        </p>
+
+        ${renderSectionTitle("Datos de acceso")}
+
+        ${renderInfoCard(`
+          <p style="
+            margin: 0 0 8px;
+            color: ${COLORS.muted};
+            font-size: 13px;
+            font-weight: 600;
+          ">
+            Contrasena temporal
+          </p>
+
+          <div style="
+            display: inline-block;
+            color: ${COLORS.primary};
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            line-height: 1.2;
+          ">
+            ${tempPassword}
+          </div>
+        `)}
+
+        ${renderAlertBox(`
+          <p style="margin: 0;">
+            Por seguridad, te recomendamos cambiar esta contrasena despues de iniciar sesion.
+          </p>
+        `, "primary")}
+
+        ${renderActionLink(loginPageUrl, "Iniciar sesion")}
       `,
     });
 
@@ -162,12 +669,42 @@ export class EmailService {
     const name = getName(fullName);
     const loginPageUrl = `${frontendUrl}/login`;
     const subject = "Bienvenido a SeymSoft";
+
     const text = `Hola ${name},\n\nTu cuenta ha sido creada exitosamente y ya esta lista para usar.\n\nAccede aqui:\n${loginPageUrl}`;
+
     const html = baseLayout({
       title: `Bienvenido a Papeleria Magic, ${name}`,
+      badge: "Registro exitoso",
       body: `
-        <p>Tu cuenta ha sido creada exitosamente y ya esta lista para usar.</p>
-        <p><a href="${loginPageUrl}">Iniciar sesion</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Tu cuenta ha sido creada exitosamente y ya esta lista para usar.
+          Desde ahora puedes acceder a la tienda, consultar productos y gestionar tus pedidos.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Estado de cuenta",
+            value: "Activa",
+            options: {
+              background: COLORS.successSoft,
+              borderColor: COLORS.successSoft,
+              valueColor: COLORS.success,
+            },
+          },
+          {
+            label: "Acceso",
+            value: "Disponible",
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+        ])}
+
+        ${renderActionLink(loginPageUrl, "Iniciar sesion")}
       `,
     });
 
@@ -177,14 +714,42 @@ export class EmailService {
   static async sendEmailChangeNotification(oldEmail, newEmail, fullName) {
     const name = getName(fullName);
     const subject = "Notificacion: Tu email fue cambiado";
+
     const text = `Hola ${name},\n\nEl email asociado a tu cuenta fue cambiado.\n\nEmail anterior: ${oldEmail}\nEmail nuevo: ${newEmail}\n\nSi no realizaste este cambio, contacta al soporte.`;
+
     const html = baseLayout({
       title: "Notificacion de cambio de email",
+      badge: "Seguridad de cuenta",
       body: `
-        <p>Hola ${name},</p>
-        <p>El email asociado a tu cuenta fue cambiado.</p>
-        <p><strong>Email anterior:</strong> ${oldEmail}</p>
-        <p><strong>Email nuevo:</strong> ${newEmail}</p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Te informamos que el correo electronico asociado a tu cuenta fue cambiado.
+        </p>
+
+        ${renderSectionTitle("Detalle del cambio")}
+
+        ${renderSummaryGrid([
+          {
+            label: "Email anterior",
+            value: oldEmail,
+          },
+          {
+            label: "Email nuevo",
+            value: newEmail,
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+        ])}
+
+        ${renderAlertBox(`
+          <p style="margin: 0;">
+            Si no realizaste este cambio, contacta al soporte lo antes posible.
+          </p>
+        `, "warning")}
       `,
     });
 
@@ -207,20 +772,71 @@ export class EmailService {
     const name = getName(fullName);
     const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Pedido registrado - #${orderId}`;
+
     const text = `Hola ${name},\n\nTu pedido #${orderId} fue registrado.\n\nTotal: ${formatMoney(total)}\nFecha limite de pago: ${formatDate(paymentDeadline)}\nTipo de entrega: ${deliveryType || "No especificado"}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+
     const html = baseLayout({
       title: `Pedido registrado #${orderId}`,
+      badge: "Pedido creado",
       body: `
-        <p>Hola ${name},</p>
-        <p>Tu pedido fue registrado correctamente.</p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Tu pedido fue registrado correctamente. A continuacion encontraras
+          el resumen de productos, entrega y valores del pedido.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Total del pedido",
+            value: formatMoney(total),
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+          {
+            label: "Fecha limite de pago",
+            value: formatDate(paymentDeadline),
+          },
+        ])}
+
+        ${renderSectionTitle("Productos del pedido", "Detalle de los productos registrados.")}
         ${renderDetailsTable(details)}
-        <p><strong>Subtotal:</strong> ${formatMoney(subtotal)}</p>
-        <p><strong>IVA:</strong> ${formatMoney(ivaAmount)}</p>
-        <p><strong>Total:</strong> ${formatMoney(total)}</p>
-        <p><strong>Fecha limite de pago:</strong> ${formatDate(paymentDeadline)}</p>
-        <p><strong>Entrega:</strong> ${deliveryType || "No especificado"}</p>
-        <p><strong>Direccion:</strong> ${deliveryAddress || "No aplica"}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+
+        ${renderSectionTitle("Resumen de valores")}
+        ${renderSummaryGrid([
+          {
+            label: "Subtotal",
+            value: formatMoney(subtotal),
+          },
+          {
+            label: "IVA",
+            value: formatMoney(ivaAmount),
+          },
+          {
+            label: "Total",
+            value: formatMoney(total),
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+        ])}
+
+        ${renderSectionTitle("Informacion de entrega")}
+        ${renderInfoCard(`
+          <p style="margin: 0 0 6px;">
+            <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0;">
+            <strong>Direccion:</strong> ${deliveryAddress || "No aplica"}
+          </p>
+        `)}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -242,19 +858,65 @@ export class EmailService {
     const name = getName(fullName);
     const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Pago registrado - Pedido #${orderId}`;
+
     const text = `Hola ${name},\n\nSe registro un pago para tu pedido #${orderId}.\n\nMetodo: ${paymentMethod || "No especificado"}\nMonto: ${formatMoney(amount)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nEstado: ${isPaid ? "Pagado" : "Pendiente"}\nReferencia: ${reference || "No aplica"}\n\n${orderUrl}`;
+
     const html = baseLayout({
       title: `Pago registrado - Pedido #${orderId}`,
+      badge: isPaid ? "Pedido pagado" : "Abono registrado",
       body: `
-        <p>Hola ${name},</p>
-        <p>Se registro un pago o abono para tu pedido.</p>
-        <p><strong>Metodo:</strong> ${paymentMethod || "No especificado"}</p>
-        <p><strong>Monto:</strong> ${formatMoney(amount)}</p>
-        <p><strong>Total abonado:</strong> ${formatMoney(paidAmount)}</p>
-        <p><strong>Saldo pendiente:</strong> ${formatMoney(pendingAmount)}</p>
-        <p><strong>Estado:</strong> ${isPaid ? "Pagado" : "Pendiente"}</p>
-        <p><strong>Referencia:</strong> ${reference || "No aplica"}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Se registro un pago o abono para tu pedido. Este es el resumen
+          actualizado del estado de pago.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Monto registrado",
+            value: formatMoney(amount),
+            options: {
+              background: COLORS.successSoft,
+              borderColor: COLORS.successSoft,
+              valueColor: COLORS.success,
+            },
+          },
+          {
+            label: "Estado del pago",
+            value: isPaid ? "Pagado" : "Pendiente",
+            options: {
+              background: isPaid ? COLORS.successSoft : COLORS.warningSoft,
+              borderColor: isPaid ? COLORS.successSoft : COLORS.warningSoft,
+              valueColor: isPaid ? COLORS.success : COLORS.warning,
+            },
+          },
+          {
+            label: "Total abonado",
+            value: formatMoney(paidAmount),
+          },
+          {
+            label: "Saldo pendiente",
+            value: formatMoney(pendingAmount),
+            options: {
+              background: pendingAmount > 0 ? COLORS.warningSoft : COLORS.successSoft,
+              borderColor: pendingAmount > 0 ? COLORS.warningSoft : COLORS.successSoft,
+              valueColor: pendingAmount > 0 ? COLORS.warning : COLORS.success,
+            },
+          },
+        ])}
+
+        ${renderSectionTitle("Detalle del pago")}
+        ${renderInfoCard(`
+          <p style="margin: 0 0 6px;">
+            <strong>Metodo:</strong> ${paymentMethod || "No especificado"}
+          </p>
+          <p style="margin: 0;">
+            <strong>Referencia:</strong> ${reference || "No aplica"}
+          </p>
+        `)}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -274,17 +936,49 @@ export class EmailService {
     const name = getName(fullName);
     const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Estado actualizado - Pedido #${orderId}`;
+
     const text = `Hola ${name},\n\nEl estado de tu pedido #${orderId} cambio de ${previousStatus || "No especificado"} a ${newStatus}.\n\nEntrega: ${deliveryType || "No especificado"}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+
     const html = baseLayout({
       title: `Estado actualizado - Pedido #${orderId}`,
+      badge: "Actualizacion de pedido",
       body: `
-        <p>Hola ${name},</p>
-        <p>El estado de tu pedido fue actualizado.</p>
-        <p><strong>Estado anterior:</strong> ${previousStatus || "No especificado"}</p>
-        <p><strong>Nuevo estado:</strong> ${newStatus}</p>
-        <p><strong>Entrega:</strong> ${deliveryType || "No especificado"}</p>
-        <p><strong>Direccion:</strong> ${deliveryAddress || "No aplica"}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          El estado de tu pedido fue actualizado. Puedes revisar el detalle
+          completo desde el sistema.
+        </p>
+
+        ${renderSectionTitle("Cambio de estado")}
+
+        ${renderSummaryGrid([
+          {
+            label: "Estado anterior",
+            value: previousStatus || "No especificado",
+          },
+          {
+            label: "Nuevo estado",
+            value: newStatus,
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+        ])}
+
+        ${renderSectionTitle("Informacion de entrega")}
+        ${renderInfoCard(`
+          <p style="margin: 0 0 6px;">
+            <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0;">
+            <strong>Direccion:</strong> ${deliveryAddress || "No aplica"}
+          </p>
+        `)}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -302,15 +996,41 @@ export class EmailService {
     const name = getName(fullName);
     const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Pedido cancelado - #${orderId}`;
+
     const text = `Hola ${name},\n\nTu pedido #${orderId} fue cancelado.\n\nMotivo: ${reason || "No especificado"}\nTotal: ${formatMoney(total)}\n\n${orderUrl}`;
+
     const html = baseLayout({
       title: `Pedido cancelado #${orderId}`,
+      badge: "Pedido cancelado",
       body: `
-        <p>Hola ${name},</p>
-        <p>Tu pedido fue cancelado.</p>
-        <p><strong>Motivo:</strong> ${reason || "No especificado"}</p>
-        <p><strong>Total:</strong> ${formatMoney(total)}</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Te informamos que tu pedido fue cancelado.
+        </p>
+
+        ${renderAlertBox(`
+          <p style="margin: 0 0 8px;">
+            <strong>Motivo de cancelacion:</strong>
+          </p>
+          <p style="margin: 0;">
+            ${reason || "No especificado"}
+          </p>
+        `, "danger")}
+
+        ${renderSummaryGrid([
+          {
+            label: "Total del pedido",
+            value: formatMoney(total),
+            options: {
+              background: COLORS.dangerSoft,
+              borderColor: COLORS.dangerSoft,
+              valueColor: COLORS.danger,
+            },
+          },
+        ])}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -332,29 +1052,82 @@ export class EmailService {
     const name = getName(fullName);
     const saleUrl = `${frontendUrl}/vendings/${saleId}`;
     const subject = `Venta registrada - #${saleId}`;
+
+    const creditAmount = credit?.creditAmount || credit?.credit_amount;
+    const remainingBalance = credit?.remainingBalance || credit?.remaining_balance;
+    const dueDate = credit?.dueDate || credit?.due_date;
+
     const creditText = credit
-      ? `\nCredito: ${formatMoney(credit.creditAmount || credit.credit_amount)}\nSaldo credito: ${formatMoney(credit.remainingBalance || credit.remaining_balance)}\nVencimiento: ${formatDate(credit.dueDate || credit.due_date)}`
+      ? `\nCredito: ${formatMoney(creditAmount)}\nSaldo credito: ${formatMoney(remainingBalance)}\nVencimiento: ${formatDate(dueDate)}`
       : "";
+
     const text = `Hola ${name},\n\nTu venta #${saleId} fue registrada.\n\nPedido relacionado: #${orderId}\nSubtotal: ${formatMoney(subtotal)}\nTotal: ${formatMoney(total)}${creditText}\n\n${saleUrl}`;
+
     const html = baseLayout({
       title: `Venta registrada #${saleId}`,
+      badge: "Venta completada",
       body: `
-        <p>Hola ${name},</p>
-        <p>Tu venta fue registrada correctamente.</p>
-        <p><strong>Pedido relacionado:</strong> #${orderId}</p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Tu venta fue registrada correctamente. A continuacion encontraras
+          el resumen de productos, pagos y valores asociados.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Venta",
+            value: `#${saleId}`,
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+          {
+            label: "Pedido relacionado",
+            value: `#${orderId}`,
+          },
+          {
+            label: "Subtotal",
+            value: formatMoney(subtotal),
+          },
+          {
+            label: "Total",
+            value: formatMoney(total),
+            options: {
+              background: COLORS.successSoft,
+              borderColor: COLORS.successSoft,
+              valueColor: COLORS.success,
+            },
+          },
+        ])}
+
+        ${renderSectionTitle("Productos vendidos", "Detalle de los productos asociados a la venta.")}
         ${renderDetailsTable(details)}
-        <p><strong>Subtotal:</strong> ${formatMoney(subtotal)}</p>
-        <p><strong>Total:</strong> ${formatMoney(total)}</p>
-        <p><strong>Metodos de pago:</strong></p>
+
+        ${renderSectionTitle("Metodos de pago")}
         ${renderPaymentMethods(paymentMethods)}
+
         ${credit ? `
-          <div style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;">
-            <p><strong>Credito:</strong> ${formatMoney(credit.creditAmount || credit.credit_amount)}</p>
-            <p><strong>Saldo credito:</strong> ${formatMoney(credit.remainingBalance || credit.remaining_balance)}</p>
-            <p><strong>Vencimiento:</strong> ${formatDate(credit.dueDate || credit.due_date)}</p>
-          </div>
+          ${renderSectionTitle("Informacion de credito")}
+          ${renderAlertBox(`
+            <p style="margin: 0 0 8px;">
+              Esta venta incluye una parte financiada a credito.
+            </p>
+            <p style="margin: 0 0 6px;">
+              <strong>Monto financiado:</strong> ${formatMoney(creditAmount)}
+            </p>
+            <p style="margin: 0 0 6px;">
+              <strong>Saldo pendiente:</strong> ${formatMoney(remainingBalance)}
+            </p>
+            <p style="margin: 0;">
+              <strong>Fecha de vencimiento:</strong> ${formatDate(dueDate)}
+            </p>
+          `, "warning")}
         ` : ""}
-        <p><a href="${saleUrl}">Ver venta</a></p>
+
+        ${renderActionLink(saleUrl, "Ver venta")}
       `,
     });
 
@@ -374,17 +1147,58 @@ export class EmailService {
     const name = getName(fullName);
     const saleUrl = `${frontendUrl}/vendings/${saleId}`;
     const subject = `Venta anulada - #${saleId}`;
+
     const text = `Hola ${name},\n\nLa venta #${saleId} relacionada al pedido #${orderId} fue anulada.\n\nMotivo: ${reason || "No especificado"}\nTotal: ${formatMoney(total)}\nCupo restaurado: ${formatMoney(creditRestoredAmount)}\n\n${saleUrl}`;
+
     const html = baseLayout({
       title: `Venta anulada #${saleId}`,
+      badge: "Venta anulada",
       body: `
-        <p>Hola ${name},</p>
-        <p>La venta relacionada a tu pedido fue anulada.</p>
-        <p><strong>Pedido relacionado:</strong> #${orderId}</p>
-        <p><strong>Motivo:</strong> ${reason || "No especificado"}</p>
-        <p><strong>Total:</strong> ${formatMoney(total)}</p>
-        <p><strong>Cupo restaurado:</strong> ${formatMoney(creditRestoredAmount)}</p>
-        <p><a href="${saleUrl}">Ver venta</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Te informamos que la venta relacionada a tu pedido fue anulada.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Venta",
+            value: `#${saleId}`,
+            options: {
+              background: COLORS.dangerSoft,
+              borderColor: COLORS.dangerSoft,
+              valueColor: COLORS.danger,
+            },
+          },
+          {
+            label: "Pedido relacionado",
+            value: `#${orderId}`,
+          },
+          {
+            label: "Total de la venta",
+            value: formatMoney(total),
+          },
+          {
+            label: "Cupo restaurado",
+            value: formatMoney(creditRestoredAmount),
+            options: {
+              background: COLORS.primarySoft,
+              borderColor: COLORS.primaryLight,
+              valueColor: COLORS.primary,
+            },
+          },
+        ])}
+
+        ${renderAlertBox(`
+          <p style="margin: 0 0 8px;">
+            <strong>Motivo de anulacion:</strong>
+          </p>
+          <p style="margin: 0;">
+            ${reason || "No especificado"}
+          </p>
+        `, "danger")}
+
+        ${renderActionLink(saleUrl, "Ver venta")}
       `,
     });
 
@@ -405,21 +1219,65 @@ export class EmailService {
     const name = getName(fullName);
     const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Recordatorio de pago pendiente - Pedido #${orderId}`;
+
     const text = `Hola ${name},\n\nTu pedido #${orderId} aun tiene un saldo pendiente de pago.\n\nTotal del pedido: ${formatMoney(orderTotal)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nFecha limite de pago: ${formatDate(paymentDeadline)}\nTiempo restante aproximado: ${hoursRemaining} hora(s).\n\n${orderUrl}`;
+
     const html = baseLayout({
       title: "Recordatorio de pago pendiente",
+      badge: "Pago pendiente",
       body: `
-        <p>Hola ${name},</p>
-        <p>Tu pedido <strong>#${orderId}</strong> aun tiene un saldo pendiente de pago.</p>
-        <div style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; border-radius: 4px;">
-          <p><strong>Total del pedido:</strong> ${formatMoney(orderTotal)}</p>
-          <p><strong>Total abonado:</strong> ${formatMoney(paidAmount)}</p>
-          <p><strong>Saldo pendiente:</strong> ${formatMoney(pendingAmount)}</p>
-          <p><strong>Fecha limite:</strong> ${formatDate(paymentDeadline)}</p>
-          <p><strong>Tiempo restante:</strong> ${hoursRemaining} hora(s)</p>
-        </div>
-        <p>Si el pedido no se paga por completo antes de la fecha limite, sera cancelado automaticamente.</p>
-        <p><a href="${orderUrl}">Ver pedido</a></p>
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Tu pedido <strong>#${orderId}</strong> aun tiene un saldo pendiente.
+          Recuerda completar el pago antes de la fecha limite.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Total del pedido",
+            value: formatMoney(orderTotal),
+          },
+          {
+            label: "Total abonado",
+            value: formatMoney(paidAmount),
+            options: {
+              background: COLORS.successSoft,
+              borderColor: COLORS.successSoft,
+              valueColor: COLORS.success,
+            },
+          },
+          {
+            label: "Saldo pendiente",
+            value: formatMoney(pendingAmount),
+            options: {
+              background: COLORS.warningSoft,
+              borderColor: COLORS.warningSoft,
+              valueColor: COLORS.warning,
+            },
+          },
+          {
+            label: "Tiempo restante",
+            value: `${hoursRemaining} hora(s)`,
+            options: {
+              background: COLORS.warningSoft,
+              borderColor: COLORS.warningSoft,
+              valueColor: COLORS.warning,
+            },
+          },
+        ])}
+
+        ${renderAlertBox(`
+          <p style="margin: 0 0 6px;">
+            <strong>Fecha limite de pago:</strong> ${formatDate(paymentDeadline)}
+          </p>
+          <p style="margin: 0;">
+            Si el pedido no se paga por completo antes de la fecha limite,
+            sera cancelado automaticamente.
+          </p>
+        `, "warning")}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 

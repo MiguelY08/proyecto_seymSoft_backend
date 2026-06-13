@@ -98,7 +98,6 @@ export const mapOrder = (order) => {
           address: order.clients.address || null,
           clientType: order.clients.client_type || null,
           credit: Number(order.clients.credit || 0),
-          creditBalance: Number(order.clients.credit_balance || 0),
         }
       : null,
     orderDate: order.order_date,

@@ -100,7 +100,7 @@ export class PaymentsRepository {
             include: {
               payment_methods: true,
 
-              cancelled_by_user: {
+              users: {
                 select: {
                   id_user: true,
                   full_name: true,
@@ -128,7 +128,7 @@ async getInstallmentsByCredit(id_credit) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: {
+      users: {
         select: {
           id_user: true,
           full_name: true,
@@ -154,7 +154,7 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: true,
+      users: true,
 
       credits: {
         include: {
@@ -294,7 +294,7 @@ async getInstallmentById(id_installment) {
           include: {
             payment_methods: true,
 
-            cancelled_by_user: {
+            users: {
               select: {
                 id_user: true,
                 full_name: true,
@@ -322,46 +322,47 @@ async getInstallmentById(id_installment) {
    * - Actualiza estado del crédito.
    * - Libera cupo al cliente.
    */
-  async processInstallment({
-    installmentData,
-    id_credit,
-    remaining_balance,
-    id_credit_status,
-    id_customer,
-    credit_balance,
-  }) {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const installment =
-          await tx.installments.create({
-            data: installmentData,
-          });
+async processInstallment({
+  installmentData,
+  id_credit,
+  remaining_balance,
+  id_credit_status,
 
-        await tx.credits.update({
-          where: {
-            id_credit,
-          },
-
-          data: {
-            remaining_balance,
-            id_credit_status,
-          },
+  id_customer,
+  credit_balance,
+}) {
+  return this.prisma.$transaction(
+    async (tx) => {
+      const installment =
+        await tx.installments.create({
+          data: installmentData,
         });
 
-        await tx.clients.update({
-          where: {
-            id_client: id_customer,
-          },
+      await tx.credits.update({
+        where: {
+          id_credit,
+        },
 
-          data: {
-            credit_balance,
-          },
-        });
+        data: {
+          remaining_balance,
+          id_credit_status,
+        },
+      });
 
-        return installment;
-      }
-    );
-  }
+      await tx.clients.update({
+        where: {
+          id_client: id_customer,
+        },
+
+        data: {
+          credit_balance,
+        },
+      });
+
+      return installment;
+    }
+  );
+}
 
   /**
    * Anula un abono.

@@ -205,12 +205,12 @@ const validateClientCreditLimit = async ({ idCustomer, creditAmount }) => {
     };
   }
 
-  const client =
-    await VendingRepository.findClientById(
+  const capacity =
+    await VendingRepository.getClientCreditCapacity(
       idCustomer
     );
 
-  if (!client) {
+  if (!capacity) {
     return {
       success: false,
       error: "Cliente no encontrado",
@@ -218,13 +218,34 @@ const validateClientCreditLimit = async ({ idCustomer, creditAmount }) => {
     };
   }
 
-  const creditBalance =
-    roundMoney(client.credit_balance || 0);
-
-  if (creditAmount > creditBalance) {
+  if (!capacity.isActive) {
     return {
       success: false,
-      error: "El cupo disponible del cliente no es suficiente para la venta a credito",
+      error: "El cliente no se encuentra activo",
+      errorCode: "CLIENT_INACTIVE",
+    };
+  }
+
+  if (capacity.hasOverdueCredit) {
+    return {
+      success: false,
+      error: "El cliente tiene creditos vencidos y no puede realizar nuevas compras a credito",
+      errorCode: "CLIENT_HAS_OVERDUE_CREDITS",
+    };
+  }
+
+  if (capacity.assignedCredit <= 0) {
+    return {
+      success: false,
+      error: "El cliente no tiene cupo de credito asignado",
+      errorCode: "CLIENT_WITHOUT_CREDIT_LIMIT",
+    };
+  }
+
+  if (creditAmount > capacity.availableCredit) {
+    return {
+      success: false,
+      error: "El cupo disponible calculado del cliente no es suficiente para la venta a credito",
       errorCode: "CREDIT_LIMIT_EXCEEDED",
     };
   }
@@ -237,24 +258,35 @@ const validateClientCreditLimit = async ({ idCustomer, creditAmount }) => {
 };
 
 
-const notifySaleCreated = async (sale) => {
-  const customer = sale?.order?.customer;
-  const user = customer?.user;
-
-  if (!user?.email) {
+const notifySaleCreated = async (saleSummary) => {
+  if (!saleSummary?.idSale) {
     return;
   }
 
   try {
+    const sale =
+      await VendingRepository.findSaleEmailPayloadById(
+        saleSummary?.idSale
+      );
+
+    const customer =
+      sale?.customer;
+    const user =
+      customer?.user;
+
+    if (!user?.email) {
+      return;
+    }
+
     await EmailService.sendSaleCreatedEmail({
       to: user.email,
       fullName: user.fullName,
       saleId: sale.idSale,
       orderId: sale.idOrder,
       paymentMethods: sale.paymentMethods,
-      details: sale.order?.details,
+      details: sale.details,
       subtotal: sale.subtotal,
-      total: sale.order?.total || sale.subtotal,
+      total: sale.total,
       credit: sale.credit,
     });
   } catch (error) {
@@ -768,9 +800,3 @@ export const createVendingUseCase = async (params) => {
 
 export const create =
   createVendingUseCase;
-
-
-
-
-
-
