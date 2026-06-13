@@ -1,5 +1,4 @@
 import calculateOverdueDays from "../helpers/calculateOverdueDays.js";
-import calculateUsedCredit from "../helpers/calculateUsedCredit.js";
 import serializeBigInt from "../helpers/serializeBigInt.js";
 import CreditCustomerMapper from "../mappers/CreditCustomerMapper.js";
 
@@ -12,54 +11,69 @@ export class GetCreditCustomersUseCase {
     const customers = await this.paymentsRepository.getCreditCustomers();
 
     const result = customers.map((customer) => {
-      const totalDebt = customer.credits.reduce(
-        (total, credit) => total + Number(credit.remaining_balance),
-        0,
-      );
 
-      const activeCredits = customer.credits.filter(
-        (credit) => Number(credit.remaining_balance) > 0,
-      );
+  const totalDebt = customer.credits.reduce(
+    (total, credit) =>
+      total + Number(credit.remaining_balance),
+    0
+  );
 
-      let status = "AL_DIA";
+  const activeCredits = customer.credits.filter(
+    (credit) =>
+      Number(credit.remaining_balance) > 0
+  );
 
-      const hasOverdueCredit = activeCredits.some(
-        (credit) =>
-          calculateOverdueDays({
-            dueDate: credit.due_date,
-          }) > 0,
-      );
+  // NUEVO CÁLCULO
+  const usedCredit = customer.credits.reduce(
+    (total, credit) =>
+      total + Number(credit.remaining_balance),
+    0
+  );
 
-      if (hasOverdueCredit) {
-        status = "VENCIDO";
-      } else if (activeCredits.length > 0) {
-        status = "PENDIENTE";
-      }
+  const availableCredit =
+    Number(customer.credit) - usedCredit;
 
-      return {
-        id_client: customer.id_client,
+  let status = "AL_DIA";
 
-        fullName: customer.users.full_name,
+  const hasOverdueCredit = activeCredits.some(
+    (credit) =>
+      calculateOverdueDays({
+        dueDate: credit.due_date,
+      }) > 0
+  );
 
-        phone: serializeBigInt(customer.users.phone),
+  if (hasOverdueCredit) {
+    status = "VENCIDO";
+  } else if (activeCredits.length > 0) {
+    status = "PENDIENTE";
+  }
 
-        assignedCredit: Number(customer.credit),
+  return {
+    id_client: customer.id_client,
 
-        availableCredit: Number(customer.credit_balance),
+    fullName: customer.users.full_name,
 
-        usedCredit: calculateUsedCredit({
-          assignedCredit: customer.credit,
+    phone: serializeBigInt(
+      customer.users.phone
+    ),
 
-          availableCredit: customer.credit_balance,
-        }),
+    assignedCredit: Number(
+      customer.credit
+    ),
 
-        activeCredits: activeCredits.length,
+    // CAMBIAR ESTOS DOS
+    availableCredit,
 
-        totalDebt,
+    usedCredit,
 
-        status,
-      };
-    });
+    activeCredits:
+      activeCredits.length,
+
+    totalDebt,
+
+    status,
+  };
+});
 
     return result.map(CreditCustomerMapper.toDto);
   }
