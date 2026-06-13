@@ -11,50 +11,69 @@ export class GetCreditCustomersUseCase {
     const customers = await this.paymentsRepository.getCreditCustomers();
 
     const result = customers.map((customer) => {
-      const totalDebt = customer.credits.reduce(
-        (total, credit) => total + Number(credit.remaining_balance),
-        0,
-      );
 
-      const activeCredits = customer.credits.filter(
-        (credit) => Number(credit.remaining_balance) > 0,
-      );
+  const totalDebt = customer.credits.reduce(
+    (total, credit) =>
+      total + Number(credit.remaining_balance),
+    0
+  );
 
-      let status = "AL_DIA";
+  const activeCredits = customer.credits.filter(
+    (credit) =>
+      Number(credit.remaining_balance) > 0
+  );
 
-      const hasOverdueCredit = activeCredits.some(
-        (credit) =>
-          calculateOverdueDays({
-            dueDate: credit.due_date,
-          }) > 0,
-      );
+  // NUEVO CÁLCULO
+  const usedCredit = customer.credits.reduce(
+    (total, credit) =>
+      total + Number(credit.remaining_balance),
+    0
+  );
 
-      if (hasOverdueCredit) {
-        status = "VENCIDO";
-      } else if (activeCredits.length > 0) {
-        status = "PENDIENTE";
-      }
+  const availableCredit =
+    Number(customer.credit) - usedCredit;
 
-      return {
-        id_client: customer.id_client,
+  let status = "AL_DIA";
 
-        fullName: customer.users.full_name,
+  const hasOverdueCredit = activeCredits.some(
+    (credit) =>
+      calculateOverdueDays({
+        dueDate: credit.due_date,
+      }) > 0
+  );
 
-        phone: serializeBigInt(customer.users.phone),
+  if (hasOverdueCredit) {
+    status = "VENCIDO";
+  } else if (activeCredits.length > 0) {
+    status = "PENDIENTE";
+  }
 
-        assignedCredit: Number(customer.credit),
+  return {
+    id_client: customer.id_client,
 
-        availableCredit: Math.max(Number(customer.credit || 0) - totalDebt, 0),
+    fullName: customer.users.full_name,
 
-        usedCredit: totalDebt,
+    phone: serializeBigInt(
+      customer.users.phone
+    ),
 
-        activeCredits: activeCredits.length,
+    assignedCredit: Number(
+      customer.credit
+    ),
 
-        totalDebt,
+    // CAMBIAR ESTOS DOS
+    availableCredit,
 
-        status,
-      };
-    });
+    usedCredit,
+
+    activeCredits:
+      activeCredits.length,
+
+    totalDebt,
+
+    status,
+  };
+});
 
     return result.map(CreditCustomerMapper.toDto);
   }
