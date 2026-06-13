@@ -327,8 +327,6 @@ async getInstallmentById(id_installment) {
     id_credit,
     remaining_balance,
     id_credit_status,
-    id_customer,
-    credit_balance,
   }) {
     return this.prisma.$transaction(
       async (tx) => {
@@ -345,16 +343,6 @@ async getInstallmentById(id_installment) {
           data: {
             remaining_balance,
             id_credit_status,
-          },
-        });
-
-        await tx.clients.update({
-          where: {
-            id_client: id_customer,
-          },
-
-          data: {
-            credit_balance,
           },
         });
 
@@ -381,9 +369,6 @@ async cancelInstallmentTransaction({
   id_credit,
   remaining_balance,
   id_credit_status,
-
-  id_customer,
-  credit_balance,
 }) {
   return this.prisma.$transaction(
     async (tx) => {
@@ -408,16 +393,6 @@ async cancelInstallmentTransaction({
         data: {
           remaining_balance,
           id_credit_status,
-        },
-      });
-
-      await tx.clients.update({
-        where: {
-          id_client: id_customer,
-        },
-
-        data: {
-          credit_balance,
         },
       });
     }

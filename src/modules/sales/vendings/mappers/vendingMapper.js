@@ -292,8 +292,6 @@ export class VendingMapper {
         customer.client_type,
       credit:
         toNumber(customer.credit),
-      creditBalance:
-        toNumber(customer.credit_balance),
       user:
         customer.users
           ? {

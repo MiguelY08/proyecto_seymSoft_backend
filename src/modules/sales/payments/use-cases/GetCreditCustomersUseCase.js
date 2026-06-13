@@ -1,5 +1,4 @@
 import calculateOverdueDays from "../helpers/calculateOverdueDays.js";
-import calculateUsedCredit from "../helpers/calculateUsedCredit.js";
 import serializeBigInt from "../helpers/serializeBigInt.js";
 import CreditCustomerMapper from "../mappers/CreditCustomerMapper.js";
 
@@ -45,13 +44,9 @@ export class GetCreditCustomersUseCase {
 
         assignedCredit: Number(customer.credit),
 
-        availableCredit: Number(customer.credit_balance),
+        availableCredit: Math.max(Number(customer.credit || 0) - totalDebt, 0),
 
-        usedCredit: calculateUsedCredit({
-          assignedCredit: customer.credit,
-
-          availableCredit: customer.credit_balance,
-        }),
+        usedCredit: totalDebt,
 
         activeCredits: activeCredits.length,
 

@@ -100,18 +100,8 @@ export class CreateInstallmentUseCase {
         pendingCapital,
       });
 
-    const client =
-      await this.paymentsRepository.getClientById(
-        credit.id_customer
-      );
-
     const newRemainingBalance =
       pendingCapital - capitalPaid;
-
-    const newClientBalance =
-      Number(
-        client.credit_balance
-      ) + capitalPaid;
 
     const statuses =
       await this.paymentsRepository.getCreditStatusesMap();
@@ -160,12 +150,6 @@ export class CreateInstallmentUseCase {
 
           id_credit_status:
             creditStatus,
-
-          id_customer:
-            credit.id_customer,
-
-          credit_balance:
-            newClientBalance,
         }
       );
 

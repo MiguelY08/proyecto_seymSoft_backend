@@ -89,11 +89,6 @@ export class CancelInstallmentUseCase {
         credit.remaining_balance
       ) + restoredCapital;
 
-    const newClientBalance =
-      Number(
-        client.credit_balance
-      ) - restoredCapital;
-
     const statuses =
       await this.paymentsRepository.getCreditStatusesMap();
 
@@ -136,12 +131,6 @@ export class CancelInstallmentUseCase {
 
         id_credit_status:
           newStatus,
-
-        id_customer:
-          client.id_client,
-
-        credit_balance:
-          newClientBalance,
       });
 
     return {
