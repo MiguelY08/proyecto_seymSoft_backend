@@ -114,6 +114,95 @@ const saleSummarySelect = {
   },
 };
 
+const saleListSelect = {
+  id_sale: true,
+  id_order: true,
+  id_employe: true,
+  subtotal: true,
+  sale_date: true,
+  id_sale_status: true,
+  id_sale_type: true,
+  employees: {
+    select: {
+      id_employee: true,
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
+        },
+      },
+    },
+  },
+  credits: {
+    select: {
+      id_credit: true,
+      id_sale: true,
+      id_customer: true,
+      due_date: true,
+      id_credit_status: true,
+      credit_amount: true,
+      remaining_balance: true,
+    },
+  },
+  sale_payment_methods: {
+    select: {
+      id_sale_payment_method: true,
+      id_sale: true,
+      id_payment_method: true,
+      amount: true,
+      creation_date: true,
+      payment_methods: {
+        select: {
+          id_payment_method: true,
+          name_payment_method: true,
+        },
+      },
+    },
+  },
+  sale_statuses: true,
+  sale_types: true,
+  sales_orders: {
+    select: {
+      id_order: true,
+      id_customer: true,
+      order_date: true,
+      id_order_status: true,
+      delivery_adress: true,
+      delivery_type: true,
+      payment_status: true,
+      payment_deadline: true,
+      payment_reminder_6h_sent: true,
+      payment_reminder_1h_sent: true,
+      payment_expired_at: true,
+      payment_expiration_reason: true,
+      cancellation_reason: true,
+      cancelled_at: true,
+      subtotal: true,
+      iva_amount: true,
+      total: true,
+      clients: {
+        select: {
+          id_client: true,
+          person_type: true,
+          client_type: true,
+          credit: true,
+          users: {
+            select: {
+              id_user: true,
+              full_name: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+      },
+      order_statuses: true,
+      payment_statuses: true,
+    },
+  },
+};
+
 const mapSaleSummary = (sale) => {
   if (!sale) return null;
 
@@ -970,8 +1059,8 @@ export class VendingRepository {
       await Promise.all([
         prisma.sales.findMany({
           where,
-          include:
-            saleInclude,
+          select:
+            saleListSelect,
           orderBy,
           skip,
           take:
@@ -1117,18 +1206,39 @@ export class VendingRepository {
     const details =
       order?.details || [];
 
+    if (!details.length) {
+      return {
+        success: true,
+        error: null,
+        errorCode: null,
+      };
+    }
+
+    const barcodes =
+      await prisma.barcodes.findMany({
+        where: {
+          barcode: {
+            in:
+              [...new Set(details.map((detail) => detail.barcode))],
+          },
+        },
+        select: {
+          barcode: true,
+          stock: true,
+        },
+      });
+
+    const barcodeMap =
+      new Map(
+        barcodes.map((barcode) => [
+          barcode.barcode,
+          barcode,
+        ])
+      );
+
     for (const detail of details) {
       const barcode =
-        await prisma.barcodes.findUnique({
-          where: {
-            barcode:
-              detail.barcode,
-          },
-          select: {
-            barcode: true,
-            stock: true,
-          },
-        });
+        barcodeMap.get(detail.barcode);
 
       if (!barcode) {
         return {
