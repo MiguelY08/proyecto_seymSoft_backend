@@ -17,7 +17,6 @@ const orderInclude = {
       person_type: true,
       client_type: true,
       credit: true,
-      credit_balance: true,
       users: {
         select: {
           id_user: true,
@@ -90,8 +89,6 @@ const toApiOrder = (order) => {
               order.clients.client_type,
             credit:
               toNumber(order.clients.credit),
-            creditBalance:
-              toNumber(order.clients.credit_balance),
             user:
               order.clients.users
                 ? {

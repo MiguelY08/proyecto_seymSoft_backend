@@ -80,6 +80,155 @@ const orderInclude = {
   },
 };
 
+const orderSummarySelect = {
+  id_order: true,
+  id_customer: true,
+  order_date: true,
+  id_order_status: true,
+  delivery_adress: true,
+  subtotal: true,
+  iva_amount: true,
+  total: true,
+  payment_status: true,
+  delivery_type: true,
+  payment_deadline: true,
+  payment_reminder_6h_sent: true,
+  payment_reminder_1h_sent: true,
+  payment_expired_at: true,
+  payment_expiration_reason: true,
+  id_payment_status: true,
+  cancellation_reason: true,
+  cancelled_at: true,
+  clients: {
+    select: {
+      id_client: true,
+      client_type: true,
+      credit: true,
+      address: true,
+      users: {
+        select: {
+          full_name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  order_statuses: true,
+  payment_statuses: true,
+  sales: {
+    select: {
+      id_sale: true,
+      id_order: true,
+      id_sale_status: true,
+      id_sale_type: true,
+      subtotal: true,
+      sale_date: true,
+    },
+  },
+  order_payments: {
+    select: {
+      id_order_payment: true,
+      id_payment_method: true,
+      amount: true,
+      payment_date: true,
+      observations: true,
+      reference: true,
+      created_at: true,
+      payment_methods: true,
+    },
+    orderBy: {
+      id_order_payment: 'asc',
+    },
+  },
+  order_details: {
+    select: {
+      id_order_detail: true,
+      id_product: true,
+      barcode: true,
+      quantity: true,
+      unit_price: true,
+      subtotal: true,
+      iva_amount: true,
+      products: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      id_order_detail: 'asc',
+    },
+  },
+};
+
+const orderListSelect = {
+  id_order: true,
+  id_customer: true,
+  order_date: true,
+  id_order_status: true,
+  delivery_adress: true,
+  subtotal: true,
+  iva_amount: true,
+  total: true,
+  payment_status: true,
+  delivery_type: true,
+  payment_deadline: true,
+  payment_reminder_6h_sent: true,
+  payment_reminder_1h_sent: true,
+  payment_expired_at: true,
+  payment_expiration_reason: true,
+  id_payment_status: true,
+  cancellation_reason: true,
+  cancelled_at: true,
+  clients: {
+    select: {
+      id_client: true,
+      client_type: true,
+      credit: true,
+      address: true,
+      users: {
+        select: {
+          full_name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  order_statuses: true,
+  payment_statuses: true,
+  sales: {
+    select: {
+      id_sale: true,
+      id_order: true,
+      id_sale_status: true,
+      id_sale_type: true,
+      subtotal: true,
+      sale_date: true,
+    },
+  },
+  order_payments: {
+    select: {
+      id_order_payment: true,
+      id_payment_method: true,
+      amount: true,
+      payment_date: true,
+      observations: true,
+      reference: true,
+      created_at: true,
+      payment_methods: {
+        select: {
+          id_payment_method: true,
+          name_payment_method: true,
+        },
+      },
+    },
+    orderBy: {
+      id_order_payment: 'asc',
+    },
+  },
+};
 export class OrderRepository {
   async findAll(filters = {}) {
     const where = {};
@@ -118,7 +267,8 @@ export class OrderRepository {
     const [orders, total] = await Promise.all([
       prisma.sales_orders.findMany({
         where,
-        ...orderInclude,
+        select:
+          orderListSelect,
         orderBy: {
           id_order: 'desc',
         },
@@ -149,6 +299,63 @@ export class OrderRepository {
         id_order: Number(id),
       },
       ...orderInclude,
+    });
+  }
+
+  async findSummaryById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select:
+        orderSummarySelect,
+    });
+  }
+
+  async findUpdateStateById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        order_statuses: {
+          select: {
+            name_status: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findPaymentStateById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        id_payment_status: true,
+        total: true,
+        sales: {
+          select: {
+            id_sale: true,
+            id_order: true,
+            id_sale_status: true,
+            id_sale_type: true,
+            subtotal: true,
+            sale_date: true,
+          },
+        },
+        order_payments: {
+          select: {
+            id_payment_method: true,
+            amount: true,
+          },
+        },
+      },
     });
   }
 
@@ -225,7 +432,7 @@ export class OrderRepository {
       return order.id_order;
     });
 
-    return this.findById(idOrder);
+    return this.findSummaryById(idOrder);
   }
 
   async update(id, data) {
@@ -282,7 +489,7 @@ export class OrderRepository {
       });
     });
 
-    return this.findById(idOrder);
+    return this.findSummaryById(idOrder);
   }
 
   async cancel(id, reason = 'Pedido cancelado.') {
@@ -299,7 +506,8 @@ export class OrderRepository {
         cancellation_reason: reason,
         cancelled_at: new Date(),
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 
@@ -347,7 +555,8 @@ export class OrderRepository {
         },
         payment_status: paymentStatus.name,
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 

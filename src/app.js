@@ -24,6 +24,7 @@ import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes
 import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
+import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
 
 const app = express();
 
@@ -100,6 +101,9 @@ app.use("/api/clients", clientRoutes);
 
 /* Rutas de ventas */
 app.use("/api/vendings", vendingRoutes);
+
+/* Rutas de pagos y abonos */
+app.use("/api/payments", paymentsRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

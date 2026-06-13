@@ -1,9 +1,10 @@
-/**
- * DTO: CustomerContactDto
- * Responsibility: Shape customer contact information returned by the system.
- */
+import serializeBigInt from "../helpers/serializeBigInt.js";
+
 export default class CustomerContactDto {
-  constructor(data = {}) {
-    Object.assign(this, data);
+  constructor({ idClient, fullName, phone, overdueCredits }) {
+    this.idClient = idClient;
+    this.fullName = fullName;
+    this.phone = serializeBigInt(phone);
+    this.overdueCredits = overdueCredits;
   }
 }

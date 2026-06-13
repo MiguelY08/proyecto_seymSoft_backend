@@ -1,11 +1,11 @@
 /**
- * Calcula los días de mora de un crédito.
+ * Calcula los días de mora.
  *
- * Si el crédito no está vencido retorna 0.
+ * Si no está vencido retorna 0.
  */
 export default function calculateOverdueDays({
   dueDate,
-  currentDate = new Date()
+  currentDate = new Date(),
 }) {
   const dueDateValue = new Date(dueDate);
 

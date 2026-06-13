@@ -1,16 +1,82 @@
-/**
- * UseCase: GenerateInterestUseCase
- * Responsibility: Apply business rules to generate interest on overdue items.
- */
-import PaymentsRepository from "../repositories/PaymentsRepository.js";
+import calculateInterestAmount from "../helpers/calculateInterestAmount.js";
+import calculateOverdueDays from "../helpers/calculateOverdueDays.js";
+import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 
-export default class GenerateInterestUseCase {
-  constructor({ repository = new PaymentsRepository() } = {}) {
-    this.repository = repository;
+export class GenerateInterestUseCase {
+  constructor(paymentsRepository) {
+    this.paymentsRepository =
+      paymentsRepository;
   }
 
-  async execute(payload = {}) {
-    // Interest generation logic will be implemented here
-    return { ok: true };
+  async execute({
+    id_credit,
+    percentage,
+  }) {
+    const credit =
+      await this.paymentsRepository.getCreditById(
+        id_credit
+      );
+
+    if (!credit) {
+      throw new Error(
+        PAYMENT_MESSAGES.CREDIT_NOT_FOUND
+      );
+    }
+
+    if (
+      Number(
+        credit.remaining_balance
+      ) <= 0
+    ) {
+      throw new Error(
+        PAYMENT_MESSAGES.CREDIT_ALREADY_PAID
+      );
+    }
+
+    const overdueDays =
+      calculateOverdueDays({
+        dueDate:
+          credit.due_date,
+      });
+
+    if (overdueDays <= 0) {
+      throw new Error(
+        PAYMENT_MESSAGES.CREDIT_NOT_OVERDUE
+      );
+    }
+
+    const generatedAmount =
+      calculateInterestAmount({
+        pendingCapital:
+          Number(
+            credit.remaining_balance
+          ),
+
+        percentage,
+      });
+
+    const interest =
+      await this.paymentsRepository.createInterestTransaction(
+        {
+          id_credit,
+
+          percentage,
+
+          base_amount:
+            credit.remaining_balance,
+
+          generated_amount:
+            generatedAmount,
+        }
+      );
+
+    return {
+      message:
+        PAYMENT_MESSAGES.INTEREST_CREATED,
+
+      interest,
+
+      generatedAmount,
+    };
   }
 }

@@ -1,21 +1,155 @@
-/**
- * UseCase: CancelInstallmentUseCase
- * Responsibility: Apply business rules to cancel an installment.
- */
-import PaymentsRepository from "../repositories/PaymentsRepository.js";
-import InstallmentMapper from "../mappers/InstallmentMapper.js";
 
-export default class CancelInstallmentUseCase {
-  constructor({
-    repository = new PaymentsRepository(),
-    mapper = InstallmentMapper,
-  } = {}) {
-    this.repository = repository;
-    this.mapper = mapper;
+import calculateCanCancelInstallment from "../helpers/calculateCanCancelInstallment.js";
+import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
+
+import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
+
+import { comparePassword } from "../../../../shared/utils/hashPassword.js";
+
+export class CancelInstallmentUseCase {
+  constructor(paymentsRepository) {
+    this.paymentsRepository =
+      paymentsRepository;
   }
 
-  async execute({ params, body } = {}) {
-    // Business logic to cancel installment will go here
-    return this.mapper.toDto({ params, body });
+  async execute({
+    id_installment,
+    reason,
+    password,
+    userId,
+  }) {
+    const installment =
+      await this.paymentsRepository.getInstallmentById(
+        id_installment
+      );
+
+    if (!installment) {
+      throw new Error(
+        PAYMENT_MESSAGES.INSTALLMENT_NOT_FOUND
+      );
+    }
+
+    if (
+      installment.is_cancelled
+    ) {
+      throw new Error(
+        PAYMENT_MESSAGES.INSTALLMENT_ALREADY_CANCELLED
+      );
+    }
+
+    const canCancel =
+      calculateCanCancelInstallment({
+        createdAt:
+          installment.created_at ??
+          installment.installment_date,
+      });
+
+    if (!canCancel) {
+      throw new Error(
+        PAYMENT_MESSAGES.INSTALLMENT_CANCELLATION_EXPIRED
+      );
+    }
+
+    const user =
+      await this.paymentsRepository.getUserById(
+        userId
+      );
+
+    if (!user) {
+      throw new Error(
+        PAYMENT_MESSAGES.USER_NOT_FOUND
+      );
+    }
+
+    const isPasswordValid =
+      await comparePassword(
+        password,
+        user.pass_word
+      );
+
+    if (!isPasswordValid) {
+      throw new Error(
+        PAYMENT_MESSAGES.INVALID_PASSWORD
+      );
+    }
+
+    const credit =
+      installment.credits;
+
+    const client =
+      credit.clients;
+
+    const restoredCapital =
+      Number(
+        installment.capital_paid
+      );
+
+    const newRemainingBalance =
+      Number(
+        credit.remaining_balance
+      ) + restoredCapital;
+
+    const statuses =
+      await this.paymentsRepository.getCreditStatusesMap();
+
+    const newStatus =
+      calculateCreditStatus({
+        remainingBalance:
+          newRemainingBalance,
+
+        dueDate:
+          credit.due_date,
+
+        pendingStatus:
+          statuses.pending,
+
+        paidStatus:
+          statuses.paid,
+
+        overdueStatus:
+          statuses.overdue,
+      });
+
+    await this.paymentsRepository
+      .cancelInstallmentTransaction({
+        id_installment,
+
+        cancelled_at:
+          new Date(),
+
+        cancellation_reason:
+          reason,
+
+        cancelled_by:
+          userId,
+
+        id_credit:
+          credit.id_credit,
+
+        remaining_balance:
+          newRemainingBalance,
+
+        id_credit_status:
+          newStatus,
+      });
+
+    return {
+      message:
+        PAYMENT_MESSAGES.INSTALLMENT_CANCELLED,
+
+      id_installment,
+
+      cancelledBy:
+        userId,
+
+      cancellationReason:
+        reason,
+
+      restoredCapital,
+
+      remainingBalance:
+        newRemainingBalance,
+    };
   }
 }
+

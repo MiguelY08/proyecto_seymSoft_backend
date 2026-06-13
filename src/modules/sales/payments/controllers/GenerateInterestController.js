@@ -1,20 +1,39 @@
-/**
- * Controller: GenerateInterestController
- * Responsibility: Handle HTTP requests to generate interest for overdue invoices/installments.
- */
-import GenerateInterestUseCase from "../use-cases/GenerateInterestUseCase.js";
+import { PaymentsRepository } from "../repositories/PaymentsRepository.js";
+import { GenerateInterestUseCase } from "../use-cases/GenerateInterestUseCase.js";
 
-export default class GenerateInterestController {
-  constructor({ useCase = new GenerateInterestUseCase() } = {}) {
-    this.useCase = useCase;
-  }
+import {
+  validateGenerateInterest,
+} from "../validators/paymentsValidators.js";
 
-  async handle(req, res, next) {
+const repository =
+  new PaymentsRepository();
+
+const useCase =
+  new GenerateInterestUseCase(
+    repository
+  );
+
+export const generateInterestController =
+  async (
+    req,
+    res,
+    next
+  ) => {
     try {
-      const result = await this.useCase.execute(req.body);
-      return res.json(result);
-    } catch (err) {
-      return next(err);
+      validateGenerateInterest(
+        req.body
+      );
+
+      const result =
+        await useCase.execute(
+          req.body
+        );
+
+      return res.status(201).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
     }
-  }
-}
+  };
