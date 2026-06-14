@@ -133,16 +133,17 @@ model employees {
 }
 
 model general_statuses {
-  id_status     Int             @id(map: "estados_generales_pkey") @default(autoincrement())
-  name_status   String          @unique(map: "estados_generales_nombre_key") @db.VarChar(50)
-  banner_img    banner_img[]
-  categories    categories[]
-  employees     employees[]
-  products      products[]
-  providers     providers[]
-  roles         roles[]
-  subcategories subcategories[]
-  users         users[]
+  id_status               Int                       @id(map: "estados_generales_pkey") @default(autoincrement())
+  name_status             String                    @unique(map: "estados_generales_nombre_key") @db.VarChar(50)
+  banner_img              banner_img[]
+  categories              categories[]
+  employees               employees[]
+  non_conforming_products non_conforming_products[]
+  products                products[]
+  providers               providers[]
+  roles                   roles[]
+  subcategories           subcategories[]
+  users                   users[]
 }
 
 model hedv {
@@ -200,14 +201,16 @@ model modules {
 }
 
 model non_conforming_products {
-  id_ncp            Int        @id(map: "producto_no_conforme_pkey") @default(autoincrement())
+  id_ncp            Int              @id(map: "producto_no_conforme_pkey") @default(autoincrement())
   affected_quantity Int
-  detection_date    DateTime?  @default(dbgenerated("CURRENT_DATE")) @db.Date
-  report_reason     String     @db.VarChar(255)
+  detection_date    DateTime?        @default(dbgenerated("CURRENT_DATE")) @db.Date
+  report_reason     String           @db.VarChar(255)
   id_barcode        Int
   id_category       Int
-  categories        categories @relation(fields: [id_category], references: [id_category], map: "fk_pnc_categoria")
-  barcodes          barcodes   @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
+  id_status         Int
+  general_statuses  general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_ncp_status")
+  categories        categories       @relation(fields: [id_category], references: [id_category], map: "fk_pnc_categoria")
+  barcodes          barcodes         @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
 }
 
 model order_details {
