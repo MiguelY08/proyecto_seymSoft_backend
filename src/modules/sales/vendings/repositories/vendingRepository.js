@@ -511,21 +511,31 @@ export class VendingRepository {
             },
           });
 
-        if (data.markOrderAsPaid) {
+        if (data.markOrderAsPaid || data.idOrderStatus) {
           await tx.sales_orders.update({
             where: {
               id_order:
                 Number(data.idOrder),
             },
             data: {
-              payment_statuses: {
-                connect: {
-                  id_payment_status:
-                    PAYMENT_STATUSES[2].id,
+              ...(data.markOrderAsPaid && {
+                payment_statuses: {
+                  connect: {
+                    id_payment_status:
+                      PAYMENT_STATUSES[2].id,
+                  },
                 },
-              },
-              payment_status:
-                PAYMENT_STATUSES[2].name,
+                payment_status:
+                  PAYMENT_STATUSES[2].name,
+              }),
+              ...(data.idOrderStatus && {
+                order_statuses: {
+                  connect: {
+                    id_order_status:
+                      Number(data.idOrderStatus),
+                  },
+                },
+              }),
             },
           });
         }
