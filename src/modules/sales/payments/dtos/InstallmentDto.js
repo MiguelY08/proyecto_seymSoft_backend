@@ -15,36 +15,41 @@ export default class InstallmentDto {
     paymentMethod,
   }) {
     this.idInstallment =
-      idInstallment;
+      idInstallment ?? null;
 
     this.installmentAmount =
-      installmentAmount;
+      Number(installmentAmount ?? 0);
 
     this.capitalPaid =
-      capitalPaid;
+      Number(capitalPaid ?? 0);
 
     this.interestPaid =
-      interestPaid;
+      Number(interestPaid ?? 0);
 
     this.installmentDate =
-      installmentDate;
+      installmentDate ?? null;
 
     this.observations =
-      observations;
+      observations ?? "";
 
     this.isCancelled =
-      isCancelled;
+      Boolean(isCancelled);
 
     this.cancelledAt =
-      cancelledAt;
+      cancelledAt ?? null;
 
     this.cancellationReason =
-      cancellationReason;
+      cancellationReason ?? "";
 
     this.cancelledBy =
-      cancelledBy;
+      cancelledBy ?? null;
 
     this.paymentMethod =
-      paymentMethod;
+      paymentMethod ?? null;
   }
+
+  /**
+   * Convierte el DTO al formato que espera el componente PaymentHistoryTable
+   */
+
 }

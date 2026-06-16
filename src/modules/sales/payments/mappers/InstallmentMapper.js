@@ -3,38 +3,37 @@ import InstallmentDto from "../dtos/InstallmentDto.js";
 export default class InstallmentMapper {
   static toDto(data) {
     return new InstallmentDto({
-      idInstallment:
-        data.idInstallment,
+      idInstallment: data.id_installment,
 
-      installmentAmount:
-        data.installmentAmount,
+      installmentAmount: Number(data.installment_amount ?? 0),
 
-      capitalPaid:
-        data.capitalPaid,
+      capitalPaid: Number(data.capital_paid ?? 0),
 
-      interestPaid:
-        data.interestPaid,
+      interestPaid: Number(data.interest_paid ?? 0),
 
-      installmentDate:
-        data.installmentDate,
+      installmentDate: data.installment_date,
 
-      observations:
-        data.observations,
+      observations: data.observations,
 
-      isCancelled:
-        data.isCancelled,
+      isCancelled: data.is_cancelled,
 
-      cancelledAt:
-        data.cancelledAt,
+      cancelledAt: data.cancelled_at,
 
-      cancellationReason:
-        data.cancellationReason,
+      cancellationReason: data.cancellation_reason,
 
-      cancelledBy:
-        data.cancelledBy,
+      cancelledBy: data.cancelled_by_user
+        ? {
+            id: data.cancelled_by_user.id_user,
+            nombre: data.cancelled_by_user.full_name,
+          }
+        : null,
 
-      paymentMethod:
-        data.paymentMethod,
+      paymentMethod: data.payment_methods
+        ? {
+            id: data.payment_methods.id_payment_method,
+            nombre: data.payment_methods.name_payment_method,
+          }
+        : null,
     });
   }
 }
