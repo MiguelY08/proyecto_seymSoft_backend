@@ -49,16 +49,15 @@ model barcodes {
 }
 
 model categories {
-  id_category             Int                       @id(map: "categorias_pkey") @default(autoincrement())
-  category_name           String                    @unique(map: "categorias_nombre_categoria_key") @db.VarChar(100)
-  id_status               Int?
-  subcategories_count     Int?
-  general_statuses        general_statuses?         @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "categorias_id_estado_fkey")
-  non_conforming_products non_conforming_products[]
-  product_categories      product_categories[]
-  products                products[]
-  provider_categories     provider_categories[]
-  subcategories           subcategories[]
+  id_category         Int                   @id(map: "categorias_pkey") @default(autoincrement())
+  category_name       String                @unique(map: "categorias_nombre_categoria_key") @db.VarChar(100)
+  id_status           Int?
+  subcategories_count Int?
+  general_statuses    general_statuses?     @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "categorias_id_estado_fkey")
+  product_categories  product_categories[]
+  products            products[]
+  provider_categories provider_categories[]
+  subcategories       subcategories[]
 }
 
 model clients {
@@ -133,16 +132,17 @@ model employees {
 }
 
 model general_statuses {
-  id_status     Int             @id(map: "estados_generales_pkey") @default(autoincrement())
-  name_status   String          @unique(map: "estados_generales_nombre_key") @db.VarChar(50)
-  banner_img    banner_img[]
-  categories    categories[]
-  employees     employees[]
-  products      products[]
-  providers     providers[]
-  roles         roles[]
-  subcategories subcategories[]
-  users         users[]
+  id_status               Int                       @id(map: "estados_generales_pkey") @default(autoincrement())
+  name_status             String                    @unique(map: "estados_generales_nombre_key") @db.VarChar(50)
+  banner_img              banner_img[]
+  categories              categories[]
+  employees               employees[]
+  non_conforming_products non_conforming_products[]
+  products                products[]
+  providers               providers[]
+  roles                   roles[]
+  subcategories           subcategories[]
+  users                   users[]
 }
 
 model hedv {
@@ -200,14 +200,14 @@ model modules {
 }
 
 model non_conforming_products {
-  id_ncp            Int        @id(map: "producto_no_conforme_pkey") @default(autoincrement())
+  id_ncp            Int              @id(map: "producto_no_conforme_pkey") @default(autoincrement())
   affected_quantity Int
-  detection_date    DateTime?  @default(dbgenerated("CURRENT_DATE")) @db.Date
-  report_reason     String     @db.VarChar(255)
+  detection_date    DateTime?        @default(dbgenerated("CURRENT_DATE")) @db.Date
+  report_reason     String           @db.VarChar(255)
   id_barcode        Int
-  id_category       Int
-  categories        categories @relation(fields: [id_category], references: [id_category], map: "fk_pnc_categoria")
-  barcodes          barcodes   @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
+  id_status         Int
+  general_statuses  general_statuses @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_ncp_status")
+  barcodes          barcodes         @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
 }
 
 model order_details {
@@ -279,11 +279,13 @@ model prd {
   id_return_method           Int
   id_return_status           Int
   id_product                 Int
+  id_purchase_detail         Int
   purchases_returns          purchases_returns @relation(fields: [id_purchase_return], references: [id_purchase_return], onDelete: NoAction, onUpdate: NoAction, map: "detalle_devolucion_compra_id_devolucion_compra_fkey")
   return_statuses            return_statuses   @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "detalle_devolucion_compra_id_estado_devolucion_fkey")
   return_methods             return_methods    @relation(fields: [id_return_method], references: [id_return_method], onDelete: NoAction, onUpdate: NoAction, map: "detalle_devolucion_compra_id_metodo_devolucion_fkey")
   return_reasons             return_reasons    @relation(fields: [id_return_reason], references: [id_return_reason], onDelete: NoAction, onUpdate: NoAction, map: "detalle_devolucion_compra_id_motivo_devolucion_fkey")
   products                   products          @relation(fields: [id_product], references: [id_product], map: "fk_ddc_producto")
+  purchase_details           purchase_details  @relation(fields: [id_purchase_detail], references: [id_purchase_detail], onDelete: NoAction, onUpdate: NoAction, map: "fk_prd_purchase_detail")
   prsh                       prsh[]
 }
 
@@ -438,6 +440,7 @@ model purchase_details {
   batch_code          String    @db.VarChar(50)
   cancellation_reason String?   @db.VarChar(250)
   hsp                 hsp[]
+  prd                 prd[]
   barcodes            barcodes  @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_codigo_producto_fkey")
   purchases           purchases @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_compra_fkey")
 }
