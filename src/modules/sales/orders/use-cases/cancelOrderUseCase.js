@@ -3,7 +3,8 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 
-const DEFAULT_CANCEL_REASON = 'Pedido cancelado.';
+const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
+const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 
 const notifyOrderCancelled = async ({ order, reason }) => {
   const mappedOrder = mapOrder(order);
@@ -31,8 +32,12 @@ export class CancelOrderUseCase {
     this.repo = repo;
   }
 
-  async execute(id, reason = DEFAULT_CANCEL_REASON) {
-    const normalizedReason = String(reason || DEFAULT_CANCEL_REASON).trim() || DEFAULT_CANCEL_REASON;
+  async execute(id, reason) {
+    const normalizedReason = String(reason || '').trim();
+
+    if (!normalizedReason) {
+      throw new AppError('El motivo de cancelacion es obligatorio.', 400);
+    }
 
     if (normalizedReason.length > 255) {
       throw new AppError('El motivo de cancelacion no puede exceder 255 caracteres.', 400);
@@ -44,8 +49,12 @@ export class CancelOrderUseCase {
       throw new AppError('Pedido no encontrado.', 404);
     }
 
+    if (order.id_order_status === DELIVERED_ORDER_STATUS_ID) {
+      throw new AppError('No se puede cancelar un pedido entregado.', 400);
+    }
+
     // Evitar cancelar dos veces el mismo pedido.
-    if (order.id_order_status === ORDER_STATUSES[4].id) {
+    if (order.id_order_status === CANCELLED_ORDER_STATUS_ID) {
       throw new AppError('El pedido ya esta cancelado.', 400);
     }
 

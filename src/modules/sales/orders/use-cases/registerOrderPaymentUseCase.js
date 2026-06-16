@@ -15,6 +15,13 @@ const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
 
+const getPaidAmountFromOrderPayments = (payments = []) =>
+  roundMoney(
+    payments.reduce(
+      (total, payment) => total + Number(payment.amount || 0),
+      0
+    )
+  );
 const getPaymentMethodsFromOrder = (payments = []) => {
   const grouped = new Map();
 
@@ -37,7 +44,7 @@ const getPaymentMethodsFromOrder = (payments = []) => {
 };
 
 const generateSaleFromPaidOrder = async (repo, idOrder) => {
-  const orderWithPayments = await repo.findById(idOrder);
+  const orderWithPayments = await repo.findPaymentStateById(idOrder);
   const paymentMethods = getPaymentMethodsFromOrder(
     orderWithPayments.order_payments
   );
@@ -99,7 +106,7 @@ export class RegisterOrderPaymentUseCase {
   }
 
   async execute(idOrder, data) {
-    const order = await this.repo.findById(idOrder);
+    const order = await this.repo.findPaymentStateById(idOrder);
 
     if (!order) {
       throw new AppError('Pedido no encontrado.', 404);
@@ -119,18 +126,14 @@ export class RegisterOrderPaymentUseCase {
           this.repo,
           order.id_order
         );
-        const finalOrder = await this.repo.findById(order.id_order);
+        const finalOrder = await this.repo.findSummaryById(order.id_order);
 
         return {
           order: mapOrder(finalOrder),
           paymentSummary: {
             orderTotal: roundMoney(order.total),
-            paidBefore: roundMoney(
-              await this.repo.sumPaymentsByOrderId(order.id_order)
-            ),
-            paidAfter: roundMoney(
-              await this.repo.sumPaymentsByOrderId(order.id_order)
-            ),
+            paidBefore: getPaidAmountFromOrderPayments(order.order_payments),
+            paidAfter: getPaidAmountFromOrderPayments(order.order_payments),
             pendingBefore: 0,
             pendingAfter: 0,
             isPaid: true,
@@ -171,8 +174,8 @@ export class RegisterOrderPaymentUseCase {
     }
 
     const orderTotal = roundMoney(order.total);
-    const paidBefore = roundMoney(
-      await this.repo.sumPaymentsByOrderId(order.id_order)
+    const paidBefore = getPaidAmountFromOrderPayments(
+      order.order_payments
     );
     const pendingBefore = roundMoney(orderTotal - paidBefore);
 
@@ -188,7 +191,7 @@ export class RegisterOrderPaymentUseCase {
           PAYMENT_STATUSES[2].id
         );
 
-        const finalOrder = await this.repo.findById(order.id_order);
+        const finalOrder = await this.repo.findSummaryById(order.id_order);
 
         return {
           order: mapOrder(finalOrder),
@@ -224,7 +227,7 @@ export class RegisterOrderPaymentUseCase {
     });
 
     const paidAfter = roundMoney(
-      await this.repo.sumPaymentsByOrderId(order.id_order)
+      paidBefore + amount
     );
     const pendingAfter = roundMoney(orderTotal - paidAfter);
     const isPaid = pendingAfter <= 0;
@@ -246,7 +249,7 @@ export class RegisterOrderPaymentUseCase {
         : PAYMENT_STATUSES[1].id
     );
 
-    const finalOrder = await this.repo.findById(order.id_order);
+    const finalOrder = await this.repo.findSummaryById(order.id_order);
 
     void notifyPaymentRegistered({
       order: finalOrder,
