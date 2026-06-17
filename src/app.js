@@ -21,6 +21,7 @@ import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes/supplierPurchaseRoutes.js";
 import purchaseReturnRoutes from "./modules/purchases/purchase-returns/routes/purchaseReturnRoutes.js";
+import nonconformingRoutes from "./modules/purchases/non-conforming-products/routes/nonConformingRoutes.js";
 
 import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
@@ -90,6 +91,7 @@ app.use("/api/providers", providerRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/supplier-purchases", supplierPurchaseRoutes);
 app.use("/api/purchase-returns", purchaseReturnRoutes);
+app.use('/api/non-conforming-products', nonconformingRoutes);
 
 /* Rutas de banners */
 app.use("/api/banners", bannerRoutes);
