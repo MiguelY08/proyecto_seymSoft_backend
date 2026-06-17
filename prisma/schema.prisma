@@ -187,9 +187,9 @@ model installments {
   created_at          DateTime        @default(now())
   cancellation_reason String?         @db.VarChar(255)
   cancelled_by        Int?
+  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
   credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
   users               users?          @relation(fields: [cancelled_by], references: [id_user])
-  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model modules {
@@ -459,6 +459,7 @@ model purchases {
   total_amount       Decimal?            @default(0) @db.Decimal(12, 2)
   id_provider        Int
   id_purchase_status Int
+  max_return_date    DateTime?           @db.Date
   purchase_details   purchase_details[]
   providers          providers           @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "compras_id_proveedor_fkey")
   purchase_statuses  purchase_statuses   @relation(fields: [id_purchase_status], references: [id_purchase_status], map: "fk_compras_estado")

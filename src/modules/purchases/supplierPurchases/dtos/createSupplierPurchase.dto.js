@@ -1,3 +1,4 @@
+// backend/src/modules/supplier-purchases/dtos/createSupplierPurchase.dto.js
 /**
  * CreateSupplierPurchaseDto
  *
@@ -9,6 +10,7 @@ export class CreateSupplierPurchaseDto {
     this.invoiceNumber = data.invoiceNumber.trim();
     this.purchaseDate  = new Date(data.purchaseDate);
     this.idProvider    = Number(data.idProvider);
+    this.maxReturnDate = data.maxReturnDate ? new Date(data.maxReturnDate) : null;
     this.details       = (data.details || []).map((d) => ({
       idProduct:     Number(d.idProduct),
       quantity:      Number(d.quantity),
