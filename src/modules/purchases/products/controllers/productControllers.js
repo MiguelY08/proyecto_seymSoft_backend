@@ -35,7 +35,11 @@ export const createProduct = async (req, res, next) => {
 const categories = parseArrayField(req.body.categories || req.body['categories[]']);
 const subcategories = parseArrayField(req.body.subcategories || req.body['subcategories[]']);
       
-    const dto = new CreateProductDto(req.body);
+    const dto = new CreateProductDto({
+      ...req.body,
+      categories,
+      subcategories,
+    });
 
     console.log(`📋 Recibido: ${files.length} archivos`);
 
@@ -64,6 +68,22 @@ export const getAllProducts = async (req, res, next) => {
 };
 
 // ─── Get Product by ID ────────────────────────────────────────────────────────
+export const getUnitMeasures = async (req, res, next) => {
+  try {
+    const data = await repo.findAllUnitMeasures();
+    res.status(httpCodes.OK).json({
+      success: true,
+      data: data.map((unit) => ({
+        id: unit.id_unit_measure,
+        name: unit.name_unit_measure,
+        abbreviation: unit.abbreviation,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getProductById = async (req, res, next) => {
   try {
     const { id } = req.params;

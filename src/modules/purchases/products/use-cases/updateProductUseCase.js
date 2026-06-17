@@ -1,50 +1,69 @@
 import { AppError } from "../../../../shared/errors/AppError.js";
 import { mapProduct } from "../mappers/productMapper.js";
-import { processAndSaveImage, PRODUCT_IMAGE_CONFIG, } from "../../../../shared/utils/imageProcessor.js";
+import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
 
 export class UpdateProductUseCase {
   constructor(repo) {
     this.repo = repo;
   }
-    async execute(id, dto, files = []) {
+
+  async execute(id, dto, files = []) {
     const product = await this.repo.findById(id);
 
     if (!product) {
       throw new AppError("Producto no encontrado.", 404);
     }
 
-    // Validar código de barras único (si se intenta cambiar)
-    if (dto.codBarras && dto.codBarras !== product.cod_barras) {
-      const existing = await this.repo.findByCodeBarras(dto.codBarras, id);
-      if (existing) {
-        throw new AppError("El código de barras ya existe.", 409);
+    if (dto.idUnitMeasure !== undefined) {
+      const idUnitMeasure = Number.parseInt(dto.idUnitMeasure, 10);
+      if (!Number.isInteger(idUnitMeasure) || idUnitMeasure <= 0) {
+        throw new AppError("Debes seleccionar una unidad de medida valida.", 400);
+      }
+
+      const unitMeasure = await this.repo.findUnitMeasureById(idUnitMeasure);
+      if (!unitMeasure) {
+        throw new AppError("La unidad de medida seleccionada no existe.", 400);
       }
     }
 
-    // Validar código de barras 2 único (si se proporciona y es diferente)
-    if (dto.codBarras2 && dto.codBarras2 !== product.cod_barras2) {
-      const existing = await this.repo.findByCodeBarras2(dto.codBarras2, id);
-      if (existing) {
-        throw new AppError("El código de barras 2 ya existe.", 409);
+    if (dto.idCategorie !== undefined) {
+      const idCategorie = Number.parseInt(dto.idCategorie, 10);
+      if (!Number.isInteger(idCategorie) || idCategorie <= 0) {
+        throw new AppError("Debes seleccionar una categoria valida.", 400);
+      }
+
+      const category = await this.repo.findCategoryById(idCategorie);
+      if (!category) {
+        throw new AppError("La categoria seleccionada no existe.", 400);
+      }
+    }
+
+    if (dto.barcodes && dto.barcodes.length > 0) {
+      for (const barcode of dto.barcodes) {
+        const existing = await this.repo.findByBarcode(barcode.barcode, id);
+        if (existing) {
+          throw new AppError(`El codigo de barras "${barcode.barcode}" ya existe.`, 409);
+        }
       }
     }
 
     const updated = await this.repo.update(id, dto);
-    // Procesar imágenes nuevas
-if (files.length > 0) {
-  const imageUrls = [];
 
-  for (const file of files) {
-    const url = await processAndSaveImage(file.buffer, {
-      bucketName: process.env.SUPABASE_BUCKET_PRODUCTS,
-      config: PRODUCT_IMAGE_CONFIG,
-    });
+    if (files.length > 0) {
+      const imageUrls = [];
 
-    imageUrls.push(url);
-  }
+      for (const file of files) {
+        const url = await processAndSaveImage(file.buffer, {
+          bucketName: process.env.SUPABASE_BUCKET_PRODUCTS,
+          config: PRODUCT_IMAGE_CONFIG,
+        });
 
-  await this.repo.createProductImages(id, imageUrls);
-}
+        imageUrls.push(url);
+      }
+
+      await this.repo.createProductImages(id, imageUrls);
+    }
+
     return mapProduct(updated);
   }
 }
