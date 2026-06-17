@@ -43,7 +43,7 @@ export class CancelOrderUseCase {
       throw new AppError('El motivo de cancelacion no puede exceder 255 caracteres.', 400);
     }
 
-    const order = await this.repo.findById(id);
+    const order = await this.repo.findUpdateStateById(id);
 
     if (!order) {
       throw new AppError('Pedido no encontrado.', 404);

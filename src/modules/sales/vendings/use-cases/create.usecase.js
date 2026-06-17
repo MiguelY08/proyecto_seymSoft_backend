@@ -29,6 +29,8 @@ const EMPLOYEE_REQUIRED_TYPES = [
 
 const SYSTEM_EMPLOYEE_ID = 7;
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const DIRECT_VENDING_TYPE = "direct";
+const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 
 const roundMoney = (value) => {
   return Math.round(Number(value || 0) * 100) / 100;
@@ -447,6 +449,10 @@ export const createVendingUseCase = async (params) => {
     let totals = null;
     let preparedOrder = null;
     const createsOrderFromSale = Boolean(data.order);
+    const directSaleOrderStatus =
+      normalizedType === DIRECT_VENDING_TYPE
+        ? DELIVERED_ORDER_STATUS_ID
+        : null;
 
     if (data.order) {
       try {
@@ -698,6 +704,10 @@ export const createVendingUseCase = async (params) => {
             PAYMENT_STATUSES[2].id,
           paymentStatus:
             PAYMENT_STATUSES[2].name,
+          ...(directSaleOrderStatus && {
+            idOrderStatus:
+              directSaleOrderStatus,
+          }),
           paymentDeadline:
             null,
           initialPayments:
@@ -748,6 +758,8 @@ export const createVendingUseCase = async (params) => {
         paymentMethods,
         credit:
           data.credit,
+        idOrderStatus:
+          directSaleOrderStatus,
         orderDetails,
         decreaseStock: true,
         markOrderAsPaid:

@@ -9,7 +9,7 @@ import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
 
-const DEFAULT_VENDING_TYPE = 'web';
+const DEFAULT_VENDING_TYPE = 'manual';
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 const roundMoney = (value) =>
