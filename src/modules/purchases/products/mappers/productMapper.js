@@ -30,6 +30,7 @@ export const mapProduct = (product) => {
     unitMeasure: product.unit_measures ? {
       id: product.unit_measures.id_unit_measure,
       name: product.unit_measures.name_unit_measure,
+      abbreviation: product.unit_measures.abbreviation,
     } : null,
     status: product.general_statuses?.name_status === 'Activo' ? 'Activo' : 'Inactivo',
     barcodes: (product.barcodes || []).map((b) => ({

@@ -3,6 +3,7 @@ import multer from 'multer';
 import {
   createProduct,
   getAllProducts,
+  getUnitMeasures,
   getProductById,
   updateProduct,
   toggleProductStatus,
@@ -19,6 +20,7 @@ router.post('/', upload.array('images', 10), createProduct);
 
 // Otras rutas
 router.get('/', getAllProducts);
+router.get('/unit-measures', getUnitMeasures);
 router.get('/:id', getProductById);
 router.put('/:id', upload.array('images', 10), updateProduct);
 router.patch('/:id/toggle', toggleProductStatus);
