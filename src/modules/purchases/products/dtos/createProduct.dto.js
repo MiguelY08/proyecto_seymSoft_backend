@@ -8,6 +8,12 @@ const parsePositiveInt = (value) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+const normalizeBarcode = (barcode) => ({
+  barcode: barcode?.barcode ?? barcode?.codBarras ?? barcode?.code,
+  barcode_type: barcode?.barcode_type ?? barcode?.barcodeType ?? "EAN13",
+  stock: parseInt(barcode?.stock ?? barcode?.cantidad ?? barcode?.quantity, 10) || 0,
+});
+
 export class CreateProductDto {
   constructor(data) {
     this.name = data.nombre ?? data.name;
@@ -39,7 +45,9 @@ export class CreateProductDto {
     this.idStatus = parsePositiveInt(data.idStatus) || 1;
     this.categories = data.categories || [];
     this.subcategories = data.subcategories || [];
-    this.barcodes = [];
+    this.barcodes = Array.isArray(data.barcodes)
+      ? data.barcodes.map(normalizeBarcode).filter((barcode) => barcode.barcode)
+      : [];
 
     if (!this.idUnitMeasure) {
       throw new AppError("Debes seleccionar una unidad de medida valida.", 400);
@@ -49,7 +57,7 @@ export class CreateProductDto {
       throw new AppError("Debes seleccionar una categoria valida.", 400);
     }
 
-    if (data.codBarras) {
+    if (this.barcodes.length === 0 && data.codBarras) {
       this.barcodes.push({
         barcode: data.codBarras,
         barcode_type: "EAN13",

@@ -21,10 +21,10 @@ export default class InstallmentMapper {
 
       cancellationReason: data.cancellation_reason,
 
-      cancelledBy: data.cancelled_by_user
+      cancelledBy: data.users
         ? {
-            id: data.cancelled_by_user.id_user,
-            nombre: data.cancelled_by_user.full_name,
+            id: data.users.id_user,
+            nombre: data.users.full_name,
           }
         : null,
 
