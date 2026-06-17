@@ -1,0 +1,262 @@
+import {
+  PURCHASE_STATUSES,
+  RETURN_METHODS,
+  RETURN_STATUSES,
+} from "../../../../shared/constants/generalStatuses.js";
+
+export const RETURN_DETAIL_STATUS_IDS = {
+  PENDING_SHIPMENT: RETURN_STATUSES[1].id,
+  PENDING_REPLACEMENT: RETURN_STATUSES[2].id,
+  PENDING_REFUND: RETURN_STATUSES[3].id,
+  READY: RETURN_STATUSES[4].id,
+};
+
+export const RETURN_METHOD_IDS = {
+  REPLACEMENT: RETURN_METHODS[1].id,
+  REFUND: RETURN_METHODS[2].id,
+  NON_CONFORMING_PRODUCT: RETURN_METHODS[3].id,
+};
+
+export const PURCHASE_STATUS_IDS = {
+  COMPLETED: PURCHASE_STATUSES[1].id,
+  RETURN_IN_PROCESS: PURCHASE_STATUSES[2].id,
+  ANNULLED: PURCHASE_STATUSES[3].id,
+  COMPLETED_WITH_RETURNS: PURCHASE_STATUSES[4].id,
+  COMPLETED_WITH_ANNULLED_RETURNS: PURCHASE_STATUSES[5].id,
+  RETURN_IN_PROCESS_WITH_ANNULLED_RETURNS: PURCHASE_STATUSES[6].id,
+};
+
+export const RETURN_LIFECYCLE = {
+  IN_PROCESS: "IN_PROCESS",
+  COMPLETED: "COMPLETED",
+  ANNULLED: "ANNULLED",
+};
+
+const DETAIL_STATUS_FLOW_BY_METHOD = {
+  [RETURN_METHOD_IDS.REPLACEMENT]: {
+    [RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT]: [
+      RETURN_DETAIL_STATUS_IDS.PENDING_REPLACEMENT,
+    ],
+    [RETURN_DETAIL_STATUS_IDS.PENDING_REPLACEMENT]: [
+      RETURN_DETAIL_STATUS_IDS.READY,
+    ],
+  },
+  [RETURN_METHOD_IDS.REFUND]: {
+    [RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT]: [
+      RETURN_DETAIL_STATUS_IDS.PENDING_REFUND,
+    ],
+    [RETURN_DETAIL_STATUS_IDS.PENDING_REFUND]: [
+      RETURN_DETAIL_STATUS_IDS.READY,
+    ],
+  },
+};
+
+const toNumber = (value) => Number(value || 0);
+
+export const calculateAvailableQuantity = ({
+  purchasedQuantity,
+  returnedQuantity = 0,
+}) => {
+  const available =
+    toNumber(purchasedQuantity) -
+    toNumber(returnedQuantity);
+
+  return Math.max(available, 0);
+};
+
+export const validateReturnQuantity = ({
+  requestedQuantity,
+  purchasedQuantity,
+  returnedQuantity = 0,
+}) => {
+  const availableQuantity =
+    calculateAvailableQuantity({
+      purchasedQuantity,
+      returnedQuantity,
+    });
+
+  if (toNumber(requestedQuantity) < 1) {
+    return {
+      success: false,
+      errorCode: "INVALID_RETURN_QUANTITY",
+      error: "La cantidad a devolver debe ser mayor a cero.",
+      availableQuantity,
+    };
+  }
+
+  if (toNumber(requestedQuantity) > availableQuantity) {
+    return {
+      success: false,
+      errorCode: "RETURN_QUANTITY_EXCEEDED",
+      error: `La cantidad a devolver supera la cantidad disponible (${availableQuantity}).`,
+      availableQuantity,
+    };
+  }
+
+  return {
+    success: true,
+    errorCode: null,
+    error: null,
+    availableQuantity,
+  };
+};
+
+export const isReadyStatus = (idReturnStatus) =>
+  Number(idReturnStatus) === RETURN_DETAIL_STATUS_IDS.READY;
+
+export const validateDetailIsEditable = (detail) => {
+  if (isReadyStatus(detail?.id_return_status ?? detail?.returnStatusId)) {
+    return {
+      success: false,
+      errorCode: "RETURN_DETAIL_ALREADY_READY",
+      error: "Un producto en estado Listo no puede modificarse.",
+    };
+  }
+
+  return {
+    success: true,
+    errorCode: null,
+    error: null,
+  };
+};
+
+export const getAllowedNextStatuses = (idReturnMethod, currentStatusId) => {
+  const flow =
+    DETAIL_STATUS_FLOW_BY_METHOD[
+      Number(idReturnMethod)
+    ];
+
+  if (!flow) return [];
+
+  return flow[
+    Number(currentStatusId)
+  ] || [];
+};
+
+export const validateDetailStatusTransition = ({
+  idReturnMethod,
+  currentStatusId,
+  nextStatusId,
+}) => {
+  if (isReadyStatus(currentStatusId)) {
+    return {
+      success: false,
+      errorCode: "RETURN_DETAIL_ALREADY_READY",
+      error: "Un producto en estado Listo no puede modificarse.",
+    };
+  }
+
+  const allowedNextStatuses =
+    getAllowedNextStatuses(
+      idReturnMethod,
+      currentStatusId
+    );
+
+  if (!allowedNextStatuses.includes(Number(nextStatusId))) {
+    return {
+      success: false,
+      errorCode: "INVALID_RETURN_STATUS_FLOW",
+      error: "El cambio de estado no es valido para el metodo de devolucion.",
+      allowedNextStatuses,
+    };
+  }
+
+  return {
+    success: true,
+    errorCode: null,
+    error: null,
+    allowedNextStatuses,
+  };
+};
+
+export const shouldRestoreStockOnReady = ({
+  idReturnMethod,
+  currentStatusId,
+  nextStatusId,
+}) =>
+  Number(idReturnMethod) === RETURN_METHOD_IDS.REPLACEMENT &&
+  !isReadyStatus(currentStatusId) &&
+  isReadyStatus(nextStatusId);
+
+export const getReturnProgress = (details = []) => {
+  const total = details.length;
+  const completed = details.filter((detail) =>
+    isReadyStatus(
+      detail.id_return_status ??
+      detail.returnStatusId
+    )
+  ).length;
+
+  return {
+    completed,
+    total,
+    label: `${completed}/${total}`,
+  };
+};
+
+export const calculateReturnLifecycle = ({
+  details = [],
+  isAnnulled = false,
+}) => {
+  if (isAnnulled) {
+    return RETURN_LIFECYCLE.ANNULLED;
+  }
+
+  if (
+    details.length > 0 &&
+    details.every((detail) =>
+      isReadyStatus(
+        detail.id_return_status ??
+        detail.returnStatusId
+      )
+    )
+  ) {
+    return RETURN_LIFECYCLE.COMPLETED;
+  }
+
+  return RETURN_LIFECYCLE.IN_PROCESS;
+};
+
+export const calculatePurchaseStatusFromReturns = (returns = []) => {
+  if (!returns.length) {
+    return PURCHASE_STATUS_IDS.COMPLETED;
+  }
+
+  const lifecycles = returns.map((purchaseReturn) =>
+    purchaseReturn.lifecycle ||
+    calculateReturnLifecycle({
+      details:
+        purchaseReturn.prd ??
+        purchaseReturn.details ??
+        [],
+      isAnnulled:
+        purchaseReturn.isAnnulled ||
+        purchaseReturn.status?.name === "Anulada" ||
+        purchaseReturn.return_statuses?.name_status === "Anulada",
+    })
+  );
+
+  const hasInProcess =
+    lifecycles.includes(
+      RETURN_LIFECYCLE.IN_PROCESS
+    );
+
+  const hasAnnulled =
+    lifecycles.includes(
+      RETURN_LIFECYCLE.ANNULLED
+    );
+
+  if (hasInProcess && hasAnnulled) {
+    return PURCHASE_STATUS_IDS.RETURN_IN_PROCESS_WITH_ANNULLED_RETURNS;
+  }
+
+  if (hasInProcess) {
+    return PURCHASE_STATUS_IDS.RETURN_IN_PROCESS;
+  }
+
+  if (hasAnnulled) {
+    return PURCHASE_STATUS_IDS.COMPLETED_WITH_ANNULLED_RETURNS;
+  }
+
+  return PURCHASE_STATUS_IDS.COMPLETED_WITH_RETURNS;
+};

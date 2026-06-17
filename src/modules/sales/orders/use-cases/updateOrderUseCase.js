@@ -10,8 +10,48 @@ import {
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
 
+const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
+const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
+const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
+
+const normalizeOrderItems = (items = []) =>
+  items
+    .map((item) => ({
+      idProduct:
+        Number(item.idProduct ?? item.id_product),
+      barcode:
+        String(item.barcode || '').trim(),
+      quantity:
+        Number(item.quantity),
+    }))
+    .sort((a, b) => {
+      if (a.idProduct !== b.idProduct) {
+        return a.idProduct - b.idProduct;
+      }
+
+      return a.barcode.localeCompare(b.barcode);
+    });
+
+const hasOrderContentChanges = (currentItems = [], nextItems = []) => {
+  const current = normalizeOrderItems(currentItems);
+  const next = normalizeOrderItems(nextItems);
+
+  if (current.length !== next.length) {
+    return true;
+  }
+
+  return current.some((item, index) => {
+    const nextItem = next[index];
+
+    return (
+      item.idProduct !== nextItem.idProduct ||
+      item.barcode !== nextItem.barcode ||
+      item.quantity !== nextItem.quantity
+    );
+  });
+};
 
 const getOrderStatusName = (order) =>
   order?.order_statuses?.name_status || null;
@@ -72,6 +112,25 @@ export class UpdateOrderUseCase {
       );
     }
 
+
+    const hasContentChanges = hasOrderContentChanges(
+      order.order_details,
+      dto.items
+    );
+
+    if (
+      hasContentChanges &&
+      (
+        order.id_payment_status === PAID_PAYMENT_STATUS_ID ||
+        Boolean(order.sales)
+      )
+    ) {
+      throw new AppError(
+        'No se pueden modificar productos o cantidades de un pedido pagado o con venta asociada.',
+        400
+      );
+    }
+
     const client = await this.repo.findClientById(dto.idClient);
 
     if (!client) {
@@ -123,13 +182,19 @@ export class UpdateOrderUseCase {
     );
     const calculated = calculateOrderTotals(enrichedItems);
 
+
+    const nextOrderStatusId =
+      hasContentChanges && order.id_order_status === READY_ORDER_STATUS_ID
+        ? IN_PROCESS_ORDER_STATUS_ID
+        : dto.idOrderStatus || order.id_order_status;
+
     const orderData = {
       idClient: dto.idClient,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
-      idOrderStatus: dto.idOrderStatus || ORDER_STATUSES[1].id,
-      idPaymentStatus: dto.idPaymentStatus || PAYMENT_STATUSES[1].id,
-      paymentStatus: dto.paymentStatus || PAYMENT_STATUSES[1].name,
+      idOrderStatus: nextOrderStatusId,
+      idPaymentStatus: dto.idPaymentStatus || order.id_payment_status || PAYMENT_STATUSES[1].id,
+      paymentStatus: dto.paymentStatus,
       items: calculated.items,
       subtotal: calculated.subtotal,
       ivaAmount: calculated.ivaAmount,

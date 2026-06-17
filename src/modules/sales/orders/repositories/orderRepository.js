@@ -320,9 +320,22 @@ export class OrderRepository {
       select: {
         id_order: true,
         id_order_status: true,
+        id_payment_status: true,
         order_statuses: {
           select: {
             name_status: true,
+          },
+        },
+        sales: {
+          select: {
+            id_sale: true,
+          },
+        },
+        order_details: {
+          select: {
+            id_product: true,
+            barcode: true,
+            quantity: true,
           },
         },
       },
@@ -593,7 +606,8 @@ export class OrderRepository {
           },
         ],
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
       orderBy: {
         payment_deadline: 'asc',
       },
@@ -613,7 +627,8 @@ export class OrderRepository {
         },
         payment_expired_at: null,
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
       orderBy: {
         payment_deadline: 'asc',
       },
@@ -628,7 +643,8 @@ export class OrderRepository {
       data: {
         payment_reminder_6h_sent: true,
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 
@@ -640,7 +656,8 @@ export class OrderRepository {
       data: {
         payment_reminder_1h_sent: true,
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 
@@ -660,7 +677,8 @@ export class OrderRepository {
         cancellation_reason: reason,
         cancelled_at: new Date(),
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 

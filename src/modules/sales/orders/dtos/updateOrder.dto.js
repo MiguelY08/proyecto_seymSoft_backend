@@ -1,23 +1,15 @@
-﻿import {
-  ORDER_STATUSES,
-  PAYMENT_STATUSES,
-} from '../../../../shared/constants/generalStatuses.js';
-
 export class UpdateOrderDto {
   constructor(data) {
     this.idClient = data.idClient ?? data.id_client;
     this.idOrderStatus =
       data.idOrderStatus ??
-      data.id_order_status ??
-      ORDER_STATUSES[1].id;
+      data.id_order_status;
     this.idPaymentStatus =
       data.idPaymentStatus ??
-      data.id_payment_status ??
-      PAYMENT_STATUSES[1].id;
+      data.id_payment_status;
     this.paymentStatus =
       data.paymentStatus ??
-      data.payment_status ??
-      PAYMENT_STATUSES[1].name;
+      data.payment_status;
     this.deliveryType = data.deliveryType ?? 'Recoge';
     this.deliveryAddress =
       data.deliveryAddress ??
