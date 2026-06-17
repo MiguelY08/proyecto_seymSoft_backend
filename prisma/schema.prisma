@@ -459,6 +459,7 @@ model purchases {
   total_amount       Decimal?            @default(0) @db.Decimal(12, 2)
   id_provider        Int
   id_purchase_status Int
+  max_return_date    DateTime?           @db.Date
   purchase_details   purchase_details[]
   providers          providers           @relation(fields: [id_provider], references: [id_provider], onDelete: NoAction, onUpdate: NoAction, map: "compras_id_proveedor_fkey")
   purchase_statuses  purchase_statuses   @relation(fields: [id_purchase_status], references: [id_purchase_status], map: "fk_compras_estado")
