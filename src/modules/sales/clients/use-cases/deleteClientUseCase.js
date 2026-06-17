@@ -12,7 +12,20 @@ export const deleteClientUseCase = async (id) => {
       return { success: false, error: 'Cliente no encontrado', errorCode: 'CLIENT_NOT_FOUND' };
     }
 
-    console.log('✅ Cliente encontrado, eliminando...');
+    // ✅ VALIDACIÓN: Verificar si el cliente tiene ventas asociadas
+    const hasSales = await prisma.sales_orders.count({
+      where: { id_customer: id }
+    });
+
+    if (hasSales > 0) {
+      return { 
+        success: false, 
+        error: 'No se puede eliminar el cliente porque tiene ventas asociadas. Históricamente no se pueden borrar clientes con transacciones.',
+        errorCode: 'CLIENT_HAS_SALES'
+      };
+    }
+
+    console.log('✅ Cliente encontrado y sin ventas, eliminando...');
     
     await prisma.$transaction(async (tx) => {
       // Transferir créditos al cliente sistema
@@ -40,7 +53,7 @@ export const deleteClientUseCase = async (id) => {
   } catch (error) {
     console.error('❌ Error en deleteClientUseCase:', error);
     
-    // 🔥 Mensaje específico para error de clave foránea
+    // Mensaje específico para error de clave foránea
     if (error.code === 'P2003') {
       return { 
         success: false, 
