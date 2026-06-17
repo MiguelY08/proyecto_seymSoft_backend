@@ -34,11 +34,13 @@ export const createProduct = async (req, res, next) => {
 
 const categories = parseArrayField(req.body.categories || req.body['categories[]']);
 const subcategories = parseArrayField(req.body.subcategories || req.body['subcategories[]']);
+const barcodes = parseArrayField(req.body.barcodes);
       
     const dto = new CreateProductDto({
       ...req.body,
       categories,
       subcategories,
+      barcodes,
     });
 
     console.log(`📋 Recibido: ${files.length} archivos`);
