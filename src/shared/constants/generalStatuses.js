@@ -86,6 +86,12 @@ export const RETURN_STATUSES = {
     p_description: "Reemplazos-Reembolso recibido/s",
     s_description: "Reemplazos/Reembolso enviados al cliente"
   },
+  5: {
+    id: 5,
+    name: "Anulada",
+    p_description: "Devolución de compra anulada",
+    s_description: "Devolución de venta anulada"
+  },
 };
 
 export const RETURN_METHODS = {
