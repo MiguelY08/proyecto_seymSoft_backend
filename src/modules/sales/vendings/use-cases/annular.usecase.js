@@ -105,7 +105,7 @@ export const annularVendingUseCase = async (params) => {
     }
 
     const existingSale =
-      await VendingRepository.findById(
+      await VendingRepository.findAnnulmentStateById(
         Number(idSale)
       );
 
@@ -131,38 +131,6 @@ export const annularVendingUseCase = async (params) => {
       };
     }
 
-    const annulledSaleStatus =
-      await VendingRepository.findSaleStatusById(
-        ANNULLED_SALE_STATUS_ID
-      );
-
-    if (!annulledSaleStatus) {
-      return {
-        success: false,
-        data: null,
-        error:
-          "No existe el estado de venta Anulada",
-        errorCode:
-          "ANNULLED_SALE_STATUS_NOT_FOUND",
-      };
-    }
-
-    const cancelledOrderStatus =
-      await VendingRepository.findOrderStatusById(
-        CANCELLED_ORDER_STATUS_ID
-      );
-
-    if (!cancelledOrderStatus) {
-      return {
-        success: false,
-        data: null,
-        error:
-          "No existe el estado de pedido Cancelado",
-        errorCode:
-          "CANCELLED_ORDER_STATUS_NOT_FOUND",
-      };
-    }
-
     const reason =
       String(annulmentReason).trim();
 
@@ -171,9 +139,9 @@ export const annularVendingUseCase = async (params) => {
         Number(idSale),
         {
           idSaleStatus:
-            annulledSaleStatus.id_sale_status,
+            ANNULLED_SALE_STATUS_ID,
           idOrderStatus:
-            cancelledOrderStatus.id_order_status,
+            CANCELLED_ORDER_STATUS_ID,
           annulmentReason:
             reason,
         }

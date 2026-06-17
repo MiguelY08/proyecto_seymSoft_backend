@@ -10,6 +10,9 @@ import {
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
 
+const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
+const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
+
 const getOrderStatusName = (order) =>
   order?.order_statuses?.name_status || null;
 
@@ -42,16 +45,29 @@ export class UpdateOrderUseCase {
   }
 
   async execute(id, dto) {
-    const order = await this.repo.findById(id);
+    const order = await this.repo.findUpdateStateById(id);
 
     if (!order) {
       throw new AppError('Pedido no encontrado.', 404);
     }
+    // Un pedido entregado o cancelado queda cerrado para evitar cambios posteriores.
+    if (order.id_order_status === DELIVERED_ORDER_STATUS_ID) {
+      throw new AppError(
+        'No se puede editar un pedido entregado.',
+        400
+      );
+    }
 
-    // Un pedido cancelado no debe volver a cambiar productos, cliente ni entrega.
-    if (order.id_order_status === ORDER_STATUSES[4].id) {
+    if (order.id_order_status === CANCELLED_ORDER_STATUS_ID) {
       throw new AppError(
         'No se puede editar un pedido cancelado.',
+        400
+      );
+    }
+
+    if (Number(dto.idOrderStatus) === CANCELLED_ORDER_STATUS_ID) {
+      throw new AppError(
+        'Para cancelar un pedido debe usar la ruta de cancelacion y enviar un motivo.',
         400
       );
     }
@@ -112,6 +128,7 @@ export class UpdateOrderUseCase {
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
       idOrderStatus: dto.idOrderStatus || ORDER_STATUSES[1].id,
+      idPaymentStatus: dto.idPaymentStatus || PAYMENT_STATUSES[1].id,
       paymentStatus: dto.paymentStatus || PAYMENT_STATUSES[1].name,
       items: calculated.items,
       subtotal: calculated.subtotal,

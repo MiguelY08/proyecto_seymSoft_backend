@@ -1,4 +1,4 @@
-﻿import { prisma } from '../../../../config/prisma.js';
+import { prisma } from '../../../../config/prisma.js';
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -80,6 +80,155 @@ const orderInclude = {
   },
 };
 
+const orderSummarySelect = {
+  id_order: true,
+  id_customer: true,
+  order_date: true,
+  id_order_status: true,
+  delivery_adress: true,
+  subtotal: true,
+  iva_amount: true,
+  total: true,
+  payment_status: true,
+  delivery_type: true,
+  payment_deadline: true,
+  payment_reminder_6h_sent: true,
+  payment_reminder_1h_sent: true,
+  payment_expired_at: true,
+  payment_expiration_reason: true,
+  id_payment_status: true,
+  cancellation_reason: true,
+  cancelled_at: true,
+  clients: {
+    select: {
+      id_client: true,
+      client_type: true,
+      credit: true,
+      address: true,
+      users: {
+        select: {
+          full_name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  order_statuses: true,
+  payment_statuses: true,
+  sales: {
+    select: {
+      id_sale: true,
+      id_order: true,
+      id_sale_status: true,
+      id_sale_type: true,
+      subtotal: true,
+      sale_date: true,
+    },
+  },
+  order_payments: {
+    select: {
+      id_order_payment: true,
+      id_payment_method: true,
+      amount: true,
+      payment_date: true,
+      observations: true,
+      reference: true,
+      created_at: true,
+      payment_methods: true,
+    },
+    orderBy: {
+      id_order_payment: 'asc',
+    },
+  },
+  order_details: {
+    select: {
+      id_order_detail: true,
+      id_product: true,
+      barcode: true,
+      quantity: true,
+      unit_price: true,
+      subtotal: true,
+      iva_amount: true,
+      products: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      id_order_detail: 'asc',
+    },
+  },
+};
+
+const orderListSelect = {
+  id_order: true,
+  id_customer: true,
+  order_date: true,
+  id_order_status: true,
+  delivery_adress: true,
+  subtotal: true,
+  iva_amount: true,
+  total: true,
+  payment_status: true,
+  delivery_type: true,
+  payment_deadline: true,
+  payment_reminder_6h_sent: true,
+  payment_reminder_1h_sent: true,
+  payment_expired_at: true,
+  payment_expiration_reason: true,
+  id_payment_status: true,
+  cancellation_reason: true,
+  cancelled_at: true,
+  clients: {
+    select: {
+      id_client: true,
+      client_type: true,
+      credit: true,
+      address: true,
+      users: {
+        select: {
+          full_name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  order_statuses: true,
+  payment_statuses: true,
+  sales: {
+    select: {
+      id_sale: true,
+      id_order: true,
+      id_sale_status: true,
+      id_sale_type: true,
+      subtotal: true,
+      sale_date: true,
+    },
+  },
+  order_payments: {
+    select: {
+      id_order_payment: true,
+      id_payment_method: true,
+      amount: true,
+      payment_date: true,
+      observations: true,
+      reference: true,
+      created_at: true,
+      payment_methods: {
+        select: {
+          id_payment_method: true,
+          name_payment_method: true,
+        },
+      },
+    },
+    orderBy: {
+      id_order_payment: 'asc',
+    },
+  },
+};
 export class OrderRepository {
   async findAll(filters = {}) {
     const where = {};
@@ -118,7 +267,8 @@ export class OrderRepository {
     const [orders, total] = await Promise.all([
       prisma.sales_orders.findMany({
         where,
-        ...orderInclude,
+        select:
+          orderListSelect,
         orderBy: {
           id_order: 'desc',
         },
@@ -152,6 +302,63 @@ export class OrderRepository {
     });
   }
 
+  async findSummaryById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select:
+        orderSummarySelect,
+    });
+  }
+
+  async findUpdateStateById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        order_statuses: {
+          select: {
+            name_status: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findPaymentStateById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        id_payment_status: true,
+        total: true,
+        sales: {
+          select: {
+            id_sale: true,
+            id_order: true,
+            id_sale_status: true,
+            id_sale_type: true,
+            subtotal: true,
+            sale_date: true,
+          },
+        },
+        order_payments: {
+          select: {
+            id_payment_method: true,
+            amount: true,
+          },
+        },
+      },
+    });
+  }
+
   async findProductByBarcode(barcode) {
     return prisma.barcodes.findUnique({
       where: {
@@ -169,12 +376,24 @@ export class OrderRepository {
     const idOrder = await prisma.$transaction(async (tx) => {
       const order = await tx.sales_orders.create({
         data: {
-          id_customer: Number(data.idClient),
-          id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+          clients: {
+            connect: {
+              id_client: Number(data.idClient),
+            },
+          },
+          order_statuses: {
+            connect: {
+              id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+            },
+          },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
           payment_status: paymentStatus.name,
-          id_payment_status: paymentStatus.id,
+          payment_statuses: {
+            connect: {
+              id_payment_status: paymentStatus.id,
+            },
+          },
           payment_deadline: data.paymentDeadline || data.payment_deadline || null,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
@@ -197,10 +416,23 @@ export class OrderRepository {
         })),
       });
 
+      if (data.initialPayments?.length) {
+        await tx.order_payments.createMany({
+          data: data.initialPayments.map((payment) => ({
+            id_order: order.id_order,
+            id_payment_method: Number(payment.idPaymentMethod),
+            amount: Number(payment.amount),
+            observations: payment.observations || 'Pago registrado desde ventas.',
+            reference: payment.reference || null,
+            payment_date: payment.paymentDate || undefined,
+          })),
+        });
+      }
+
       return order.id_order;
     });
 
-    return this.findById(idOrder);
+    return this.findSummaryById(idOrder);
   }
 
   async update(id, data) {
@@ -213,12 +445,24 @@ export class OrderRepository {
           id_order: idOrder,
         },
         data: {
-          id_customer: Number(data.idClient),
-          id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+          clients: {
+            connect: {
+              id_client: Number(data.idClient),
+            },
+          },
+          order_statuses: {
+            connect: {
+              id_order_status: Number(data.idOrderStatus || ORDER_STATUSES[1].id),
+            },
+          },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType,
           payment_status: paymentStatus.name,
-          id_payment_status: paymentStatus.id,
+          payment_statuses: {
+            connect: {
+              id_payment_status: paymentStatus.id,
+            },
+          },
           payment_deadline: data.paymentDeadline || data.payment_deadline || undefined,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
@@ -245,18 +489,25 @@ export class OrderRepository {
       });
     });
 
-    return this.findById(idOrder);
+    return this.findSummaryById(idOrder);
   }
 
-  async cancel(id) {
+  async cancel(id, reason = 'Pedido cancelado.') {
     return prisma.sales_orders.update({
       where: {
         id_order: Number(id),
       },
       data: {
-        id_order_status: ORDER_STATUSES[4].id,
+        order_statuses: {
+          connect: {
+            id_order_status: ORDER_STATUSES[4].id,
+          },
+        },
+        cancellation_reason: reason,
+        cancelled_at: new Date(),
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 
@@ -297,10 +548,15 @@ export class OrderRepository {
         id_order: Number(idOrder),
       },
       data: {
-        id_payment_status: paymentStatus.id,
+        payment_statuses: {
+          connect: {
+            id_payment_status: paymentStatus.id,
+          },
+        },
         payment_status: paymentStatus.name,
       },
-      ...orderInclude,
+      select:
+        orderSummarySelect,
     });
   }
 
@@ -394,9 +650,15 @@ export class OrderRepository {
         id_order: Number(idOrder),
       },
       data: {
-        id_order_status: ORDER_STATUSES[4].id,
+        order_statuses: {
+          connect: {
+            id_order_status: ORDER_STATUSES[4].id,
+          },
+        },
         payment_expired_at: new Date(),
         payment_expiration_reason: reason,
+        cancellation_reason: reason,
+        cancelled_at: new Date(),
       },
       ...orderInclude,
     });
@@ -451,4 +713,3 @@ export class OrderRepository {
     });
   }
 }
-

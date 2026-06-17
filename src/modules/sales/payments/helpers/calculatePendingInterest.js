@@ -1,15 +1,16 @@
 /**
- * Calcula el interés pendiente de un crédito.
+ * Calcula el interés pendiente.
  *
  * Fórmula:
  * intereses generados - intereses pagados
  */
 export default function calculatePendingInterest({
-  totalGeneratedInterest,
-  totalPaidInterest
+  generatedInterest,
+  paidInterest,
 }) {
   const pendingInterest =
-    totalGeneratedInterest - totalPaidInterest;
+    Number(generatedInterest) -
+    Number(paidInterest);
 
   return Math.max(0, pendingInterest);
 }

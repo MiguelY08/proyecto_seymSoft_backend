@@ -7,7 +7,8 @@ const normalizeClientType = (clientType) =>
     .trim()
     .toLowerCase();
 
-// Seleccionar el precio del producto segun el tipo de cliente.
+// Seleccionar el precio final del producto segun el tipo de cliente.
+// Los precios registrados en productos ya incluyen IVA.
 export const getPriceByClientType = (product, clientType) => {
   const normalizedType = normalizeClientType(clientType);
 
@@ -29,23 +30,48 @@ export const getPriceByClientType = (product, clientType) => {
   }
 };
 
-// Calcular totales monetarios del pedido con precision de dos decimales.
+const splitIncludedIva = ({ totalWithIva, ivaPercentage }) => {
+  const total = roundMoney(totalWithIva);
+  const percentage = Number(ivaPercentage) || 0;
+
+  if (percentage <= 0) {
+    return {
+      subtotal: total,
+      ivaAmount: 0,
+      total,
+    };
+  }
+
+  const subtotal = roundMoney(total / (1 + percentage / 100));
+  const ivaAmount = roundMoney(total - subtotal);
+
+  return {
+    subtotal,
+    ivaAmount,
+    total,
+  };
+};
+
+// Calcular totales monetarios del pedido con precios que ya incluyen IVA.
 export const calculateOrderTotals = (items = []) => {
   const calculatedItems = items.map((item) => {
     const quantity = Number(item.quantity) || 0;
     const unitPrice = Number(item.unitPrice) || 0;
     const ivaPercentage = Number(item.ivaPercentage) || 0;
-
-    const subtotal = roundMoney(quantity * unitPrice);
-    const ivaAmount = roundMoney(subtotal * (ivaPercentage / 100));
+    const lineTotal = roundMoney(quantity * unitPrice);
+    const taxBreakdown = splitIncludedIva({
+      totalWithIva: lineTotal,
+      ivaPercentage,
+    });
 
     return {
       ...item,
       quantity,
       unitPrice,
       ivaPercentage,
-      subtotal,
-      ivaAmount,
+      subtotal: taxBreakdown.subtotal,
+      ivaAmount: taxBreakdown.ivaAmount,
+      total: taxBreakdown.total,
     };
   });
 
@@ -63,7 +89,12 @@ export const calculateOrderTotals = (items = []) => {
     )
   );
 
-  const total = roundMoney(subtotal + ivaAmount);
+  const total = roundMoney(
+    calculatedItems.reduce(
+      (acc, item) => acc + item.total,
+      0
+    )
+  );
 
   return {
     items: calculatedItems,

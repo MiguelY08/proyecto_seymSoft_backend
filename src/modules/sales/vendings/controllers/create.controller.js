@@ -1,4 +1,4 @@
-﻿import { createVendingUseCase } from "../use-cases/index.js";
+import { createVendingUseCase } from "../use-cases/index.js";
 import {
   validateCreateVending,
   validateCreateVendingParams,
@@ -64,6 +64,7 @@ export const CreateVendingController = async (req, res) => {
         INVALID_SALE_TYPE: 400,
         SALE_TYPE_NOT_FOUND: 404,
         EMPLOYEE_REQUIRED: 401,
+        EMPLOYEE_USER_NOT_LINKED: 401,
         WEB_EMPLOYEE_NOT_CONFIGURED: 500,
         EMPLOYEE_NOT_FOUND: 404,
         SALE_STATUS_NOT_FOUND: 404,
@@ -83,6 +84,11 @@ export const CreateVendingController = async (req, res) => {
         CREDIT_DATA_REQUIRED: 400,
         CREDIT_DATA_NOT_ALLOWED: 400,
         CREDIT_STATUS_NOT_FOUND: 404,
+        CLIENT_NOT_FOUND: 404,
+        CLIENT_INACTIVE: 400,
+        CLIENT_HAS_OVERDUE_CREDITS: 400,
+        CLIENT_WITHOUT_CREDIT_LIMIT: 400,
+        CREDIT_LIMIT_EXCEEDED: 400,
         CREDIT_ERROR: 400,
         DUPLICATE_SALE_ORDER: 409,
         DATABASE_ERROR: 500,
@@ -120,5 +126,6 @@ export const CreateVendingController = async (req, res) => {
     });
   }
 };
+
 
 

@@ -1,23 +1,44 @@
-/**
- * Controller: GetCustomerInvoicesController
- * Responsibility: Handle HTTP requests to fetch invoices for a customer.
- */
+import { PaymentsRepository } from "../repositories/PaymentsRepository.js";
 import GetCustomerInvoicesUseCase from "../use-cases/GetCustomerInvoicesUseCase.js";
 
-export default class GetCustomerInvoicesController {
-  constructor({ useCase = new GetCustomerInvoicesUseCase() } = {}) {
-    this.useCase = useCase;
-  }
+import {
+  validateCustomerInvoices,
+} from "../validators/paymentsValidators.js";
 
-  async handle(req, res, next) {
+const repository =
+  new PaymentsRepository();
+
+const useCase =
+  new GetCustomerInvoicesUseCase({
+    repository,
+  });
+
+export const getCustomerInvoicesController =
+  async (
+    req,
+    res,
+    next
+  ) => {
     try {
-      const result = await this.useCase.execute({
-        params: req.params,
-        query: req.query,
+      const id_customer =
+        Number(
+          req.params.idCustomer
+        );
+
+      validateCustomerInvoices({
+        id_customer,
       });
-      return res.json(result);
-    } catch (err) {
-      return next(err);
+
+      const data =
+        await useCase.execute(
+          id_customer
+        );
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      next(error);
     }
-  }
-}
+  };

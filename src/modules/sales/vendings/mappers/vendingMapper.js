@@ -1,4 +1,4 @@
-﻿const toNumber = (value) => {
+const toNumber = (value) => {
   if (value === null || value === undefined) return null;
 
   return Number(value);
@@ -23,12 +23,20 @@ export class VendingMapper {
         sale.id_employe,
       subtotal:
         toNumber(sale.subtotal),
+      ivaAmount:
+        toNumber(sale.sales_orders?.iva_amount),
+      total:
+        toNumber(sale.sales_orders?.total ?? sale.subtotal),
       saleDate:
         toDate(sale.sale_date),
       idSaleStatus:
         sale.id_sale_status,
       idSaleType:
         sale.id_sale_type,
+      annulmentReason:
+        sale.sales_orders?.cancellation_reason || null,
+      annulledAt:
+        toDate(sale.sales_orders?.cancelled_at),
 
       employee:
         this.toEmployee(
@@ -199,6 +207,10 @@ export class VendingMapper {
         toDate(order.payment_expired_at),
       paymentExpirationReason:
         order.payment_expiration_reason || null,
+      cancellationReason:
+        order.cancellation_reason || null,
+      cancelledAt:
+        toDate(order.cancelled_at),
       subtotal:
         toNumber(order.subtotal),
       ivaAmount:
@@ -280,8 +292,6 @@ export class VendingMapper {
         customer.client_type,
       credit:
         toNumber(customer.credit),
-      creditBalance:
-        toNumber(customer.credit_balance),
       user:
         customer.users
           ? {
@@ -379,6 +389,10 @@ export class VendingMapper {
         sale.idOrder,
       subtotal:
         sale.subtotal,
+      ivaAmount:
+        sale.ivaAmount,
+      total:
+        sale.total,
       saleDate:
         sale.saleDate,
       employee:
@@ -387,6 +401,10 @@ export class VendingMapper {
         sale.paymentMethods,
       credit:
         sale.credit,
+      annulmentReason:
+        sale.annulmentReason,
+      annulledAt:
+        sale.annulledAt,
       status:
         sale.saleStatus,
       type:

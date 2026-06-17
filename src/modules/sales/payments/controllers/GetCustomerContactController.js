@@ -1,20 +1,44 @@
-/**
- * Controller: GetCustomerContactController
- * Responsibility: Handle HTTP requests to fetch customer contact information.
- */
-import GetCustomerContactUseCase from "../use-cases/GetCustomerContactUseCase.js";
+import { PaymentsRepository } from "../repositories/PaymentsRepository.js";
+import { GetCustomerContactUseCase } from "../use-cases/GetCustomerContactUseCase.js";
 
-export default class GetCustomerContactController {
-  constructor({ useCase = new GetCustomerContactUseCase() } = {}) {
-    this.useCase = useCase;
-  }
+import {
+  validateCustomerContact,
+} from "../validators/paymentsValidators.js";
 
-  async handle(req, res, next) {
+const repository =
+  new PaymentsRepository();
+
+const useCase =
+  new GetCustomerContactUseCase(
+    repository
+  );
+
+export const getCustomerContactController =
+  async (
+    req,
+    res,
+    next
+  ) => {
     try {
-      const result = await this.useCase.execute({ params: req.params });
-      return res.json(result);
-    } catch (err) {
-      return next(err);
+      const id_customer =
+        Number(
+          req.params.idCustomer
+        );
+
+      validateCustomerContact({
+        id_customer,
+      });
+
+      const data =
+        await useCase.execute(
+          id_customer
+        );
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      next(error);
     }
-  }
-}
+  };

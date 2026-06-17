@@ -6,6 +6,8 @@ const DELIVERY_TYPES = [
 ];
 
 const APPROVED_SALE_STATUS_ID = 1;
+const DELIVERED_ORDER_STATUS_ID = 3;
+const CANCELLED_ORDER_STATUS_ID = 4;
 
 const normalizeText = (value) => {
   return String(value || "")
@@ -91,7 +93,7 @@ export const updateVendingUseCase = async (params) => {
     }
 
     const existingSale =
-      await VendingRepository.findById(
+      await VendingRepository.findUpdateStateById(
         Number(idSale)
       );
 
@@ -220,6 +222,42 @@ export const updateVendingUseCase = async (params) => {
     }
 
     if (updateData.idOrderStatus !== undefined) {
+      const currentOrderStatusId =
+        Number(existingSale.order?.idOrderStatus || 0);
+
+      if (currentOrderStatusId === DELIVERED_ORDER_STATUS_ID) {
+        return {
+          success: false,
+          data: null,
+          error:
+            "No se puede modificar el estado de un pedido entregado",
+          errorCode:
+            "ORDER_ALREADY_DELIVERED",
+        };
+      }
+
+      if (currentOrderStatusId === CANCELLED_ORDER_STATUS_ID) {
+        return {
+          success: false,
+          data: null,
+          error:
+            "No se puede modificar el estado de un pedido cancelado",
+          errorCode:
+            "ORDER_ALREADY_CANCELLED",
+        };
+      }
+
+      if (Number(updateData.idOrderStatus) === CANCELLED_ORDER_STATUS_ID) {
+        return {
+          success: false,
+          data: null,
+          error:
+            "Para cancelar un pedido relacionado a una venta debe anular la venta y enviar un motivo",
+          errorCode:
+            "ORDER_CANCELLATION_REQUIRES_ANNULMENT",
+        };
+      }
+
       if (!resultingSaleIsApproved) {
         return {
           success: false,

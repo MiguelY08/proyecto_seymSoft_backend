@@ -1,46 +1,73 @@
-/**
- * Routes: paymentsRoutes
- * Responsibility: Define Express routes for the payments module and wire controllers.
- */
 import { Router } from "express";
-import GetCreditCustomersController from "../controllers/GetCreditCustomersController.js";
-import GetCustomerInvoicesController from "../controllers/GetCustomerInvoicesController.js";
-import GetInvoiceInstallmentsController from "../controllers/GetInvoiceInstallmentsController.js";
-import CreateInstallmentController from "../controllers/CreateInstallmentController.js";
-import CancelInstallmentController from "../controllers/CancelInstallmentController.js";
-import GenerateInterestController from "../controllers/GenerateInterestController.js";
-import GetCustomerContactController from "../controllers/GetCustomerContactController.js";
+
+import { getCreditCustomersController } from "../controllers/getCreditCustomersController.js";
+import { getCustomerInvoicesController } from "../controllers/getCustomerInvoicesController.js";
+import { getInvoiceInstallmentsController } from "../controllers/getInvoiceInstallmentsController.js";
+import { getCustomerContactController } from "../controllers/getCustomerContactController.js";
+import { createInstallmentController } from "../controllers/createInstallmentController.js";
+import { cancelInstallmentController } from "../controllers/cancelInstallmentController.js";
+import { generateInterestController } from "../controllers/generateInterestController.js";
+import {authMiddleware} from "../../../../shared/middlewares/authMiddleware.js";
 
 const router = Router();
 
-const getCreditCustomersController = new GetCreditCustomersController();
-const getCustomerInvoicesController = new GetCustomerInvoicesController();
-const getInvoiceInstallmentsController = new GetInvoiceInstallmentsController();
-const createInstallmentController = new CreateInstallmentController();
-const cancelInstallmentController = new CancelInstallmentController();
-const generateInterestController = new GenerateInterestController();
-const getCustomerContactController = new GetCustomerContactController();
+/**
+ * ==========================================
+ * CUSTOMERS
+ * ==========================================
+ */
 
-router.get("/credit-customers", (req, res, next) =>
-  getCreditCustomersController.handle(req, res, next),
+router.get(
+  "/customers",
+  getCreditCustomersController
 );
-router.get("/customers/:customerId/invoices", (req, res, next) =>
-  getCustomerInvoicesController.handle(req, res, next),
+
+router.get(
+  "/customers/:idCustomer/invoices",
+  getCustomerInvoicesController
 );
-router.get("/invoices/:invoiceId/installments", (req, res, next) =>
-  getInvoiceInstallmentsController.handle(req, res, next),
+
+router.get(
+  "/customers/:idCustomer/contact",
+  getCustomerContactController
 );
-router.post("/invoices/:invoiceId/installments", (req, res, next) =>
-  createInstallmentController.handle(req, res, next),
+
+/**
+ * ==========================================
+ * INVOICES
+ * ==========================================
+ */
+
+router.get(
+  "/invoices/:idSale/installments",
+  getInvoiceInstallmentsController
 );
-router.post("/installments/:installmentId/cancel", (req, res, next) =>
-  cancelInstallmentController.handle(req, res, next),
+
+/**
+ * ==========================================
+ * INSTALLMENTS
+ * ==========================================
+ */
+
+router.post(
+  "/installments",
+  createInstallmentController
 );
-router.post("/generate-interest", (req, res, next) =>
-  generateInterestController.handle(req, res, next),
+
+router.patch(
+  "/installments/:idInstallment/cancel",authMiddleware,
+  cancelInstallmentController
 );
-router.get("/customers/:customerId/contact", (req, res, next) =>
-  getCustomerContactController.handle(req, res, next),
+
+/**
+ * ==========================================
+ * INTERESTS
+ * ==========================================
+ */
+
+router.post(
+  "/interests",
+  generateInterestController
 );
 
 export default router;

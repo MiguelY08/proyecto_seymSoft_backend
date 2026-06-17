@@ -1,12 +1,15 @@
 /**
- * Calcula la deuda total de un crédito.
+ * Calcula la deuda total del crédito.
  *
  * Fórmula:
  * capital pendiente + interés pendiente
  */
 export default function calculateTotalDebt({
   pendingCapital,
-  pendingInterest
+  pendingInterest,
 }) {
-  return pendingCapital + pendingInterest;
+  return (
+    Number(pendingCapital) +
+    Number(pendingInterest)
+  );
 }
