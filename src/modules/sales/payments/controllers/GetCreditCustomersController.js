@@ -26,4 +26,4 @@ export const getCreditCustomersController =
     } catch (error) {
       next(error);
     }
-  };
+  }; 

@@ -53,6 +53,8 @@ export class GetCreditCustomersUseCase {
 
     fullName: customer.users.full_name,
 
+    doc_number: customer.doc_number,
+
     phone: serializeBigInt(
       customer.users.phone
     ),
