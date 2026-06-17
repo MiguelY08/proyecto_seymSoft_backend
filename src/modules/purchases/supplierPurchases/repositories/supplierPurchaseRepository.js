@@ -87,7 +87,11 @@ export class SupplierPurchaseRepository {
   async findProviderById(id) {
     return prisma.providers.findUnique({
       where:  { id_provider: parseInt(id) },
-      select: { id_provider: true, name_provider: true },
+      select: { 
+        id_provider: true, 
+        name_provider: true,
+        max_return_period: true,
+      },
     });
   }
 

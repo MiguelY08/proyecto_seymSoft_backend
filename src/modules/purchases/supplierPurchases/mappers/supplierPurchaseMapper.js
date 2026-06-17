@@ -43,6 +43,7 @@ export class SupplierPurchaseMapper {
       providerName:     purchase.providers?.name_provider              ?? null,
       statusId:         purchase.id_purchase_status,
       status:           purchase.purchase_statuses?.name_puchase_status ?? null,
+      maxReturnDate:    purchase.max_return_date,
     };
   }
 
@@ -63,6 +64,7 @@ export class SupplierPurchaseMapper {
       total_amount:       dto.details.reduce((sum, d) => sum + d.netSubtotal, 0),
       id_provider:        dto.idProvider,
       id_purchase_status: 1,
+      max_return_date:    dto.maxReturnDate,
     };
   }
 }

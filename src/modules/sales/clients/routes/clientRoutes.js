@@ -5,6 +5,7 @@ import { getClientByIdController } from '../controllers/getClientByIdController.
 import { updateClientController } from '../controllers/updateClientController.js';
 import { deleteClientController } from '../controllers/deleteClientController.js';
 import { toggleClientStatusController } from '../controllers/toggleClientStatusController.js';
+import { getClientPurchasesController } from '../controllers/getClientPurchasesController.js';
 
 const router = Router();
 
@@ -14,5 +15,7 @@ router.get('/:id', getClientByIdController);
 router.put('/:id', updateClientController);
 router.delete('/:id', deleteClientController);
 router.patch('/:id/status', toggleClientStatusController);
+router.get('/:id/purchases', getClientPurchasesController);
+router.get('/:id', getClientByIdController);
 
 export default router;
