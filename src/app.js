@@ -25,6 +25,7 @@ import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
+import indicatorsRoutes from "./modules/performance/indicators/routes/indicatorRoutes.js";
 
 const app = express();
 
@@ -104,6 +105,10 @@ app.use("/api/vendings", vendingRoutes);
 
 /* Rutas de pagos y abonos */
 app.use("/api/payments", paymentsRoutes);
+
+/* Rutas de Dashboard e indicadores */
+
+app.use("/api/indicators", indicatorsRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

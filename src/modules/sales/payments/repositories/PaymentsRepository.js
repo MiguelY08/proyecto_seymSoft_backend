@@ -1,25 +1,25 @@
-import {prisma } from "../../../../config/prisma.js";
-import { CREDIT_STATUS } from "../constants/creditStatus.constants.js";
+  import {prisma } from "../../../../config/prisma.js";
+  import { CREDIT_STATUS } from "../constants/creditStatus.constants.js";
 
-export class PaymentsRepository {
-  constructor() {
-    this.prisma = prisma;
-  }
+  export class PaymentsRepository {
+    constructor() {
+      this.prisma = prisma;
+    }
 
-  // =====================================================
-  // CONSULTAS
-  // =====================================================
+    // =====================================================
+    // CONSULTAS
+    // =====================================================
 
-  /**
-   * Obtiene todos los clientes con créditos.
-   */
-  async getCreditCustomers() {
-    return this.prisma.clients.findMany({
-      where: {
-        credits: {
-          some: {},
+    /**
+     * Obtiene todos los clientes con créditos.
+     */
+    async getCreditCustomers() {
+      return this.prisma.clients.findMany({
+        where: {
+          credits: {
+            some: {},
+          },
         },
-      },
 
       include: {
         users: true,
@@ -99,13 +99,6 @@ export class PaymentsRepository {
           installments: {
             include: {
               payment_methods: true,
-
-              users: {
-                select: {
-                  id_user: true,
-                  full_name: true,
-                },
-              },
             },
 
             orderBy: {
@@ -127,13 +120,6 @@ async getInstallmentsByCredit(id_credit) {
 
     include: {
       payment_methods: true,
-
-      users: {
-        select: {
-          id_user: true,
-          full_name: true,
-        },
-      },
     },
 
     orderBy: {
@@ -154,7 +140,7 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      users: true,
+      cancelled_by_user: true,
 
       credits: {
         include: {
@@ -275,41 +261,34 @@ async getInstallmentById(id_installment) {
   /**
    * Obtiene crédito a partir de una venta.
    */
-  async getCreditBySaleId(id_sale) {
-    return this.prisma.credits.findFirst({
-      where: {
-        id_sale,
-      },
+async getCreditBySaleId(id_sale) {
+  return this.prisma.credits.findFirst({
+    where: {
+      id_sale,
+    },
 
-      include: {
-        sales: true,
+    include: {
+      sales: true,
 
-        clients: {
-          include: {
-            users: true,
-          },
-        },
-
-        installments: {
-          include: {
-            payment_methods: true,
-
-            users: {
-              select: {
-                id_user: true,
-                full_name: true,
-              },
-            },
-          },
-
-          orderBy: {
-            installment_date: "desc",
-          },
+      clients: {
+        include: {
+          users: true,
         },
       },
-    });
+
+      installments: {
+        include: {
+          payment_methods: true,
+          cancelled_by_user: true,  // ✅ ESTA LÍNEA DEBE ESTAR
+        },
+
+        orderBy: {
+          installment_date: "desc",
+        },
+      },
+    },
+  });
 }
-
   // =====================================================
   // TRANSACCIONES DE NEGOCIO
   // =====================================================

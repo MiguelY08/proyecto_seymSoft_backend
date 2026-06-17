@@ -1,4 +1,3 @@
-
 import calculateCanCancelInstallment from "../helpers/calculateCanCancelInstallment.js";
 import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
 
@@ -73,21 +72,26 @@ export class CancelInstallmentUseCase {
       );
     }
 
-    const credit =
-      installment.credits;
+ const credit =
+  installment.credits;
 
-    const client =
-      credit.clients;
+const client =
+  credit.clients;
 
-    const restoredCapital =
-      Number(
-        installment.capital_paid
-      );
+const restoredCapital =
+  Number(
+    installment.capital_paid
+  );
 
-    const newRemainingBalance =
-      Number(
-        credit.remaining_balance
-      ) + restoredCapital;
+const newRemainingBalance =
+  Number(
+    credit.remaining_balance
+  ) + restoredCapital;
+
+const newClientBalance =
+  Number(
+    client.credit_balance ?? 0
+  ) - restoredCapital;
 
     const statuses =
       await this.paymentsRepository.getCreditStatusesMap();
@@ -110,28 +114,34 @@ export class CancelInstallmentUseCase {
           statuses.overdue,
       });
 
-    await this.paymentsRepository
-      .cancelInstallmentTransaction({
-        id_installment,
+   await this.paymentsRepository
+  .cancelInstallmentTransaction({
+    id_installment,
 
-        cancelled_at:
-          new Date(),
+    cancelled_at:
+      new Date(),
 
-        cancellation_reason:
-          reason,
+    cancellation_reason:
+      reason,
 
-        cancelled_by:
-          userId,
+    cancelled_by:
+      userId,
 
-        id_credit:
-          credit.id_credit,
+    id_credit:
+      credit.id_credit,
 
-        remaining_balance:
-          newRemainingBalance,
+    remaining_balance:
+      newRemainingBalance,
 
-        id_credit_status:
-          newStatus,
-      });
+    id_credit_status:
+      newStatus,
+
+    id_customer:
+      client.id_client,
+
+    credit_balance:
+      newClientBalance,
+  });
 
     return {
       message:
@@ -139,8 +149,10 @@ export class CancelInstallmentUseCase {
 
       id_installment,
 
-      cancelledBy:
-        userId,
+      cancelledBy: {
+        id: user.id_user,
+        nombre: user.full_name,
+      },
 
       cancellationReason:
         reason,
@@ -152,4 +164,3 @@ export class CancelInstallmentUseCase {
     };
   }
 }
-
