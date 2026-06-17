@@ -189,11 +189,7 @@ model installments {
   cancelled_by        Int?
   payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
   credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-<<<<<<< HEAD
   users               users?          @relation(fields: [cancelled_by], references: [id_user])
-=======
-  cancelled_by_user   users?          @relation("InstallmentsCancelledBy", fields: [cancelled_by], references: [id_user])
->>>>>>> de804366198406530cd70cb800c34573146a6e77
 }
 
 model modules {
@@ -654,18 +650,18 @@ model unit_measures {
 }
 
 model users {
-  id_user                   Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  full_name                 String            @db.VarChar(255)
-  email                     String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
-  pass_word                 String            @db.VarChar(255)
-  creation_date             DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  phone                     BigInt?
-  id_status                 Int?
-  token_version             Int               @default(0)
-  id_google                 String?
-  access                    access[]
-  clients                   clients?
-  employees                 employees?
-  installments_cancelled_by installments[]    @relation("InstallmentsCancelledBy")
-  general_statuses          general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+  id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
+  full_name        String            @db.VarChar(255)
+  email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
+  pass_word        String            @db.VarChar(255)
+  creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  phone            BigInt?
+  id_status        Int?
+  token_version    Int               @default(0)
+  id_google        String?
+  access           access[]
+  clients          clients?
+  employees        employees?
+  installments     installments[]
+  general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
