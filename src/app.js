@@ -20,6 +20,7 @@ import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes/supplierPurchaseRoutes.js";
+import nonconformingRoutes from "./modules/purchases/non-conforming-products/routes/nonConformingRoutes.js";
 
 import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
@@ -88,6 +89,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/supplier-purchases", supplierPurchaseRoutes);
+app.use('/api/non-conforming-products', nonconformingRoutes);
 
 /**
  * Rutas de banners
