@@ -4,6 +4,7 @@ import {
   calculateReturnLifecycle,
   validateDetailIsEditable,
   validateDetailStatusTransition,
+  validatePurchaseReturnPeriod,
   validateReturnQuantity,
   shouldRestoreStockOnReady,
   RETURN_LIFECYCLE,
@@ -287,6 +288,23 @@ export const updatePurchaseReturnUseCase = async ({
         error: "Una devolucion anulada no permite modificaciones.",
         errorCode: "PURCHASE_RETURN_ANNULLED",
       };
+    }
+
+    if (detailsToAdd.length > 0) {
+      const periodValidation =
+        validatePurchaseReturnPeriod(
+          currentReturn.purchases
+        );
+
+      if (!periodValidation.success) {
+        return {
+          success: false,
+          data: null,
+          error: periodValidation.error,
+          errorCode: periodValidation.errorCode,
+          meta: periodValidation.meta,
+        };
+      }
     }
 
     if (detailsToUpdate.length > 0) {

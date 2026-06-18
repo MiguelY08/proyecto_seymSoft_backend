@@ -1,3 +1,7 @@
+import {
+  validatePurchaseReturnPeriod,
+} from "../helpers/purchaseReturnHelper.js";
+
 export class PurchaseReturnMapper {
   static toReturnStatus(status) {
     if (!status) return null;
@@ -83,6 +87,7 @@ export class PurchaseReturnMapper {
       phone: provider.phone ?? null,
       documentType: provider.document_type ?? null,
       documentNumber: provider.document_number ?? null,
+      maxReturnPeriod: provider.max_return_period ?? null,
       nit: provider.nit ?? null,
     };
   }
@@ -99,10 +104,23 @@ export class PurchaseReturnMapper {
   static toPurchase(purchase) {
     if (!purchase) return null;
 
+    const returnPeriod =
+      validatePurchaseReturnPeriod(purchase);
+
     return {
       id: purchase.id_purchase,
       invoiceNumber: purchase.invoice_number,
       purchaseDate: purchase.purchase_date,
+      maxReturnDate:
+        returnPeriod.meta?.maxReturnDate ??
+        purchase.max_return_date ??
+        null,
+      canRegisterReturns: returnPeriod.success,
+      returnPeriodStatus: {
+        success: returnPeriod.success,
+        errorCode: returnPeriod.errorCode,
+        message: returnPeriod.error,
+      },
       totalAmount: purchase.total_amount,
       providerId: purchase.id_provider,
       statusId: purchase.id_purchase_status,
@@ -162,10 +180,85 @@ export class PurchaseReturnMapper {
     };
   }
 
+  static toReturnStatusSummary(status) {
+    if (!status) return null;
+
+    return {
+      id: status.id_return_status,
+      name: status.name_status,
+    };
+  }
+
+  static toPurchaseSummary(purchase) {
+    if (!purchase) return null;
+
+    const returnPeriod =
+      validatePurchaseReturnPeriod(purchase);
+
+    return {
+      id: purchase.id_purchase,
+      invoiceNumber: purchase.invoice_number,
+      purchaseDate: purchase.purchase_date,
+      maxReturnDate:
+        returnPeriod.meta?.maxReturnDate ??
+        purchase.max_return_date ??
+        null,
+      canRegisterReturns: returnPeriod.success,
+      returnPeriodStatus: {
+        success: returnPeriod.success,
+        errorCode: returnPeriod.errorCode,
+        message: returnPeriod.error,
+      },
+      totalAmount: purchase.total_amount,
+      statusId: purchase.id_purchase_status,
+      status: purchase.purchase_statuses?.name_puchase_status ?? null,
+      provider: purchase.providers
+        ? {
+            id: purchase.providers.id_provider,
+            name: purchase.providers.name_provider,
+            maxReturnPeriod:
+              purchase.providers.max_return_period ?? null,
+          }
+        : null,
+    };
+  }
+
+  static toPurchaseReturnDetailSummary(detail) {
+    if (!detail) return null;
+
+    return {
+      id: detail.id_purchase_return_details,
+      purchaseReturnId: detail.id_purchase_return,
+      purchaseDetailId: detail.id_purchase_detail,
+      barcode: detail.barcode,
+      barcodeId:
+        detail.purchase_details?.id_barcode ?? null,
+      quantity: detail.quantity,
+      supplierDate: detail.supplier_date ?? null,
+      returnReasonId: detail.id_return_reason,
+      reason:
+        detail.return_reasons?.description ?? null,
+      returnMethodId: detail.id_return_method,
+      method:
+        detail.return_methods?.description ?? null,
+      returnStatusId: detail.id_return_status,
+      status:
+        detail.return_statuses?.name_status ?? null,
+      product: this.toProduct(detail.products),
+      stock:
+        detail.purchase_details?.barcodes?.stock ?? null,
+      statusHistory: detail.prsh?.map((history) =>
+        this.toDetailStatusHistory(history)
+      ) ?? [],
+    };
+  }
+
   static getProgress(details = []) {
     const total = details.length;
     const completed = details.filter(
-      (detail) => detail.return_statuses?.name_status === "Listo"
+      (detail) =>
+        detail.return_statuses?.name_status === "Listo" ||
+        Number(detail.id_return_status) === 4
     ).length;
 
     return {
@@ -196,6 +289,33 @@ export class PurchaseReturnMapper {
     };
   }
 
+  static toDetailResponse(purchaseReturn) {
+    if (!purchaseReturn) return null;
+
+    const details = purchaseReturn.prd ?? [];
+    const progress = this.getProgress(details);
+
+    return {
+      id: purchaseReturn.id_purchase_return,
+      purchaseId: purchaseReturn.id_purchase,
+      creationDate: purchaseReturn.creation_date,
+      returnStatusId: purchaseReturn.id_return_status,
+      status: this.toReturnStatusSummary(
+        purchaseReturn.return_statuses
+      ),
+      progress,
+      purchase: this.toPurchaseSummary(
+        purchaseReturn.purchases
+      ),
+      details: details.map((detail) =>
+        this.toPurchaseReturnDetailSummary(detail)
+      ),
+      statusHistory: purchaseReturn.hsp?.map((history) =>
+        this.toPurchaseReturnStatusHistory(history)
+      ) ?? [],
+    };
+  }
+
   static toListResponse(purchaseReturn) {
     if (!purchaseReturn) return null;
 
@@ -207,9 +327,15 @@ export class PurchaseReturnMapper {
       purchaseId: purchaseReturn.id_purchase,
       invoiceNumber: purchaseReturn.purchases?.invoice_number ?? null,
       creationDate: purchaseReturn.creation_date,
-      status: this.toReturnStatus(purchaseReturn.return_statuses),
+      statusId: purchaseReturn.id_return_status,
+      status: purchaseReturn.return_statuses?.name_status ?? null,
       progress,
-      provider: this.toProvider(purchaseReturn.purchases?.providers),
+      provider: purchaseReturn.purchases?.providers
+        ? {
+            id: purchaseReturn.purchases.providers.id_provider,
+            name: purchaseReturn.purchases.providers.name_provider,
+          }
+        : null,
       totalDetails: progress.total,
       completedDetails: progress.completed,
     };

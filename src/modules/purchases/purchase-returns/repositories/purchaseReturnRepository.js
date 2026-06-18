@@ -7,10 +7,10 @@ export class PurchaseReturnRepository {
       where: {
         id_purchase_return: idPurchaseReturn,
       },
-      include: this.getDefaultInclude(),
+      select: this.getByIdSelect(),
     });
 
-    return PurchaseReturnMapper.toResponse(purchaseReturn);
+    return PurchaseReturnMapper.toDetailResponse(purchaseReturn);
   }
 
   static async findRawById(idPurchaseReturn) {
@@ -463,19 +463,32 @@ export class PurchaseReturnRepository {
     };
   }
 
-  static async countByStatus(idReturnStatus) {
-    return prisma.purchases_returns.count({
-      where: {
-        id_return_status: idReturnStatus,
-      },
-    });
-  }
-
   static async getMetrics() {
-    const total = await prisma.purchases_returns.count();
+    const groupedByStatus =
+      await prisma.purchases_returns.groupBy({
+        by: ["id_return_status"],
+        _count: {
+          id_purchase_return: true,
+        },
+      });
+
+    const byStatus =
+      groupedByStatus.reduce((acc, item) => {
+        acc[item.id_return_status] =
+          item._count.id_purchase_return;
+
+        return acc;
+      }, {});
+
+    const total =
+      Object.values(byStatus).reduce(
+        (sum, count) => sum + count,
+        0
+      );
 
     return {
       total,
+      byStatus,
     };
   }
 
@@ -519,19 +532,135 @@ export class PurchaseReturnRepository {
     };
   }
 
-  static getListInclude() {
+  static getByIdSelect() {
     return {
-      return_statuses: true,
+      id_purchase_return: true,
+      id_purchase: true,
+      creation_date: true,
+      id_return_status: true,
+      return_statuses: {
+        select: {
+          id_return_status: true,
+          name_status: true,
+        },
+      },
       purchases: {
-        include: {
-          providers: true,
-          purchase_statuses: true,
+        select: {
+          id_purchase: true,
+          invoice_number: true,
+          purchase_date: true,
+          max_return_date: true,
+          total_amount: true,
+          id_provider: true,
+          id_purchase_status: true,
+          providers: {
+            select: {
+              id_provider: true,
+              name_provider: true,
+              max_return_period: true,
+            },
+          },
+          purchase_statuses: {
+            select: {
+              id_purchase_status: true,
+              name_puchase_status: true,
+            },
+          },
         },
       },
       prd: {
-        include: {
-          return_statuses: true,
-          purchase_details: true,
+        select: {
+          id_purchase_return_details: true,
+          id_purchase_return: true,
+          id_purchase_detail: true,
+          barcode: true,
+          quantity: true,
+          supplier_date: true,
+          id_return_reason: true,
+          id_return_method: true,
+          id_return_status: true,
+          id_product: true,
+          return_reasons: {
+            select: {
+              id_return_reason: true,
+              description: true,
+            },
+          },
+          return_methods: {
+            select: {
+              id_return_method: true,
+              description: true,
+            },
+          },
+          return_statuses: {
+            select: {
+              id_return_status: true,
+              name_status: true,
+            },
+          },
+          products: {
+            select: {
+              id_product: true,
+              name: true,
+              reference: true,
+            },
+          },
+          purchase_details: {
+            select: {
+              id_purchase_detail: true,
+              id_barcode: true,
+              barcodes: {
+                select: {
+                  id_barcode: true,
+                  stock: true,
+                },
+              },
+            },
+          },
+          prsh: {
+            select: {
+              id_status_history: true,
+              id_detail: true,
+              status: true,
+              status_date: true,
+            },
+          },
+        },
+      },
+      hsp: {
+        select: {
+          id_history_status_purchase: true,
+          id_purchase_return: true,
+          id_purchase_status: true,
+          id_purchase_detail: true,
+          status_date: true,
+        },
+      },
+    };
+  }
+
+  static getListInclude() {
+    return {
+      return_statuses: {
+        select: {
+          id_return_status: true,
+          name_status: true,
+        },
+      },
+      purchases: {
+        select: {
+          invoice_number: true,
+          providers: {
+            select: {
+              id_provider: true,
+              name_provider: true,
+            },
+          },
+        },
+      },
+      prd: {
+        select: {
+          id_return_status: true,
         },
       },
     };
