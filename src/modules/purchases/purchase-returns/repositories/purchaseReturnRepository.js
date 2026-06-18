@@ -243,7 +243,6 @@ export class PurchaseReturnRepository {
             })),
           },
         },
-        include: this.getDefaultInclude(),
       });
 
       for (const detail of data.details) {
@@ -273,7 +272,7 @@ export class PurchaseReturnRepository {
       return purchaseReturn;
     });
 
-    return PurchaseReturnMapper.toResponse(created);
+    return this.findById(created.id_purchase_return);
   }
 
   static async addDetails(idPurchaseReturn, details) {
