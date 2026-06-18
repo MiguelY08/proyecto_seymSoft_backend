@@ -20,11 +20,14 @@ import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes/supplierPurchaseRoutes.js";
+import purchaseReturnRoutes from "./modules/purchases/purchase-returns/routes/purchaseReturnRoutes.js";
+import nonconformingRoutes from "./modules/purchases/non-conforming-products/routes/nonConformingRoutes.js";
 
 import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
+import indicatorsRoutes from "./modules/performance/indicators/routes/indicatorRoutes.js";
 
 const app = express();
 
@@ -87,10 +90,10 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/supplier-purchases", supplierPurchaseRoutes);
+app.use("/api/purchase-returns", purchaseReturnRoutes);
+app.use('/api/non-conforming-products', nonconformingRoutes);
 
-/**
- * Rutas de banners
- */
+/* Rutas de banners */
 app.use("/api/banners", bannerRoutes);
 
 /* Rutas de roles */
@@ -104,6 +107,10 @@ app.use("/api/vendings", vendingRoutes);
 
 /* Rutas de pagos y abonos */
 app.use("/api/payments", paymentsRoutes);
+
+/* Rutas de Dashboard e indicadores */
+
+app.use("/api/indicators", indicatorsRoutes);
 
 /* Middleware global de errores (siempre al final) */
 app.use(errorMiddleware);

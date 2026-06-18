@@ -87,71 +87,75 @@ export class CreateInstallmentUseCase {
       );
     }
 
-    const {
-      capitalPaid,
-      interestPaid,
-    } =
-      calculateInstallmentDistribution({
-        installmentAmount:
-          Number(
-            installment_amount
-          ),
-        pendingInterest,
-        pendingCapital,
-      });
+  const {
+  capitalPaid,
+  interestPaid,
+} =
+  calculateInstallmentDistribution({
+    installmentAmount:
+      Number(installment_amount),
+    pendingInterest,
+    pendingCapital,
+  });
 
-    const newRemainingBalance =
-      pendingCapital - capitalPaid;
+const client =
+  await this.paymentsRepository.getClientById(
+    credit.id_customer
+  );
 
-    const statuses =
-      await this.paymentsRepository.getCreditStatusesMap();
+const newRemainingBalance =
+  pendingCapital - capitalPaid;
 
-    const creditStatus =
-      calculateCreditStatus({
-        remainingBalance:
-          newRemainingBalance,
+const newClientBalance =
+  Number(client.credit_balance ?? 0) +
+  capitalPaid;
 
-        dueDate:
-          credit.due_date,
+const statuses =
+  await this.paymentsRepository.getCreditStatusesMap();
 
-        pendingStatus:
-          statuses.pending,
+const creditStatus =
+  calculateCreditStatus({
+    remainingBalance:
+      newRemainingBalance,
 
-        paidStatus:
-          statuses.paid,
+    dueDate:
+      credit.due_date,
 
-        overdueStatus:
-          statuses.overdue,
-      });
+    pendingStatus:
+      statuses.pending,
 
-    const installment =
-      await this.paymentsRepository.processInstallment(
-        {
-          installmentData: {
-            id_credit,
+    paidStatus:
+      statuses.paid,
 
-            id_payment_method,
+    overdueStatus:
+      statuses.overdue,
+  });
 
-            installment_amount,
+const installment =
+    await this.paymentsRepository.processInstallment({
+      installmentData: {
+        id_credit,
+        id_payment_method,
+        installment_amount,
+        capital_paid: capitalPaid,
+        interest_paid: interestPaid,
+        observations,
+      },
 
-            capital_paid:
-              capitalPaid,
+      id_credit,
 
-            interest_paid:
-              interestPaid,
+      remaining_balance:
+        newRemainingBalance,
 
-            observations,
-          },
+      id_credit_status:
+        creditStatus,
 
-          id_credit,
+      id_customer:
+        credit.id_customer,
 
-          remaining_balance:
-            newRemainingBalance,
-
-          id_credit_status:
-            creditStatus,
-        }
-      );
+      credit_balance:
+        newClientBalance,
+    });
 
     return {
       message:

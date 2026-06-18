@@ -35,6 +35,7 @@ export const CREDIT_STATUSES = {
   2: { id: 2, name: "Pagado" },
   3: { id: 3, name: "Vencido" },
 };
+
 export const CLIENT_TYPES = {
   RETAIL: "detal",
   WHOLESALE: "mayorista",
@@ -43,10 +44,59 @@ export const CLIENT_TYPES = {
   BULK: "paca",
   BULKS: "pacas",
 };
+
 export const ORDER_PAYMENT_EXPIRATION = {
   HOURS_TO_PAY: 48,
   REMINDER_6H: 6,
   REMINDER_1H: 1,
 };
 
+// Constantes para devoluciones en compras y ventas
+export const PURCHASE_STATUSES = {
+  1: { id: 1, name: "Completada"},
+  2: { id: 2, name: "Proc. devolución" },
+  3: { id: 3, name: "Anulada" },
+  4: { id: 4, name: "Completada (*)" },
+  5: { id: 5, name: "Completada (!)" },
+  6: { id: 6, name: "Proc. devolución (!)" },
+};
 
+export const RETURN_STATUSES = {
+  1: {
+    id: 1,
+    name: "Pend. envío",
+    p_description: "Enviar productos al proveedor",
+    s_description: "Esp. envío del cliente"
+  },
+  2: {
+    id: 2,
+    name: "Pend. reemplazo",
+    p_description: "Esp. reemplazo/s del proveedor",
+    s_description: "Enviar reemplazo/s al cliente"
+  },
+  3: {
+    id: 3,
+    name: "Pend. reembolso",
+    p_description: "Esp. reembolso del proveedor",
+    s_description: "Enviar reembolso al cliente"
+  },
+  4: {
+    id: 4,
+    name: "Listo",
+    p_description: "Reemplazos-Reembolso recibido/s",
+    s_description: "Reemplazos/Reembolso enviados al cliente"
+  },
+};
+
+export const RETURN_METHODS = {
+  1: { id: 1, description: "Reemplazo" },
+  2: { id: 2, description: "Reembolso" },
+  3: { id: 3, description: "Prod. no conforme" },
+};
+
+export const RETURN_REASONS = {
+  1: { id: 1, description: "Prod. en mal estado" },
+  2: { id: 2, description: "Insatisfecho" },
+  3: { id: 3, description: "Prod. incorrecto" },
+  4: { id: 4, description: "Otro motivo" },
+};

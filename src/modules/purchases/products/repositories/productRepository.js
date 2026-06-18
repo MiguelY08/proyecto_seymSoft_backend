@@ -23,7 +23,7 @@ const productInclude = {
   select: {
     ...productSelect,
     categories: { select: { id_category: true, category_name: true } },
-    unit_measures: { select: { id_unit_measure: true, name_unit_measure: true } },
+    unit_measures: { select: { id_unit_measure: true, name_unit_measure: true, abbreviation: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
     barcodes: {
       select: { id_barcode: true, barcode: true, barcode_type: true, stock: true },
@@ -102,6 +102,38 @@ export class ProductRepository {
         ...(excludeProductId ? { NOT: { id_product: excludeProductId } } : {}),
       },
       include: { products: true },
+    });
+  }
+
+  async findUnitMeasureById(id) {
+    return prisma.unit_measures.findUnique({
+      where: { id_unit_measure: parseInt(id) },
+      select: { id_unit_measure: true },
+    });
+  }
+
+  async findAllUnitMeasures() {
+    return prisma.unit_measures.findMany({
+      select: {
+        id_unit_measure: true,
+        name_unit_measure: true,
+        abbreviation: true,
+      },
+      orderBy: { id_unit_measure: "asc" },
+    });
+  }
+
+  async findCategoryById(id) {
+    return prisma.categories.findUnique({
+      where: { id_category: parseInt(id) },
+      select: { id_category: true },
+    });
+  }
+
+  async findStatusById(id) {
+    return prisma.general_statuses.findUnique({
+      where: { id_status: parseInt(id) },
+      select: { id_status: true },
     });
   }
 
