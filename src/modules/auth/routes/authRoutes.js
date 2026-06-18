@@ -10,6 +10,8 @@ import { ForgotPasswordController } from "../controllers/forgotPasswordControlle
 import { ResetPasswordController } from "../controllers/resetPasswordController.js";
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
 import { GoogleAuthController } from "../controllers/googleAuthController.js";
+import { ChangePasswordController } from "../controllers/changePasswordController.js";
+
 
 
 const router = express.Router();
@@ -40,6 +42,9 @@ router.post("/validate-code", ResetPasswordController.validateCode);
 
 // POST /auth/reset-password
 router.post("/reset-password", ResetPasswordController.resetPassword);
+
+// POST /auth/change-password (protected)
+router.post("/change-password",authMiddleware, ChangePasswordController.changePassword);
 
 // ===== GOOGLE OAUTH =====
 // GET /auth/google - Redirige a Google para autorizar

@@ -8,6 +8,8 @@ export default class CreditCustomerMapper {
 
       fullName: data.fullName,
 
+      doc_number: data.doc_number,
+
       phone: serializeBigInt(data.phone),
 
       assignedCredit: data.assignedCredit,

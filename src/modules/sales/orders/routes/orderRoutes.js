@@ -7,6 +7,7 @@ import {
   cancelOrder,
   registerOrderPayment,
 } from '../controllers/orderControllers.js';
+import { authMiddleware } from '../../../../shared/middlewares/authMiddleware.js';
 
 const router = Router();
 
@@ -17,7 +18,7 @@ router.post('/', createOrder);
 router.get('/', getAllOrders);
 
 // Registrar pago o abono de un pedido
-router.post('/:id/payments', registerOrderPayment);
+router.post('/:id/payments', authMiddleware, registerOrderPayment);
 
 // Obtener pedido por ID
 router.get('/:id', getOrderById);

@@ -1,4 +1,6 @@
 import { httpCodes } from '../../../../shared/constants/httpCodes.js';
+import { ORDER_STATUSES } from '../../../../shared/constants/generalStatuses.js';
+import { AppError } from '../../../../shared/errors/appError.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
@@ -20,6 +22,14 @@ export const createOrder = async (req, res, next) => {
   try {
     // Normalizar y validar datos de entrada con DTO.
     const dto = new CreateOrderDto(req.body);
+
+    if (Number(dto.idOrderStatus) === ORDER_STATUSES[3].id) {
+      throw new AppError(
+        'Los pedidos entregados deben registrarse desde el flujo de venta directa.',
+        httpCodes.BAD_REQUEST
+      );
+    }
+
     const data = await new CreateOrderUseCase(repo).execute(dto);
 
     res.status(httpCodes.CREATED).json({
@@ -135,7 +145,10 @@ export const registerOrderPayment = async (req, res, next) => {
 
     const data = await new RegisterOrderPaymentUseCase(repo).execute(
       paramsValidation.data.id,
-      bodyValidation.data
+      bodyValidation.data,
+      {
+        idUser: req.user?.id_user || req.user?.idUser || null,
+      }
     );
 
     const message = data.paymentSummary?.isPaid

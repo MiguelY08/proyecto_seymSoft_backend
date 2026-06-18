@@ -25,24 +25,47 @@ export class GetCustomerContactUseCase {
 
     const customer = overdueCredits[0].clients;
 
+    const lastPayment =
+      credits
+        .flatMap(
+          (credit) =>
+            credit.installments || []
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.installment_date) -
+            new Date(a.installment_date)
+      )[0];
+
     const result = {
       idClient: customer.id_client,
 
       fullName: customer.users.full_name,
 
-      phone: serializeBigInt(customer.users.phone),
+      phone: serializeBigInt(
+        customer.users.phone
+      ),
 
-      overdueCredits: overdueCredits.map((credit) => ({
-        idCredit: credit.id_credit,
+      lastPaymentDate:
+        lastPayment?.installment_date ??
+        null,
 
-        idSale: credit.id_sale,
+      overdueCredits: overdueCredits.map(
+        (credit) => ({
+          idCredit: credit.id_credit,
 
-        remainingBalance: Number(credit.remaining_balance),
+          idSale: credit.id_sale,
 
-        overdueDays: calculateOverdueDays({
-          dueDate: credit.due_date,
-        }),
-      })),
+          remainingBalance: Number(
+            credit.remaining_balance
+          ),
+
+          overdueDays:
+            calculateOverdueDays({
+              dueDate: credit.due_date,
+            }),
+        })
+      ),
     };
 
     return CustomerContactMapper.toDto(result);

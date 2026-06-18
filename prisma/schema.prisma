@@ -175,14 +175,14 @@ model hsp {
 
 model installments {
   id_installment      Int             @id(map: "abonos_pkey") @default(autoincrement())
-  installment_amount  Decimal         @db.Decimal(12, 2)
+  installment_amount  Decimal
   installment_date    DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_payment_method   Int
   observations        String?         @db.VarChar(255)
   id_credit           Int
   cancelled_at        DateTime?
-  capital_paid        Decimal         @default(0) @db.Decimal(12, 2)
-  interest_paid       Decimal         @default(0) @db.Decimal(12, 2)
+  capital_paid        Decimal         @default(0)
+  interest_paid       Decimal         @default(0)
   is_cancelled        Boolean         @default(false)
   created_at          DateTime        @default(now())
   cancellation_reason String?         @db.VarChar(255)
@@ -624,6 +624,15 @@ model sales_returns {
   id_sale              Int
   creation_date        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_return_status     Int
+  return_number        String?                @unique @db.VarChar(50)
+  total_amount         Decimal?               @default(0) @db.Decimal(12, 2)
+  total_products       Int?                   @default(0)
+  total_units          Int?                   @default(0)
+  description          String?
+  returnable_sale_data Json?
+  cancellation_reason  String?                @db.VarChar(255)
+  cancelled_at         DateTime?              @db.Timestamp(6)
+  updated_at           DateTime?              @default(now()) @db.Timestamp(6)
   sale_return_details  sale_return_details[]
   sale_return_evidence sale_return_evidence[]
   return_statuses      return_statuses        @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_estado_devolucion_fkey")

@@ -15,7 +15,7 @@ export class UserRepository {
           email:
             data.email,
           pass_word:
-            data.password,
+            data.password || data.pass_word,
           phone:
             data.phone,
           id_status:
@@ -380,7 +380,8 @@ export class UserRepository {
         email: true,
         creation_date: true,
         phone: true,
-        id_status: true
+        id_status: true,
+        pass_word: true,
       }
     });
   }
