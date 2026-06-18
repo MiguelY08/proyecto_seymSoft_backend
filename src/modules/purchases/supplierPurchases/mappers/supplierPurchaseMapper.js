@@ -1,5 +1,25 @@
 // backend/src/modules/supplier-purchases/mappers/supplierPurchaseMapper.js
 export class SupplierPurchaseMapper {
+  static #toDateOnly(date) {
+    if (!date) return null;
+
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) return null;
+
+    return new Date(
+      parsedDate.getFullYear(),
+      parsedDate.getMonth(),
+      parsedDate.getDate()
+    );
+  }
+
+  static #canRegisterReturns(maxReturnDate) {
+    const limitDate = this.#toDateOnly(maxReturnDate);
+    if (!limitDate) return false;
+
+    const today = this.#toDateOnly(new Date());
+    return today <= limitDate;
+  }
 
   // ─── Detail mapper ──────────────────────────────────────────────────────────
   static detailToDTO(detail) {
@@ -41,9 +61,11 @@ export class SupplierPurchaseMapper {
       totalQuantity:    purchase.total_quantity || 0,
       providerId:       purchase.id_provider,
       providerName:     purchase.providers?.name_provider              ?? null,
+      providerMaxReturnPeriod: purchase.providers?.max_return_period   ?? null,
       statusId:         purchase.id_purchase_status,
       status:           purchase.purchase_statuses?.name_puchase_status ?? null,
       maxReturnDate:    purchase.max_return_date,
+      canRegisterReturns: SupplierPurchaseMapper.#canRegisterReturns(purchase.max_return_date),
     };
   }
 

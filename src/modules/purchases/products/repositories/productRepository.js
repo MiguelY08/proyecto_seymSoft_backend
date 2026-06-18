@@ -1,7 +1,5 @@
 import { prisma } from "../../../../config/prisma.js";
 
-// ─── Reusable includes ────────────────────────────────────────────────────────
-
 const productSelect = {
   id_product: true,
   name: true,
@@ -31,33 +29,48 @@ const productInclude = {
     },
     product_images: {
       select: { id_image: true, image_url: true, is_primary: true },
-      orderBy: { is_primary: 'desc' },
+      orderBy: { is_primary: "desc" },
     },
-    // ← AGREGAR ESTO
     product_categories: {
       select: {
         id_product_category: true,
         id_category: true,
-        categories: { select: { id_category: true, category_name: true } }
+        categories: { select: { id_category: true, category_name: true } },
       },
     },
     product_subcategories: {
       select: {
         id_product_subcategory: true,
         id_subcategory: true,
-        subcategories: { select: { id_subcategory: true, name_subcategory: true } }
+        subcategories: { select: { id_subcategory: true, name_subcategory: true } },
       },
     },
   },
-};// ─── Product repository ────────────────────────────────────────────────────────
+};
+
+const parseNumberOrNull = (value) => {
+  if (value === null || value === "") return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const parseNumber = (value) => {
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const parseIntOrZero = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
 
 export class ProductRepository {
-
   async findAll(filters = {}) {
     const where = {};
 
     if (filters.active !== undefined) {
-      where.id_status = filters.active ? 1 : 2;
+      const isActive = filters.active === true || filters.active === "true" || filters.active === "1";
+      where.id_status = isActive ? 1 : 2;
     }
 
     if (filters.categoryId) {
@@ -138,201 +151,206 @@ export class ProductRepository {
   }
 
   async create(data) {
-  return prisma.$transaction(async (tx) => {
-    const product = await tx.products.create({
-      data: {
-        name: data.name,
-        reference: data.reference,
-        retail_price: parseFloat(data.retailPrice),
-        wholesale_price: parseFloat(data.wholesalePrice),
-        partner_price: data.partnerPrice ? parseFloat(data.partnerPrice) : null,
-        bulk_price: data.bulkPrice ? parseFloat(data.bulkPrice) : null,
-        iva_percentage: parseFloat(data.ivaPercentage) || 0,
-        retail_discount_pct: parseFloat(data.retailDiscountPct) || 0,
-        wholesale_discount_pct: parseFloat(data.wholesaleDiscountPct) || 0,
-        partner_discount_pct: parseFloat(data.partnerDiscountPct) || 0,
-        bulk_discount_pct: parseFloat(data.bulkDiscountPct) || 0,
-        description: data.description || null,
-        quantity_per_pack: parseInt(data.quantityPerPack) || 0,
-        categories: {
-          connect: { id_category: parseInt(data.idCategorie) }
+    return prisma.$transaction(async (tx) => {
+      const product = await tx.products.create({
+        data: {
+          name: data.name,
+          reference: data.reference,
+          retail_price: parseNumber(data.retailPrice),
+          wholesale_price: parseNumber(data.wholesalePrice),
+          partner_price: parseNumberOrNull(data.partnerPrice),
+          bulk_price: parseNumberOrNull(data.bulkPrice),
+          iva_percentage: parseNumber(data.ivaPercentage),
+          retail_discount_pct: parseNumber(data.retailDiscountPct),
+          wholesale_discount_pct: parseNumber(data.wholesaleDiscountPct),
+          partner_discount_pct: parseNumber(data.partnerDiscountPct),
+          bulk_discount_pct: parseNumber(data.bulkDiscountPct),
+          description: data.description || null,
+          quantity_per_pack: parseIntOrZero(data.quantityPerPack),
+          categories: {
+            connect: { id_category: parseInt(data.idCategorie) },
+          },
+          general_statuses: {
+            connect: { id_status: data.idStatus || 1 },
+          },
+          unit_measures: {
+            connect: { id_unit_measure: parseInt(data.idUnitMeasure) },
+          },
         },
-        general_statuses: {
-          connect: { id_status: data.idStatus || 1 }
-        },
-        unit_measures: {
-          connect: { id_unit_measure: parseInt(data.idUnitMeasure) }
-        }
-      },
-    });
-
-    // Crear barcodes asociados
-    if (data.barcodes && data.barcodes.length > 0) {
-      await tx.barcodes.createMany({
-        data: data.barcodes.map((b) => ({
-          barcode: b.barcode,
-          barcode_type: b.barcode_type || "EAN13",
-          stock: parseInt(b.stock) || 0,
-          id_product: product.id_product,
-        })),
       });
-    }
 
-    // ← AGREGAR ESTO: Crear relaciones con categorías adicionales
-    if (data.categories && data.categories.length > 0) {
-      await tx.product_categories.createMany({
-        data: data.categories.map((catId) => ({
-          id_product: product.id_product,
-          id_category: parseInt(catId),
-        })),
-      });
-    }
+      if (data.barcodes && data.barcodes.length > 0) {
+        await tx.barcodes.createMany({
+          data: data.barcodes.map((b) => ({
+            barcode: String(b.barcode),
+            barcode_type: b.barcode_type || "EAN13",
+            stock: parseIntOrZero(b.stock),
+            id_product: product.id_product,
+          })),
+        });
+      }
 
-    // ← AGREGAR ESTO: Crear relaciones con subcategorías
-    if (data.subcategories && data.subcategories.length > 0) {
-      await tx.product_subcategories.createMany({
-        data: data.subcategories.map((subId) => ({
-          id_product: product.id_product,
-          id_subcategory: parseInt(subId),
-        })),
-      });
-    }
-
-    return tx.products.findUnique({
-      where: { id_product: product.id_product },
-      ...productInclude,
-    });
-  });
-}
-
-async update(id, data) {
-  return prisma.$transaction(async (tx) => {
-    const updateData = {};
-      
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.reference !== undefined) updateData.reference = data.reference;
-    if (data.retailPrice !== undefined) updateData.retail_price = parseFloat(data.retailPrice);
-    if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseFloat(data.wholesalePrice);
-    if (data.partnerPrice !== undefined) updateData.partner_price = data.partnerPrice ? parseFloat(data.partnerPrice) : null;
-    if (data.bulkPrice !== undefined) updateData.bulk_price = data.bulkPrice ? parseFloat(data.bulkPrice) : null;
-    if (data.retailDiscountPct !== undefined)
-    updateData.retail_discount_pct = parseFloat(data.retailDiscountPct);
-    if (data.wholesaleDiscountPct !== undefined)
-      updateData.wholesale_discount_pct = parseFloat(data.wholesaleDiscountPct);
-    if (data.partnerDiscountPct !== undefined)
-      updateData.partner_discount_pct = parseFloat(data.partnerDiscountPct);
-    if (data.bulkDiscountPct !== undefined)
-  updateData.bulk_discount_pct = parseFloat(data.bulkDiscountPct);
-    if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseFloat(data.ivaPercentage);
-    if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
-    if (data.idCategorie !== undefined) updateData.id_category = parseInt(data.idCategorie);  // ← Cambiar idCategory a idCategorie
-    if (data.idStatus !== undefined) updateData.id_status = data.idStatus;
-    if (data.description !== undefined) updateData.description = data.description;  // ← AGREGAR ESTO
-    if (data.quantityPerPack !== undefined) updateData.quantity_per_pack = parseInt(data.quantityPerPack);  // ← AGREGAR ESTO
-
-    // Actualizar producto
-    const updated = await tx.products.update({
-      where: { id_product: parseInt(id) },
-      data: updateData,
-    });
-
-    // ← AGREGAR ESTO: Actualizar categorías
-    if (data.categories !== undefined) {
-      await tx.product_categories.deleteMany({ where: { id_product: parseInt(id) } });
-      if (data.categories.length > 0) {
+      if (data.categories && data.categories.length > 0) {
         await tx.product_categories.createMany({
           data: data.categories.map((catId) => ({
-            id_product: parseInt(id),
+            id_product: product.id_product,
             id_category: parseInt(catId),
           })),
         });
       }
-    }
 
-    // ← AGREGAR ESTO: Actualizar subcategorías
-    if (data.subcategories !== undefined) {
-      await tx.product_subcategories.deleteMany({ where: { id_product: parseInt(id) } });
-      if (data.subcategories.length > 0) {
+      if (data.subcategories && data.subcategories.length > 0) {
         await tx.product_subcategories.createMany({
           data: data.subcategories.map((subId) => ({
-            id_product: parseInt(id),
+            id_product: product.id_product,
             id_subcategory: parseInt(subId),
           })),
         });
       }
-    }
 
-// Si vienen barcodes, actualizar en lugar de eliminar
-if (data.barcodes !== undefined && data.barcodes.length > 0) {
-  // Obtener barcodes actuales
-  const currentBarcodes = await tx.barcodes.findMany({
-    where: { id_product: parseInt(id) }
-  });
-
-  // Eliminar solo los que no están en la nueva lista
-  const newBarcodeCodes = data.barcodes.map(b => b.barcode);
-  const codesToDelete = currentBarcodes
-    .filter(b => !newBarcodeCodes.includes(b.barcode))
-    .map(b => b.id_barcode);
-
-  if (codesToDelete.length > 0) {
-    await tx.barcodes.deleteMany({
-      where: { id_barcode: { in: codesToDelete } }
+      return tx.products.findUnique({
+        where: { id_product: product.id_product },
+        ...productInclude,
+      });
     });
   }
 
-  // Crear solo los nuevos
-  const existingCodes = currentBarcodes.map(b => b.barcode);
-  const newBarcodes = data.barcodes.filter(b => !existingCodes.includes(b.barcode));
+  async update(id, data) {
+    return prisma.$transaction(async (tx) => {
+      const productId = parseInt(id);
+      const updateData = {};
 
-  if (newBarcodes.length > 0) {
-    await tx.barcodes.createMany({
-      data: newBarcodes.map((b) => ({
-        barcode: b.barcode,
-        barcode_type: b.barcode_type || "EAN13",
-        stock: parseInt(b.stock) || 0,
-        id_product: parseInt(id),
-      })),
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.reference !== undefined) updateData.reference = data.reference;
+      if (data.retailPrice !== undefined) updateData.retail_price = parseNumber(data.retailPrice);
+      if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseNumber(data.wholesalePrice);
+      if (data.partnerPrice !== undefined) updateData.partner_price = parseNumberOrNull(data.partnerPrice);
+      if (data.bulkPrice !== undefined) updateData.bulk_price = parseNumberOrNull(data.bulkPrice);
+      if (data.retailDiscountPct !== undefined) updateData.retail_discount_pct = parseNumber(data.retailDiscountPct);
+      if (data.wholesaleDiscountPct !== undefined) updateData.wholesale_discount_pct = parseNumber(data.wholesaleDiscountPct);
+      if (data.partnerDiscountPct !== undefined) updateData.partner_discount_pct = parseNumber(data.partnerDiscountPct);
+      if (data.bulkDiscountPct !== undefined) updateData.bulk_discount_pct = parseNumber(data.bulkDiscountPct);
+      if (data.ivaPercentage !== undefined) updateData.iva_percentage = parseNumber(data.ivaPercentage);
+      if (data.idUnitMeasure !== undefined) updateData.id_unit_measure = parseInt(data.idUnitMeasure);
+      if (data.idCategorie !== undefined) updateData.id_category = parseInt(data.idCategorie);
+      if (data.idStatus !== undefined) updateData.id_status = parseInt(data.idStatus);
+      if (data.description !== undefined) updateData.description = data.description || null;
+      if (data.quantityPerPack !== undefined) updateData.quantity_per_pack = parseIntOrZero(data.quantityPerPack);
+
+      await tx.products.update({
+        where: { id_product: productId },
+        data: updateData,
+      });
+
+      if (data.categories !== undefined) {
+        await tx.product_categories.deleteMany({ where: { id_product: productId } });
+        if (data.categories.length > 0) {
+          await tx.product_categories.createMany({
+            data: data.categories.map((catId) => ({
+              id_product: productId,
+              id_category: parseInt(catId),
+            })),
+          });
+        }
+      }
+
+      if (data.subcategories !== undefined) {
+        await tx.product_subcategories.deleteMany({ where: { id_product: productId } });
+        if (data.subcategories.length > 0) {
+          await tx.product_subcategories.createMany({
+            data: data.subcategories.map((subId) => ({
+              id_product: productId,
+              id_subcategory: parseInt(subId),
+            })),
+          });
+        }
+      }
+
+      if (data.barcodes !== undefined && data.barcodes.length > 0) {
+        const currentBarcodes = await tx.barcodes.findMany({
+          where: { id_product: productId },
+        });
+        const incomingCodes = data.barcodes.map((b) => String(b.barcode));
+        const codesToDelete = currentBarcodes
+          .filter((b) => !incomingCodes.includes(b.barcode))
+          .map((b) => b.id_barcode);
+
+        if (codesToDelete.length > 0) {
+          await tx.barcodes.deleteMany({
+            where: { id_barcode: { in: codesToDelete } },
+          });
+        }
+
+        const currentByCode = new Map(currentBarcodes.map((b) => [b.barcode, b]));
+
+        for (const barcode of data.barcodes) {
+          const code = String(barcode.barcode);
+          const existing = currentByCode.get(code);
+          const barcodeData = {
+            barcode_type: barcode.barcode_type || "EAN13",
+            stock: Math.max(0, parseIntOrZero(barcode.stock)),
+          };
+
+          if (existing) {
+            await tx.barcodes.update({
+              where: { id_barcode: existing.id_barcode },
+              data: barcodeData,
+            });
+          } else {
+            await tx.barcodes.create({
+              data: {
+                barcode: code,
+                ...barcodeData,
+                id_product: productId,
+              },
+            });
+          }
+        }
+      } else if (data.stock !== undefined) {
+        const firstBarcode = await tx.barcodes.findFirst({
+          where: { id_product: productId },
+          orderBy: { id_barcode: "asc" },
+        });
+
+        if (firstBarcode) {
+          await tx.barcodes.update({
+            where: { id_barcode: firstBarcode.id_barcode },
+            data: { stock: Math.max(0, parseIntOrZero(data.stock)) },
+          });
+        }
+      }
+
+      return tx.products.findUnique({
+        where: { id_product: productId },
+        ...productInclude,
+      });
     });
   }
-}
-    return tx.products.findUnique({
-      where: { id_product: parseInt(id) },
-      ...productInclude,
-    });
-  });
-}
 
   async toggleStatus(id) {
-  const product = await this.findById(id);
-  if (!product) throw new Error("Producto no encontrado");
+    const product = await this.findById(id);
+    if (!product) throw new Error("Producto no encontrado");
 
-  // Cambiar: product.id_status → product.general_statuses.id_status
-  const newStatus = product.general_statuses.id_status === 1 ? 2 : 1;
+    const newStatus = product.general_statuses.id_status === 1 ? 2 : 1;
 
-  return prisma.products.update({
-    where: { id_product: parseInt(id) },
-    data: { id_status: newStatus },
-    ...productInclude,
-  });
-}
+    return prisma.products.update({
+      where: { id_product: parseInt(id) },
+      data: { id_status: newStatus },
+      ...productInclude,
+    });
+  }
 
   async delete(id) {
     return prisma.$transaction(async (tx) => {
-      // Eliminar barcodes primero
       await tx.barcodes.deleteMany({ where: { id_product: parseInt(id) } });
-
-      // Luego el producto
       return tx.products.delete({ where: { id_product: parseInt(id) } });
     });
   }
 
-  // ── Stock management ────────────────────────────────────────────────────────
-
   async updateBarcodeStock(barcodeId, newStock) {
     return prisma.barcodes.update({
       where: { id_barcode: parseInt(barcodeId) },
-      data: { stock: Math.max(0, parseInt(newStock)) },
+      data: { stock: Math.max(0, parseIntOrZero(newStock)) },
     });
   }
 
@@ -346,13 +364,12 @@ if (data.barcodes !== undefined && data.barcodes.length > 0) {
   }
 
   async createProductImages(productId, imageUrls) {
-  return prisma.product_images.createMany({
-    data: imageUrls.map((url, idx) => ({
-      id_product: productId,
-      image_url: url,
-      is_primary: idx === 0,  // Primera imagen es principal
-    })),
-  });
+    return prisma.product_images.createMany({
+      data: imageUrls.map((url, idx) => ({
+        id_product: productId,
+        image_url: url,
+        is_primary: idx === 0,
+      })),
+    });
+  }
 }
-}
-

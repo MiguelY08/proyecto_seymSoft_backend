@@ -140,7 +140,7 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: true,
+      users: true,
 
       credits: {
         include: {
@@ -279,7 +279,7 @@ async getCreditBySaleId(id_sale) {
       installments: {
         include: {
           payment_methods: true,
-          cancelled_by_user: true,  // ✅ ESTA LÍNEA DEBE ESTAR
+          users: true,
         },
 
         orderBy: {
