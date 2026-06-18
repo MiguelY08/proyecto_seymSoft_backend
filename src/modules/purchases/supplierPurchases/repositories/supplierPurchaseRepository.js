@@ -4,7 +4,7 @@ import { prisma } from '../../../../config/prisma.js';
 // ─── Reusable includes ────────────────────────────────────────────────────────
 
 const purchaseInclude = {
-  providers:         { select: { name_provider: true } },
+  providers:         { select: { name_provider: true, max_return_period: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
   purchase_details: {
     select: { quantity: true }
@@ -12,7 +12,7 @@ const purchaseInclude = {
 };
 
 const purchaseWithDetailsInclude = {
-  providers:         { select: { name_provider: true } },
+  providers:         { select: { name_provider: true, max_return_period: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
   purchase_details: {
     include: {

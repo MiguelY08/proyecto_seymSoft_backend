@@ -53,6 +53,102 @@ const DETAIL_STATUS_FLOW_BY_METHOD = {
 
 const toNumber = (value) => Number(value || 0);
 
+const toDateOnly = (date) => {
+  if (!date) return null;
+
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return null;
+
+  return new Date(
+    parsedDate.getFullYear(),
+    parsedDate.getMonth(),
+    parsedDate.getDate()
+  );
+};
+
+const addDays = (date, days) => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + Number(days));
+  return result;
+};
+
+export const getPurchaseMaxReturnDate = (purchase) => {
+  const maxReturnDate =
+    toDateOnly(purchase?.max_return_date);
+
+  if (maxReturnDate) return maxReturnDate;
+
+  const purchaseDate =
+    toDateOnly(purchase?.purchase_date);
+  const maxReturnPeriod =
+    purchase?.providers?.max_return_period;
+
+  if (
+    !purchaseDate ||
+    maxReturnPeriod === null ||
+    maxReturnPeriod === undefined
+  ) {
+    return null;
+  }
+
+  return addDays(
+    purchaseDate,
+    maxReturnPeriod
+  );
+};
+
+export const validatePurchaseReturnPeriod = (
+  purchase,
+  currentDate = new Date()
+) => {
+  const maxReturnDate =
+    getPurchaseMaxReturnDate(purchase);
+
+  if (!maxReturnDate) {
+    return {
+      success: false,
+      errorCode: "PURCHASE_RETURN_PERIOD_NOT_CONFIGURED",
+      error: "La compra no tiene configurado un periodo valido para registrar devoluciones.",
+      meta: {
+        purchaseDate: purchase?.purchase_date ?? null,
+        maxReturnDate: purchase?.max_return_date ?? null,
+        maxReturnPeriod:
+          purchase?.providers?.max_return_period ?? null,
+      },
+    };
+  }
+
+  const today = toDateOnly(currentDate);
+
+  if (today > maxReturnDate) {
+    return {
+      success: false,
+      errorCode: "PURCHASE_RETURN_PERIOD_EXPIRED",
+      error: "El periodo permitido para registrar devoluciones de esta compra ya vencio.",
+      meta: {
+        currentDate: today,
+        maxReturnDate,
+        purchaseDate: purchase?.purchase_date ?? null,
+        maxReturnPeriod:
+          purchase?.providers?.max_return_period ?? null,
+      },
+    };
+  }
+
+  return {
+    success: true,
+    errorCode: null,
+    error: null,
+    meta: {
+      currentDate: today,
+      maxReturnDate,
+      purchaseDate: purchase?.purchase_date ?? null,
+      maxReturnPeriod:
+        purchase?.providers?.max_return_period ?? null,
+    },
+  };
+};
+
 export const calculateAvailableQuantity = ({
   purchasedQuantity,
   returnedQuantity = 0,
