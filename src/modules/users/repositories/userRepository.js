@@ -382,7 +382,6 @@ export class UserRepository {
         phone: true,
         id_status: true,
         pass_word: true,
-        token_version: true
       }
     });
   }
