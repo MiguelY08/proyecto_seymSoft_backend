@@ -84,7 +84,7 @@ export const RETURN_STATUSES = {
     id: 4,
     name: "Listo",
     p_description: "Reemplazos-Reembolso recibido/s",
-    s_description: "Reemplazos/Reembolso enviados al cliente"
+    s_description: "Reemplazos-Reembolso enviado/s al cliente"
   },
   5: {
     id: 5,
@@ -106,3 +106,20 @@ export const RETURN_REASONS = {
   3: { id: 3, description: "Prod. incorrecto" },
   4: { id: 4, description: "Otro motivo" },
 };
+
+// Unidades de medida
+export const UNIT_MEASURES = {
+  1: { id: 1, name: "Unidad", abbreviation: "UND" },
+  2: { id: 2, name: "Kilogramo", abbreviation: "KG" },
+  3: { id: 3, name: "Gramo", abbreviation: "GR" },
+  4: { id: 4, name: "Litro", abbreviation: "L" },
+  5: { id: 5, name: "Mililitro", abbreviation: "ML" },
+  6: { id: 6, name: "Metro", abbreviation: "M" },
+  7: { id: 7, name: "Centimetro", abbreviation: "CM" },
+  8: { id: 8, name: "Caja", abbreviation: "CJ" },
+  9: { id: 9, name: "Paquete", abbreviation: "PAQ" },
+  10: { id: 10, name: "Docena", abbreviation: "DOC" },
+  11: { id: 11, name: "Bolsa", abbreviation: "BOL" },
+  12: { id: 12, name: "Par", abbreviation: "PAR" },
+  13: {id: 13, name: "Kit", abbreviation: "KIT"},
+}

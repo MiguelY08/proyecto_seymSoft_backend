@@ -489,189 +489,88 @@ export class UserRepository {
   static async getUserWithRole(
     id_user
   ) {
-
-    const user =
-      await prisma.users.findUnique({
-
-        where: {
-          id_user
-        },
-
-        include: {
-
-          clients: {
-
-            select: {
-
-              id_client: true,
-
-              client_type: true
-
-            }
-
+    const user = await prisma.users.findUnique({
+      where: {
+        id_user
+      },
+      include: {
+        clients: {
+          select: {
+            id_client: true,
+            client_type: true
           }
-
         }
-        
-
       }
-    );
+    });
 
     if (!user) {
       return null;
     }
 
-    const client =
-
-      Array.isArray(user.clients)
-
+    const clientRecord = Array.isArray(user.clients)
       ? user.clients[0] || null
-
       : user.clients || null;
-      
-    const employee =
-      await prisma.employees.findUnique({
-        where: {
-          id_user
-        },
-        include: {
-          employee_roles: {
-            include: {
-              assigned_permissions: {
-                include: {
-                  roles: true
-                }
+    const client = clientRecord
+      ? {
+          idClient: clientRecord.id_client,
+          clientType: clientRecord.client_type
+        }
+      : null;
+
+    const employee = await prisma.employees.findUnique({
+      where: {
+        id_user
+      },
+      include: {
+        employee_roles: {
+          include: {
+            assigned_permissions: {
+              include: {
+                roles: true
               }
             }
           }
         }
-      });
-
-    if (!employee || !employee.employee_roles) {
-
-      return {
-
-        user:
-          UserMapper.toDomain(user),
-
-        role: null,
-
-        permissions: [],
-
-        client:
-
-          client
-
-            ? {
-
-                idClient:
-                  client.id_client,
-
-                clientType:
-                  client.client_type
-
-              }
-
-            : null
-
-      };
-
-    }
-
+      }
+    });
     const assignedPermission =
-      employee.employee_roles
-        ?.assigned_permissions;
+      employee?.employee_roles?.assigned_permissions || null;
 
     if (!assignedPermission) {
       return {
         user: UserMapper.toDomain(user),
         role: null,
         permissions: [],
+        client
       };
     }
 
-    const idRole =
-      assignedPermission.id_role;
+    const permissions = await prisma.assigned_permissions.findMany({
+      where: {
+        id_role: assignedPermission.id_role
+      },
+      include: {
+        modules: true,
+        privileges: true
+      }
+    });
 
-    const permissions =
-      await prisma.assigned_permissions.findMany({
-        where: {
-          id_role:
-            idRole
-        },
-        include: {
-          modules: true,
-          privileges: true
-        }
-      });
-
-return {
-
-  user:
-    UserMapper.toDomain(user),
-
-  role: {
-
-    idRole:
-      assignedPermission
-      .roles
-      .id_role,
-
-    nameRole:
-      assignedPermission
-      .roles
-      .name_role,
-
-    description:
-      assignedPermission
-      .roles
-      .description,
-
-    idStatus:
-      assignedPermission
-      .roles
-      .id_status
-
-  },
-
-  permissions:
-    permissions.map(
-      p => ({
-        idPermission:
-          p.id_permission,
-
-        idModule:
-          p.id_module,
-
-        module:
-          p.modules
-          .name_module,
-
-        idPrivilege:
-          p.id_privilege,
-
-        privilege:
-          p.privileges
-          .name_privilege
-      })
-    ),
-
-  client:
-
-    client
-
-      ? {
-
-          idClient:
-            client.id_client,
-
-          clientType:
-            client.client_type
-
-        }
-
-      : null
-
+    return {
+      user: UserMapper.toDomain(user),
+      role: {
+        idRole: assignedPermission.roles.id_role,
+        nameRole: assignedPermission.roles.name_role,
+        description: assignedPermission.roles.description,
+        idStatus: assignedPermission.roles.id_status
+      },
+      permissions: permissions.map((permission) => ({
+        idPermission: permission.id_permission,
+        idModule: permission.id_module,
+        module: permission.modules.name_module,
+        idPrivilege: permission.id_privilege,
+        privilege: permission.privileges.name_privilege
+      })),
+      client
     };
   }
 }

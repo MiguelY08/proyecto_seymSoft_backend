@@ -96,6 +96,34 @@ export const PRODUCT_IMAGE_CONFIG = {
 };
 
 /**
+ * Configuracion para comprobantes de pago.
+ * Conserva suficiente resolucion para que el administrador pueda leerlos.
+ */
+export const PAYMENT_RECEIPT_IMAGE_CONFIG = {
+  minWidth: 100,
+  minHeight: 100,
+
+  outputWidth: 1600,
+  outputHeight: 2000,
+
+  fit: "contain",
+  position: "center",
+
+  webpQuality: 92,
+
+  withBlurBackground: false,
+
+  background: {
+    r: 255,
+    g: 255,
+    b: 255,
+    alpha: 1,
+  },
+
+  prefix: "payment_receipt",
+};
+
+/**
  * Genera nombre único para la imagen.
  *
  * @param {string} prefix

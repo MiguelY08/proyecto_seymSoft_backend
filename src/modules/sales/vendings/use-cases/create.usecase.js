@@ -335,6 +335,7 @@ export const createVendingUseCase = async (params) => {
       vendingType,
       idEmployee,
       idUser,
+      dryRun = false,
       data,
     } = params;
 
@@ -694,6 +695,21 @@ export const createVendingUseCase = async (params) => {
             creditLimitValidation.errorCode,
         };
       }
+    }
+
+    if (dryRun) {
+      return {
+        success: true,
+        data: {
+          sale: null,
+          order:
+            rawOrder || createdOrder,
+          totals,
+          dryRun: true,
+        },
+        error: null,
+        errorCode: null,
+      };
     }
 
     if (createsOrderFromSale) {

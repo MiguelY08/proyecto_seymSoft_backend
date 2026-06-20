@@ -1,6 +1,7 @@
 import { UpdateProfileUseCase } from "../use-cases/updateProfileUseCase.js";
 import { updateProfileSchema } from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/index.js";
+import { UserRepository } from "../../users/repositories/userRepository.js";
 
 export class UpdateProfileController {
   static async updateProfile(req, res, next) {
@@ -28,11 +29,17 @@ export class UpdateProfileController {
         id_user,
         validatedData,
       );
+      const userWithRole = await UserRepository.getUserWithRole(id_user);
 
       const response = {
         success: true,
         message: "Profile updated successfully",
-        data: user,
+        data: {
+          user: userWithRole?.user ?? user,
+          role: userWithRole?.role ?? null,
+          permissions: userWithRole?.permissions ?? [],
+          client: userWithRole?.client ?? null,
+        },
       };
 
       if (requiresReLogin) {

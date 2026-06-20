@@ -67,6 +67,7 @@ export class GoogleLoginUseCase {
         user: userWithRole.user,
         role: userWithRole.role,
         permissions: userWithRole.permissions,
+        client: userWithRole.client,
         accessToken,
         refreshToken,
       };

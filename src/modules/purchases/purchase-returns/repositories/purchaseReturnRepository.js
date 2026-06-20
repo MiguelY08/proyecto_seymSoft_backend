@@ -18,7 +18,7 @@ export class PurchaseReturnRepository {
       where: {
         id_purchase_return: idPurchaseReturn,
       },
-      include: this.getDefaultInclude(),
+      select: this.getRawReturnSelect(),
     });
   }
 
@@ -27,7 +27,7 @@ export class PurchaseReturnRepository {
       where: {
         id_purchase: Number(idPurchase),
       },
-      include: this.getDefaultInclude(),
+      select: this.getRawReturnForPurchaseStatusSelect(),
     });
   }
 
@@ -133,23 +133,17 @@ export class PurchaseReturnRepository {
         id_purchase_return_details:
           Number(idPurchaseReturnDetail),
       },
-      include: {
-        purchases_returns: true,
-        return_reasons: true,
-        return_methods: true,
-        return_statuses: true,
-        products: true,
+      select: {
+        id_purchase_return_details: true,
+        id_purchase_return: true,
+        quantity: true,
+        id_return_method: true,
+        id_return_status: true,
         purchase_details: {
-          include: {
-            purchases: true,
-            barcodes: {
-              include: {
-                products: true,
-              },
-            },
+          select: {
+            id_barcode: true,
           },
         },
-        prsh: true,
       },
     });
   }
@@ -243,7 +237,6 @@ export class PurchaseReturnRepository {
             })),
           },
         },
-        include: this.getDefaultInclude(),
       });
 
       for (const detail of data.details) {
@@ -273,11 +266,11 @@ export class PurchaseReturnRepository {
       return purchaseReturn;
     });
 
-    return PurchaseReturnMapper.toResponse(created);
+    return this.findById(created.id_purchase_return);
   }
 
   static async addDetails(idPurchaseReturn, details) {
-    const updated = await prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       await tx.prd.createMany({
         data: details.map((detail) => ({
           id_purchase_return: idPurchaseReturn,
@@ -304,59 +297,29 @@ export class PurchaseReturnRepository {
           },
         });
       }
-
-      return tx.purchases_returns.findUnique({
-        where: {
-          id_purchase_return: idPurchaseReturn,
-        },
-        include: this.getDefaultInclude(),
-      });
     });
-
-    return PurchaseReturnMapper.toResponse(updated);
   }
 
   static async updateDetailStatus(idPurchaseReturnDetail, idReturnStatus) {
-    const updated = await prisma.prd.update({
+    return prisma.prd.update({
       where: {
         id_purchase_return_details: idPurchaseReturnDetail,
       },
       data: {
         id_return_status: idReturnStatus,
       },
-      include: {
-        return_reasons: true,
-        return_methods: true,
-        return_statuses: true,
-        products: true,
-        purchase_details: {
-          include: {
-            barcodes: {
-              include: {
-                products: true,
-              },
-            },
-          },
-        },
-        prsh: true,
-      },
     });
-
-    return PurchaseReturnMapper.toPurchaseReturnDetail(updated);
   }
 
   static async updateReturnStatus(idPurchaseReturn, idReturnStatus) {
-    const updated = await prisma.purchases_returns.update({
+    return prisma.purchases_returns.update({
       where: {
         id_purchase_return: idPurchaseReturn,
       },
       data: {
         id_return_status: idReturnStatus,
       },
-      include: this.getDefaultInclude(),
     });
-
-    return PurchaseReturnMapper.toResponse(updated);
   }
 
   static async updatePurchaseStatus(idPurchase, idPurchaseStatus) {
@@ -404,16 +367,13 @@ export class PurchaseReturnRepository {
         detailsToRestore || purchaseReturn.prd;
 
       for (const detail of stockDetails) {
-        const barcode = await tx.barcodes.findUnique({
-          where: {
-            barcode: detail.barcode,
-          },
-        });
+        const idBarcode =
+          detail.purchase_details?.id_barcode;
 
-        if (barcode) {
+        if (idBarcode) {
           await tx.barcodes.update({
             where: {
-              id_barcode: barcode.id_barcode,
+              id_barcode: idBarcode,
             },
             data: {
               stock: {
@@ -440,7 +400,6 @@ export class PurchaseReturnRepository {
         data: {
           id_return_status: idReturnStatus,
         },
-        include: this.getDefaultInclude(),
       });
 
       if (idPurchaseStatus) {
@@ -458,7 +417,7 @@ export class PurchaseReturnRepository {
     });
 
     return {
-      ...PurchaseReturnMapper.toResponse(cancelled),
+      ...(await this.findById(cancelled.id_purchase_return)),
       cancellationReason,
     };
   }
@@ -489,6 +448,61 @@ export class PurchaseReturnRepository {
     return {
       total,
       byStatus,
+    };
+  }
+
+  static getRawReturnSelect() {
+    return {
+      id_purchase_return: true,
+      id_purchase: true,
+      id_return_status: true,
+      return_statuses: {
+        select: {
+          name_status: true,
+        },
+      },
+      purchases: {
+        select: {
+          purchase_date: true,
+          max_return_date: true,
+          providers: {
+            select: {
+              max_return_period: true,
+            },
+          },
+        },
+      },
+      prd: {
+        select: {
+          id_purchase_return_details: true,
+          barcode: true,
+          quantity: true,
+          id_return_method: true,
+          id_return_status: true,
+          purchase_details: {
+            select: {
+              id_barcode: true,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  static getRawReturnForPurchaseStatusSelect() {
+    return {
+      id_purchase_return: true,
+      id_return_status: true,
+      return_statuses: {
+        select: {
+          name_status: true,
+        },
+      },
+      prd: {
+        select: {
+          id_return_status: true,
+        },
+      },
     };
   }
 

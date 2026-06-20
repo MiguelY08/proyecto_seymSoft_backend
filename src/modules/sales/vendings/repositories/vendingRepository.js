@@ -280,6 +280,7 @@ const annulmentSaleSelect = {
   subtotal: true,
   credits: {
     select: {
+      id_credit: true,
       id_customer: true,
       remaining_balance: true,
     },
