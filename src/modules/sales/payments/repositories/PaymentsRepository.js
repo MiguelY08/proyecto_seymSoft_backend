@@ -140,7 +140,7 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      users: true,
+      cancelled_by_user: true,  // ← Changed from: users: true
 
       credits: {
         include: {
@@ -258,9 +258,9 @@ async getInstallmentById(id_installment) {
     });
   }
 
-  /**
-   * Obtiene crédito a partir de una venta.
-   */
+/**
+ * Obtiene un crédito a partir de una venta.
+ */
 async getCreditBySaleId(id_sale) {
   return this.prisma.credits.findFirst({
     where: {
@@ -279,11 +279,40 @@ async getCreditBySaleId(id_sale) {
       installments: {
         include: {
           payment_methods: true,
-          users: true,
+          cancelled_by_user: true,  // ← Changed from: users: true
         },
 
         orderBy: {
           installment_date: "desc",
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Obtiene un abono específico.
+ */
+async getInstallmentById(id_installment) {
+  return this.prisma.installments.findUnique({
+    where: {
+      id_installment,
+    },
+
+    include: {
+      payment_methods: true,
+
+      cancelled_by_user: true,  // ← Changed from: users: true
+
+      credits: {
+        include: {
+          clients: {
+            include: {
+              users: true,
+            },
+          },
+
+          credit_interests: true,
         },
       },
     },

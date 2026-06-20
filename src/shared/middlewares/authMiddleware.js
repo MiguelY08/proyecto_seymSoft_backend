@@ -1,3 +1,4 @@
+
 import { verifyAccessToken } from "../../config/jwt.js";
 import { AppError } from "../errors/appError.js";
 import { prisma } from "../../config/prisma.js";
@@ -16,7 +17,6 @@ export const authMiddleware = async (req, res, next) => {
     }
 
     // El formato debe ser: "Bearer {token}"
-    // Dividimos por espacio y tomamos la segunda parte
     const parts = authHeader.split(" ");
 
     if (parts.length !== 2 || parts[0] !== "Bearer") {
@@ -31,21 +31,52 @@ export const authMiddleware = async (req, res, next) => {
     // Validar el token JWT
     const decoded = verifyAccessToken(token);
 
-    // Si el token no es válido o está expirado
     if (!decoded) {
-      throw new AppError("Token inválido o expirado", 401);
+      throw new AppError(
+        "Token inválido o expirado",
+        401,
+      );
     }
 
+    // Buscar usuario
     const user = await prisma.users.findUnique({
-      where: { id_user: decoded.id_user },
+      where: {
+        id_user: decoded.id_user,
+      },
     });
 
+    // Verificar que exista
     if (!user) {
-      throw new AppError("Usuario no encontrado", 401);
+      throw new AppError(
+        "Usuario no encontrado",
+        401,
+      );
     }
 
-    if (user.token_version !== decoded.tokenVersion) {
-      throw new AppError("Token inválido o expirado", 401);
+    // Estados permitidos para acceder al sistema
+    const ALLOWED_LOGIN_STATUSES = [1];
+
+    // Verificar que esté activo
+    if (
+      !ALLOWED_LOGIN_STATUSES.includes(
+        user.id_status
+      )
+    ) {
+      throw new AppError(
+        "Tu cuenta se encuentra inactiva. Contacta al administrador.",
+        401,
+      );
+    }
+
+    // Verificar token version
+    if (
+      user.token_version !==
+      decoded.tokenVersion
+    ) {
+      throw new AppError(
+        "Token inválido o expirado",
+        401,
+      );
     }
 
     // Token válido
@@ -54,15 +85,21 @@ export const authMiddleware = async (req, res, next) => {
       email: user.email,
     };
 
-    // Pasar al siguiente middleware o controller
     next();
+
   } catch (error) {
-    // Si es un AppError, pasar tal como está
+
     if (error instanceof AppError) {
       return next(error);
     }
 
-    // Si es otro error, convertir a AppError
-    next(new AppError(error.message || "Error de autenticación", 401));
+    next(
+      new AppError(
+        error.message ||
+          "Error de autenticación",
+        401,
+      ),
+    );
   }
 };
+

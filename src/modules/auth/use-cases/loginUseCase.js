@@ -32,6 +32,18 @@ export class LoginUseCase {
       );
     }
 
+    const ALLOWED_LOGIN_STATUSES = [1];
+
+    if (
+      !ALLOWED_LOGIN_STATUSES.includes(
+        user.id_status
+      )
+    ) {
+      throw new UnauthorizedError(
+        "Tu cuenta se encuentra inactiva. Contacta al administrador."
+      );
+    }
+
     // Validar contraseña
     const isPasswordValid =
       await comparePassword(
@@ -50,6 +62,7 @@ export class LoginUseCase {
       await UserRepository.getUserWithRole(
         user.id_user
       );
+
 
     // Generar tokens
     const accessToken =
@@ -84,6 +97,8 @@ export class LoginUseCase {
       user: userWithRole.user,
 
       role: userWithRole.role,
+
+      client: userWithRole.client,
 
       permissions: userWithRole.permissions.map(
         permission => ({

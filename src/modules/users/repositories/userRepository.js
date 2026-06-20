@@ -382,6 +382,7 @@ export class UserRepository {
         phone: true,
         id_status: true,
         pass_word: true,
+        token_version: true
       }
     });
   }
@@ -492,24 +493,43 @@ export class UserRepository {
 
     const user =
       await prisma.users.findUnique({
+
         where: {
           id_user
         },
-        select: {
-          id_user: true,
-          full_name: true,
-          email: true,
-          phone: true,
-          id_status: true,
-          creation_date: true,
-          token_version: true
+
+        include: {
+
+          clients: {
+
+            select: {
+
+              id_client: true,
+
+              client_type: true
+
+            }
+
+          }
+
         }
-      });
+        
+
+      }
+    );
 
     if (!user) {
       return null;
     }
 
+    const client =
+
+      Array.isArray(user.clients)
+
+      ? user.clients[0] || null
+
+      : user.clients || null;
+      
     const employee =
       await prisma.employees.findUnique({
         where: {
@@ -529,11 +549,34 @@ export class UserRepository {
       });
 
     if (!employee || !employee.employee_roles) {
+
       return {
-        user: UserMapper.toDomain(user),
+
+        user:
+          UserMapper.toDomain(user),
+
         role: null,
+
         permissions: [],
+
+        client:
+
+          client
+
+            ? {
+
+                idClient:
+                  client.id_client,
+
+                clientType:
+                  client.client_type
+
+              }
+
+            : null
+
       };
+
     }
 
     const assignedPermission =
@@ -563,46 +606,73 @@ export class UserRepository {
         }
       });
 
-    return {
-      user:
-        UserMapper.toDomain(
-          user
-        ),
-      role: {
-        idRole:
-          assignedPermission
-          .roles
-          .id_role,
-        nameRole:
-          assignedPermission
-          .roles
-          .name_role,
-        description:
-          assignedPermission
-          .roles
-          .description,
-        idStatus:
-          assignedPermission
-          .roles
-          .id_status
-      },
-      permissions:
-        permissions.map(
-          p => ({
-            idPermission:
-              p.id_permission,
-            idModule:
-              p.id_module,
-            module:
-              p.modules
-              .name_module,
-            idPrivilege:
-              p.id_privilege,
-            privilege:
-              p.privileges
-              .name_privilege
-          })
-        )
+return {
+
+  user:
+    UserMapper.toDomain(user),
+
+  role: {
+
+    idRole:
+      assignedPermission
+      .roles
+      .id_role,
+
+    nameRole:
+      assignedPermission
+      .roles
+      .name_role,
+
+    description:
+      assignedPermission
+      .roles
+      .description,
+
+    idStatus:
+      assignedPermission
+      .roles
+      .id_status
+
+  },
+
+  permissions:
+    permissions.map(
+      p => ({
+        idPermission:
+          p.id_permission,
+
+        idModule:
+          p.id_module,
+
+        module:
+          p.modules
+          .name_module,
+
+        idPrivilege:
+          p.id_privilege,
+
+        privilege:
+          p.privileges
+          .name_privilege
+      })
+    ),
+
+  client:
+
+    client
+
+      ? {
+
+          idClient:
+            client.id_client,
+
+          clientType:
+            client.client_type
+
+        }
+
+      : null
+
     };
   }
 }
