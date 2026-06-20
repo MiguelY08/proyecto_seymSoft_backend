@@ -16,11 +16,18 @@ export class ChangePasswordUseCase {
       throw new NotFoundError("User not found");
     }
 
+    console.log('📨 Intentando cambiar contraseña para:', user.email);
+    console.log('🔑 Password actual ingresado:', currentPassword);
+    console.log('🔐 Hash en BD:', user.pass_word);
+
     // Verificar contraseña actual
     const isCurrentPasswordValid = await comparePassword(
       currentPassword,
       user.pass_word,
     );
+
+    console.log('✅ ¿Password válida?', isCurrentPasswordValid);
+
     if (!isCurrentPasswordValid) {
       throw new UnauthorizedError("Current password is incorrect");
     }

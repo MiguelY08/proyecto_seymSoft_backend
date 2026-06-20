@@ -16,17 +16,13 @@ export const getPurchaseReturnMetricsUseCase = async () => {
     }
 
     const byStatus =
-      await Promise.all(
-        Object.values(RETURN_STATUSES).map(
-          async (status) => ({
-            id: status.id,
-            name: status.name,
-            total:
-              await PurchaseReturnRepository.countByStatus(
-                status.id
-              ),
-          })
-        )
+      Object.values(RETURN_STATUSES).map(
+        (status) => ({
+          id: status.id,
+          name: status.name,
+          total:
+            metrics.byStatus?.[status.id] ?? 0,
+        })
       );
 
     return {

@@ -1,6 +1,7 @@
 import {
   RETURN_DETAIL_STATUS_IDS,
   PURCHASE_STATUS_IDS,
+  validatePurchaseReturnPeriod,
   validateReturnQuantity,
 } from "../helpers/purchaseReturnHelper.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
@@ -168,6 +169,19 @@ export const createPurchaseReturnUseCase = async (data) => {
         data: null,
         error: "No se puede crear una devolucion para una compra anulada.",
         errorCode: "PURCHASE_ANNULLED",
+      };
+    }
+
+    const periodValidation =
+      validatePurchaseReturnPeriod(purchase);
+
+    if (!periodValidation.success) {
+      return {
+        success: false,
+        data: null,
+        error: periodValidation.error,
+        errorCode: periodValidation.errorCode,
+        meta: periodValidation.meta,
       };
     }
 

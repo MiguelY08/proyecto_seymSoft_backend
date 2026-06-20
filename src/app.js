@@ -9,6 +9,7 @@ import session from "express-session";
 import passport from "./config/google.js";
 
 import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
+import { authMiddleware } from "./shared/middlewares/authMiddleware.js";
 
 import authRoutes from "./modules/auth/routes/authRoutes.js";
 import userRoutes from "./modules/users/routes/userRoutes.js";
@@ -103,7 +104,7 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/clients", clientRoutes);
 
 /* Rutas de ventas */
-app.use("/api/vendings", vendingRoutes);
+app.use("/api/vendings", authMiddleware, vendingRoutes);
 
 /* Rutas de pagos y abonos */
 app.use("/api/payments", paymentsRoutes);

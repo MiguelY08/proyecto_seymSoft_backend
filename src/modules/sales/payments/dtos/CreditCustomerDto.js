@@ -4,6 +4,7 @@ export default class CreditCustomerDto {
   constructor({
     idClient,
     fullName,
+    doc_number,
     phone,
     assignedCredit,
     availableCredit,
@@ -14,6 +15,7 @@ export default class CreditCustomerDto {
   }) {
     this.idClient = idClient;
     this.fullName = fullName;
+    this.doc_number = doc_number;
     this.phone = serializeBigInt(phone);
     this.assignedCredit = assignedCredit;
     this.availableCredit = availableCredit;
