@@ -29,6 +29,7 @@ import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
 import indicatorsRoutes from "./modules/performance/indicators/routes/indicatorRoutes.js";
+import storefrontRoutes from "./modules/sales/storefront/routes/storefrontRoutes.js";
 
 const app = express();
 
@@ -102,6 +103,9 @@ app.use("/api/roles", roleRoutes);
 
 /* Rutas de clientes */
 app.use("/api/clients", clientRoutes);
+
+/* Carrito y favoritos del cliente autenticado */
+app.use("/api/storefront", storefrontRoutes);
 
 /* Rutas de ventas */
 app.use("/api/vendings", authMiddleware, vendingRoutes);

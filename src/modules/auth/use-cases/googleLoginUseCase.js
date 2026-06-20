@@ -4,6 +4,10 @@ import {
   generateRefreshToken,
 } from "../../../config/jwt.js";
 import { AuthRepository } from "../repositories/authRepository.js";
+import {
+  UnauthorizedError,
+  NotFoundError,
+} from "../../../shared/errors/index.js";
 
 /**
  * GOOGLE LOGIN USE CASE - ACTUALIZADO
@@ -15,42 +19,61 @@ import { AuthRepository } from "../repositories/authRepository.js";
  * - accessToken
  * - refreshToken
  */
+
 export class GoogleLoginUseCase {
   static async execute(user) {
     try {
-      // 1. Obtener usuario con rol y permisos
+      // 1. Obtener token_version de BD
+      const userFromDB = await UserRepository.findById(user.idUser);
+      
+      if (!userFromDB) {
+        throw new NotFoundError("Usuario no encontrado");
+      }
+
+      const ALLOWED_LOGIN_STATUSES = [1];
+  
+      if (
+        !ALLOWED_LOGIN_STATUSES.includes(
+          userFromDB.id_status
+        )
+      ) {
+        throw new UnauthorizedError(
+          "Tu cuenta se encuentra inactiva. Contacta al administrador."
+        );
+      }
+
+      // 2. Obtener usuario con rol y permisos
       const userWithRole = await UserRepository.getUserWithRole(user.idUser);
 
-      // 2. Generar tokens
+      // 3. Generar token con token_version CORRECTO de BD
       const accessToken = generateAccessToken(
         user.idUser,
         user.email,
-        user.token_version || 0,
+        userFromDB.token_version  //  Ahora tiene el valor correcto
       );
-      const refreshToken = generateRefreshToken(user.idUser);
 
-      // 3. Calcular fecha de expiración del refresh token (7 días)
+      const refreshToken = generateRefreshToken(user.idUser);
+      
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 7);
 
-      // 4. Guardar refresh token en BD
       await AuthRepository.createRefreshToken(
         user.idUser,
         refreshToken,
         expirationDate,
       );
 
-      // 5. Retornar con rol y permisos
       return {
         user: userWithRole.user,
         role: userWithRole.role,
         permissions: userWithRole.permissions,
+        client: userWithRole.client,
         accessToken,
         refreshToken,
       };
     } catch (error) {
       console.error("Error en GoogleLoginUseCase:", error);
-      throw new Error("Error al procesar login con Google");
+      throw  error ;
     }
   }
 }
