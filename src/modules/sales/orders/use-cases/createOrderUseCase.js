@@ -30,6 +30,27 @@ const buildPaymentDeadline = () => {
   );
 };
 
+const resolveAssignedEmployeeId = async (repo, dto) => {
+  const receivedEmployeeId = Number(dto.idEmployee);
+
+  if (receivedEmployeeId && !Number.isNaN(receivedEmployeeId)) {
+    const employeeById = await repo.findEmployeeById(receivedEmployeeId);
+    if (employeeById) return employeeById.id_employee;
+
+    const employeeByUser = await repo.findEmployeeByUserId(receivedEmployeeId);
+    if (employeeByUser) return employeeByUser.id_employee;
+  }
+
+  const userId = Number(dto.idUser);
+
+  if (userId && !Number.isNaN(userId)) {
+    const employeeByUser = await repo.findEmployeeByUserId(userId);
+    if (employeeByUser) return employeeByUser.id_employee;
+  }
+
+  return null;
+};
+
 const notifyOrderCreated = async (order) => {
   const mappedOrder = mapOrder(order);
   const customer = mappedOrder.customer;
@@ -63,6 +84,7 @@ export class CreateOrderUseCase {
 
   async prepare(dto) {
     const client = await this.repo.findClientById(dto.idClient);
+    const idEmployee = await resolveAssignedEmployeeId(this.repo, dto);
 
     if (!client) {
       throw new AppError('Cliente no encontrado.', 404);
@@ -151,6 +173,7 @@ export class CreateOrderUseCase {
 
     return {
       idClient: dto.idClient,
+      idEmployee,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
       idOrderStatus: dto.idOrderStatus || ORDER_STATUSES[1].id,

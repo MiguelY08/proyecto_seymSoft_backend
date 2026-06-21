@@ -994,6 +994,7 @@ export class VendingRepository {
       idPaymentMethod,
       idEmployee,
       idOrder,
+      search,
       dateFrom,
       dateTo,
       sortBy = "date",
@@ -1007,6 +1008,12 @@ export class VendingRepository {
 
     const skip =
       (parsedPage - 1) * parsedLimit;
+    const searchTerm =
+      String(search || "").trim();
+    const numericSearch =
+      searchTerm && /^\d+(\.\d+)?$/.test(searchTerm)
+        ? Number(searchTerm)
+        : null;
 
     const where = {
       ...(idSaleStatus && {
@@ -1032,6 +1039,106 @@ export class VendingRepository {
       ...(idOrder && {
         id_order:
           Number(idOrder),
+      }),
+      ...(searchTerm && {
+        OR: [
+          ...(numericSearch !== null
+            ? [
+                {
+                  id_sale:
+                    Number(numericSearch),
+                },
+                {
+                  id_order:
+                    Number(numericSearch),
+                },
+                {
+                  subtotal:
+                    numericSearch,
+                },
+                {
+                  sales_orders: {
+                    total:
+                      numericSearch,
+                  },
+                },
+              ]
+            : []),
+          {
+            employees: {
+              users: {
+                full_name: {
+                  contains:
+                    searchTerm,
+                  mode:
+                    "insensitive",
+                },
+              },
+            },
+          },
+          {
+            sales_orders: {
+              clients: {
+                users: {
+                  full_name: {
+                    contains:
+                      searchTerm,
+                    mode:
+                      "insensitive",
+                  },
+                },
+              },
+            },
+          },
+          {
+            sales_orders: {
+              clients: {
+                users: {
+                  email: {
+                    contains:
+                      searchTerm,
+                    mode:
+                      "insensitive",
+                  },
+                },
+              },
+            },
+          },
+          {
+            sale_payment_methods: {
+              some: {
+                payment_methods: {
+                  name_payment_method: {
+                    contains:
+                      searchTerm,
+                    mode:
+                      "insensitive",
+                  },
+                },
+              },
+            },
+          },
+          {
+            sale_statuses: {
+              name_status: {
+                contains:
+                  searchTerm,
+                mode:
+                  "insensitive",
+              },
+            },
+          },
+          {
+            sale_types: {
+              sale_type_name: {
+                contains:
+                  searchTerm,
+                mode:
+                  "insensitive",
+              },
+            },
+          },
+        ],
       }),
       ...((dateFrom || dateTo) && {
         sale_date: {

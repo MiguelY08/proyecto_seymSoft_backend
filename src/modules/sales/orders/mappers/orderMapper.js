@@ -89,6 +89,19 @@ export const mapOrder = (order) => {
     id: order.id_order,
     orderNumber: order.id_order,
     customerId: order.id_customer,
+    idEmployee: order.assigned_employee ?? order.employees?.id_employee ?? null,
+    advisor: order.employees
+      ? {
+          idEmployee: order.employees.id_employee,
+          user: order.employees.users
+            ? {
+                idUser: order.employees.users.id_user,
+                fullName: order.employees.users.full_name,
+                email: order.employees.users.email,
+              }
+            : null,
+        }
+      : null,
     customer: order.clients
       ? {
           id: order.clients.id_client,

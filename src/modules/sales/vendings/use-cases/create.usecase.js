@@ -458,7 +458,11 @@ export const createVendingUseCase = async (params) => {
     if (data.order) {
       try {
         preparedOrder =
-          await prepareOrder(data.order);
+          await prepareOrder({
+            ...data.order,
+            idEmployee: data.order.idEmployee ?? resolvedEmployeeId,
+            idUser: data.order.idUser ?? idUser,
+          });
 
         totals = {
           subtotal:

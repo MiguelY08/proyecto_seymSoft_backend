@@ -58,6 +58,18 @@ const orderInclude = {
         sale_date: true,
       },
     },
+    employees: {
+      select: {
+        id_employee: true,
+        users: {
+          select: {
+            id_user: true,
+            full_name: true,
+            email: true,
+          },
+        },
+      },
+    },
     order_details: {
       include: {
         products: {
@@ -97,8 +109,21 @@ const orderSummarySelect = {
   payment_expired_at: true,
   payment_expiration_reason: true,
   id_payment_status: true,
+  assigned_employee: true,
   cancellation_reason: true,
   cancelled_at: true,
+  employees: {
+    select: {
+      id_employee: true,
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
+        },
+      },
+    },
+  },
   clients: {
     select: {
       id_client: true,
@@ -179,8 +204,21 @@ const orderListSelect = {
   payment_expired_at: true,
   payment_expiration_reason: true,
   id_payment_status: true,
+  assigned_employee: true,
   cancellation_reason: true,
   cancelled_at: true,
+  employees: {
+    select: {
+      id_employee: true,
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
+        },
+      },
+    },
+  },
   clients: {
     select: {
       id_client: true,
@@ -408,6 +446,13 @@ export class OrderRepository {
             },
           },
           payment_deadline: data.paymentDeadline || data.payment_deadline || null,
+          ...(data.idEmployee && {
+            employees: {
+              connect: {
+                id_employee: Number(data.idEmployee),
+              },
+            },
+          }),
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
           total: data.total,
@@ -694,6 +739,22 @@ export class OrderRepository {
     return prisma.sales.findUnique({
       where: {
         id_order: Number(idOrder),
+      },
+    });
+  }
+
+  async findEmployeeById(idEmployee) {
+    return prisma.employees.findUnique({
+      where: {
+        id_employee: Number(idEmployee),
+      },
+    });
+  }
+
+  async findEmployeeByUserId(idUser) {
+    return prisma.employees.findUnique({
+      where: {
+        id_user: Number(idUser),
       },
     });
   }

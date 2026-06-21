@@ -6,6 +6,18 @@ import {
 export class CreateOrderDto {
   constructor(data) {
     this.idClient = data.idClient ?? data.id_client;
+    this.idEmployee =
+      data.idEmployee ??
+      data.id_employee ??
+      data.asesorId ??
+      data.advisorId ??
+      null;
+    this.idUser =
+      data.idUser ??
+      data.id_user ??
+      data.usuarioId ??
+      data.userId ??
+      null;
     this.idOrderStatus =
       data.idOrderStatus ??
       data.id_order_status ??
