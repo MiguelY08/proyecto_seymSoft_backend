@@ -120,6 +120,13 @@ async getInstallmentsByCredit(id_credit) {
 
     include: {
       payment_methods: true,
+
+      cancelled_by_user: {
+        select: {
+          id_user: true,
+          full_name: true,
+        },
+      },
     },
 
     orderBy: {
@@ -140,7 +147,12 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: true,  // ← Changed from: users: true
+      cancelled_by_user: {
+        select: {
+          id_user: true,
+          full_name: true,
+        },
+      },
 
       credits: {
         include: {
@@ -279,7 +291,13 @@ async getCreditBySaleId(id_sale) {
       installments: {
         include: {
           payment_methods: true,
-          cancelled_by_user: true,  // ← Changed from: users: true
+
+          cancelled_by_user: {
+            select: {
+              id_user: true,
+              full_name: true,
+            },
+          },
         },
 
         orderBy: {
