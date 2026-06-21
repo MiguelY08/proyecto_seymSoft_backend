@@ -27,7 +27,8 @@ export class ProfileController {
           user: result.user,
           role: result.role,
           permissions: result.permissions,
-          client:result.client
+          client:result.client,
+          requiresPasswordSetup:result.requiresPasswordSetup
         },
       });
  

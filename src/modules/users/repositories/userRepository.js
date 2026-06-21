@@ -1,5 +1,6 @@
 import { prisma } from "../../../config/prisma.js";
 import { UserMapper } from "../mappers/usersMapper.js";
+import { comparePassword }from "../../../shared/utils/hashPassword.js";
 
 export class UserRepository {
 
@@ -520,91 +521,105 @@ export class UserRepository {
 
     if (!user) {
       return null;
-    }
+    } 
 
-    const client =
+    //comparacion contraseña google id y contrasseña hasheada para modal de crear contraseña con google
+const requiresPasswordSetup =
+  user.id_google
+    ? await comparePassword(
+        "OAUTH_GOOGLE",
+        user.pass_word
+      )
+    : false;
 
-      Array.isArray(user.clients)
+const client =
+  Array.isArray(user.clients)
+    ? user.clients[0] || null
+    : user.clients || null;
 
-      ? user.clients[0] || null
-
-      : user.clients || null;
-      
-    const employee =
-      await prisma.employees.findUnique({
-        where: {
-          id_user
-        },
+const employee =
+  await prisma.employees.findUnique({
+    where: {
+      id_user
+    },
+    include: {
+      employee_roles: {
         include: {
-          employee_roles: {
+          assigned_permissions: {
             include: {
-              assigned_permissions: {
-                include: {
-                  roles: true
-                }
-              }
+              roles: true
             }
           }
         }
-      });
-
-    if (!employee || !employee.employee_roles) {
-
-      return {
-
-        user:
-          UserMapper.toDomain(user),
-
-        role: null,
-
-        permissions: [],
-
-        client:
-
-          client
-
-            ? {
-
-                idClient:
-                  client.id_client,
-
-                clientType:
-                  client.client_type
-
-              }
-
-            : null
-
-      };
-
+      }
     }
+  });
 
-    const assignedPermission =
-      employee.employee_roles
-        ?.assigned_permissions;
+if (!employee || !employee.employee_roles) {
 
-    if (!assignedPermission) {
-      return {
-        user: UserMapper.toDomain(user),
-        role: null,
-        permissions: [],
-      };
+  return {
+
+    user:
+      UserMapper.toDomain(user),
+
+    role: null,
+
+    permissions: [],
+
+    client:
+      client
+        ? {
+            idClient:
+              client.id_client,
+
+            clientType:
+              client.client_type
+          }
+        : null,
+
+    requiresPasswordSetup
+
+  };
+
+}
+
+const assignedPermission =
+  employee.employee_roles
+    ?.assigned_permissions;
+
+if (!assignedPermission) {
+
+  return {
+
+    user:
+      UserMapper.toDomain(user),
+
+    role: null,
+
+    permissions: [],
+
+    client: null,
+
+    requiresPasswordSetup
+
+  };
+
+}
+
+const idRole =
+  assignedPermission.id_role;
+
+const permissions =
+  await prisma.assigned_permissions.findMany({
+    where: {
+      id_role:
+        idRole
+    },
+    include: {
+      modules: true,
+      privileges: true
     }
-
-    const idRole =
-      assignedPermission.id_role;
-
-    const permissions =
-      await prisma.assigned_permissions.findMany({
-        where: {
-          id_role:
-            idRole
-        },
-        include: {
-          modules: true,
-          privileges: true
-        }
-      });
+  });
 
 return {
 
@@ -615,23 +630,23 @@ return {
 
     idRole:
       assignedPermission
-      .roles
-      .id_role,
+        .roles
+        .id_role,
 
     nameRole:
       assignedPermission
-      .roles
-      .name_role,
+        .roles
+        .name_role,
 
     description:
       assignedPermission
-      .roles
-      .description,
+        .roles
+        .description,
 
     idStatus:
       assignedPermission
-      .roles
-      .id_status
+        .roles
+        .id_status
 
   },
 
@@ -646,33 +661,30 @@ return {
 
         module:
           p.modules
-          .name_module,
+            .name_module,
 
         idPrivilege:
           p.id_privilege,
 
         privilege:
           p.privileges
-          .name_privilege
+            .name_privilege
       })
     ),
 
   client:
-
     client
-
       ? {
-
           idClient:
             client.id_client,
 
           clientType:
             client.client_type
-
         }
+      : null,
 
-      : null
+  requiresPasswordSetup
 
-    };
+};
   }
 }
