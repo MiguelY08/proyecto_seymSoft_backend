@@ -18,6 +18,7 @@ import categoryRoutes from "./modules/purchases/categories/routes/categoryRoutes
 import providerRoutes from "./modules/purchases/providers/routes/providerRoutes.js";
 import clientRoutes from "./modules/sales/clients/routes/clientRoutes.js";
 import vendingRoutes from "./modules/sales/vendings/routes/vendingRoutes.js";
+import returnRoutes from "./modules/sales/sales-returns/routes/returnRoutes.js";
 import productRoutes from "./modules/purchases/products/routes/productRoutes.js";
 import supplierPurchaseRoutes from "./modules/purchases/supplierPurchases/routes/supplierPurchaseRoutes.js";
 import purchaseReturnRoutes from "./modules/purchases/purchase-returns/routes/purchaseReturnRoutes.js";
@@ -88,6 +89,7 @@ app.use("/api/orders", orderRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
+app.use("/api/sales-returns", returnRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/supplier-purchases", supplierPurchaseRoutes);
 app.use("/api/purchase-returns", purchaseReturnRoutes);

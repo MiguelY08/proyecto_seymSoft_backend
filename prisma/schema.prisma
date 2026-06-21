@@ -61,22 +61,24 @@ model categories {
 }
 
 model clients {
-  id_client             Int            @id(map: "clientes_pkey") @default(autoincrement())
-  person_type           String         @db.VarChar(20)
-  rut                   Boolean?       @default(false)
-  codigo_ciu            String?        @db.VarChar(25)
-  address               String?        @db.VarChar(255)
+  id_client             Int                   @id(map: "clientes_pkey") @default(autoincrement())
+  person_type           String                @db.VarChar(20)
+  rut                   Boolean?              @default(false)
+  codigo_ciu            String?               @db.VarChar(25)
+  address               String?               @db.VarChar(255)
   contact_person_number BigInt?
-  contact_person_name   String?        @db.VarChar(255)
-  id_user               Int            @unique(map: "clientes_id_usuario_key")
-  client_type           String?        @db.VarChar(20)
-  credit                Decimal?       @db.Decimal(10, 2)
-  credit_balance        Decimal?       @db.Decimal(10, 2)
-  doc_type              String?        @db.VarChar
-  doc_number            String?        @db.VarChar(20)
-  users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
+  contact_person_name   String?               @db.VarChar(255)
+  id_user               Int                   @unique(map: "clientes_id_usuario_key")
+  client_type           String?               @db.VarChar(20)
+  credit                Decimal?              @db.Decimal(10, 2)
+  credit_balance        Decimal?              @db.Decimal(10, 2)
+  doc_type              String?               @db.VarChar
+  doc_number            String?               @db.VarChar(20)
+  client_favorites      client_favorites[]
+  users                 users                 @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
   credits               credits[]
   sales_orders          sales_orders[]
+  shopping_cart_items   shopping_cart_items[]
 }
 
 model credit_interests {
@@ -175,14 +177,14 @@ model hsp {
 
 model installments {
   id_installment      Int             @id(map: "abonos_pkey") @default(autoincrement())
-  installment_amount  Decimal         @db.Decimal(12, 2)
+  installment_amount  Decimal
   installment_date    DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_payment_method   Int
   observations        String?         @db.VarChar(255)
   id_credit           Int
   cancelled_at        DateTime?
-  capital_paid        Decimal         @default(0) @db.Decimal(12, 2)
-  interest_paid       Decimal         @default(0) @db.Decimal(12, 2)
+  capital_paid        Decimal         @default(0)
+  interest_paid       Decimal         @default(0)
   is_cancelled        Boolean         @default(false)
   created_at          DateTime        @default(now())
   cancellation_reason String?         @db.VarChar(255)
@@ -371,6 +373,7 @@ model products {
   partner_discount_pct   Decimal?                @default(0) @db.Decimal(5, 2)
   bulk_discount_pct      Decimal?                @default(0) @db.Decimal(5, 2)
   barcodes               barcodes[]
+  client_favorites       client_favorites[]
   order_details          order_details[]
   prd                    prd[]
   product_categories     product_categories[]
@@ -381,6 +384,7 @@ model products {
   categories             categories              @relation(fields: [id_category], references: [id_category], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_categoria_fkey")
   general_statuses       general_statuses        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_estado_fkey")
   unit_measures          unit_measures           @relation(fields: [id_unit_measure], references: [id_unit_measure], onDelete: NoAction, onUpdate: NoAction, map: "productos_id_unidad_medida_fkey")
+  shopping_cart_items    shopping_cart_items[]
 }
 
 model provider_categories {
@@ -542,6 +546,7 @@ model sale_return_details {
   id_return_status      Int
   cancellation_reason   String?         @db.VarChar(250)
   id_barcode            Int?
+  description           String?         @db.VarChar(255)
   hedv                  hedv[]
   sales_returns         sales_returns   @relation(fields: [id_sales_return], references: [id_sales_return], onDelete: NoAction, onUpdate: NoAction, map: "detalle_devolucion_venta_id_devolucion_venta_fkey")
   return_statuses       return_statuses @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "detalle_devolucion_venta_id_estado_devolucion_fkey")
@@ -590,33 +595,34 @@ model sales {
 }
 
 model sales_orders {
-  id_order                  Int              @id(map: "pedidos_venta_pkey") @default(autoincrement())
+  id_order                  Int                      @id(map: "pedidos_venta_pkey") @default(autoincrement())
   id_customer               Int
-  order_date                DateTime?        @default(dbgenerated("CURRENT_DATE")) @db.Date
+  order_date                DateTime?                @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_order_status           Int
-  delivery_adress           String?          @db.VarChar(255)
-  subtotal                  Decimal?         @default(0) @db.Decimal(12, 2)
-  iva_amount                Decimal?         @default(0) @db.Decimal(12, 2)
-  total                     Decimal?         @default(0) @db.Decimal(12, 2)
-  payment_status            String?          @default("Pendiente") @db.VarChar(20)
-  delivery_type             String?          @default("Recoge") @db.VarChar(20)
+  delivery_adress           String?                  @db.VarChar(255)
+  subtotal                  Decimal?                 @default(0) @db.Decimal(12, 2)
+  iva_amount                Decimal?                 @default(0) @db.Decimal(12, 2)
+  total                     Decimal?                 @default(0) @db.Decimal(12, 2)
+  payment_status            String?                  @default("Pendiente") @db.VarChar(20)
+  delivery_type             String?                  @default("Recoge") @db.VarChar(20)
   assigned_employee         Int?
-  payment_deadline          DateTime?        @db.Timestamp(6)
-  payment_reminder_6h_sent  Boolean          @default(false)
-  payment_reminder_1h_sent  Boolean          @default(false)
-  payment_expired_at        DateTime?        @db.Timestamp(6)
-  payment_expiration_reason String?          @db.VarChar(255)
+  payment_deadline          DateTime?                @db.Timestamp(6)
+  payment_reminder_6h_sent  Boolean                  @default(false)
+  payment_reminder_1h_sent  Boolean                  @default(false)
+  payment_expired_at        DateTime?                @db.Timestamp(6)
+  payment_expiration_reason String?                  @db.VarChar(255)
   id_payment_status         Int
-  cancellation_reason       String?          @db.VarChar(255)
-  cancelled_at              DateTime?        @db.Timestamp(6)
+  cancellation_reason       String?                  @db.VarChar(255)
+  cancelled_at              DateTime?                @db.Timestamp(6)
   hev                       hev?
   order_details             order_details[]
+  order_payment_receipts    order_payment_receipts[]
   order_payments            order_payments[]
   sales                     sales?
-  employees                 employees?       @relation(fields: [assigned_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_employee")
-  payment_statuses          payment_statuses @relation(fields: [id_payment_status], references: [id_payment_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_orders_payment_status")
-  clients                   clients          @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
-  order_statuses            order_statuses   @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
+  employees                 employees?               @relation(fields: [assigned_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_employee")
+  payment_statuses          payment_statuses         @relation(fields: [id_payment_status], references: [id_payment_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_sales_orders_payment_status")
+  clients                   clients                  @relation(fields: [id_customer], references: [id_client], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_cliente_fkey")
+  order_statuses            order_statuses           @relation(fields: [id_order_status], references: [id_order_status], onDelete: NoAction, onUpdate: NoAction, map: "pedidos_venta_id_estado_pedido_fkey")
 }
 
 model sales_returns {
@@ -624,6 +630,15 @@ model sales_returns {
   id_sale              Int
   creation_date        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_return_status     Int
+  return_number        String?                @unique @db.VarChar(50)
+  total_amount         Decimal?               @default(0) @db.Decimal(12, 2)
+  total_products       Int?                   @default(0)
+  total_units          Int?                   @default(0)
+  description          String?
+  returnable_sale_data Json?
+  cancellation_reason  String?                @db.VarChar(255)
+  cancelled_at         DateTime?              @db.Timestamp(6)
+  updated_at           DateTime?              @default(now()) @db.Timestamp(6)
   sale_return_details  sale_return_details[]
   sale_return_evidence sale_return_evidence[]
   return_statuses      return_statuses        @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_estado_devolucion_fkey")
@@ -664,4 +679,46 @@ model users {
   employees        employees?
   installments     installments[]
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+}
+
+model order_payment_receipts {
+  id_order_payment_receipt Int          @id @default(autoincrement())
+  id_order                 Int
+  image_url                String       @db.VarChar(500)
+  file_name                String?      @db.VarChar(255)
+  observations             String?      @db.VarChar(255)
+  verification_status      String       @default("Pendiente") @db.VarChar(20)
+  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
+  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
+
+  @@index([id_order], map: "idx_order_payment_receipts_id_order")
+}
+
+model client_favorites {
+  id_favorite Int      @id @default(autoincrement())
+  id_client   Int
+  id_product  Int
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  clients     clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_client")
+  products    products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_product")
+
+  @@unique([id_client, id_product], map: "uq_client_favorites_client_product")
+  @@index([id_client], map: "idx_client_favorites_client")
+  @@index([id_product], map: "idx_client_favorites_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shopping_cart_items {
+  id_cart_item Int      @id @default(autoincrement())
+  id_client    Int
+  id_product   Int
+  quantity     Int
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @default(now()) @db.Timestamp(6)
+  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
+  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
+
+  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
+  @@index([id_client], map: "idx_shopping_cart_items_client")
+  @@index([id_product], map: "idx_shopping_cart_items_product")
 }
