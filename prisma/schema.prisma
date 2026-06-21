@@ -60,28 +60,6 @@ model categories {
   subcategories       subcategories[]
 }
 
-model clients {
-  id_client             Int                   @id(map: "clientes_pkey") @default(autoincrement())
-  person_type           String                @db.VarChar(20)
-  rut                   Boolean?              @default(false)
-  codigo_ciu            String?               @db.VarChar(25)
-  address               String?               @db.VarChar(255)
-  contact_person_number BigInt?
-  contact_person_name   String?        @db.VarChar(255)
-  id_user               Int            @unique(map: "clientes_id_usuario_key")
-  client_type           String?        @db.VarChar(20)
-  credit                Decimal?       @db.Decimal(10, 2)
-  credit_balance        Decimal?       @db.Decimal(10, 2)
-  doc_type              String?        @db.VarChar
-  doc_number            String?        @db.VarChar(20)
-  users                 users          @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
-  client_favorites      client_favorites[]
-  shopping_cart_items   shopping_cart_items[]
-  credits               credits[]
-  sales_orders          sales_orders[]
-  shopping_cart_items   shopping_cart_items[]
-}
-
 model client_favorites {
   id_favorite Int      @id @default(autoincrement())
   id_client   Int
@@ -95,19 +73,25 @@ model client_favorites {
   @@index([id_product], map: "idx_client_favorites_product")
 }
 
-model shopping_cart_items {
-  id_cart_item Int      @id @default(autoincrement())
-  id_client    Int
-  id_product   Int
-  quantity     Int
-  created_at   DateTime @default(now()) @db.Timestamp(6)
-  updated_at   DateTime @updatedAt @db.Timestamp(6)
-  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
-  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
-
-  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
-  @@index([id_client], map: "idx_shopping_cart_items_client")
-  @@index([id_product], map: "idx_shopping_cart_items_product")
+model clients {
+  id_client             Int                   @id(map: "clientes_pkey") @default(autoincrement())
+  person_type           String                @db.VarChar(20)
+  rut                   Boolean?              @default(false)
+  codigo_ciu            String?               @db.VarChar(25)
+  address               String?               @db.VarChar(255)
+  contact_person_number BigInt?
+  contact_person_name   String?               @db.VarChar(255)
+  id_user               Int                   @unique(map: "clientes_id_usuario_key")
+  client_type           String?               @db.VarChar(20)
+  credit                Decimal?              @db.Decimal(10, 2)
+  credit_balance        Decimal?              @db.Decimal(10, 2)
+  doc_type              String?               @db.VarChar
+  doc_number            String?               @db.VarChar(20)
+  client_favorites      client_favorites[]
+  users                 users                 @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "clientes_id_usuario_fkey")
+  credits               credits[]
+  sales_orders          sales_orders[]
+  shopping_cart_items   shopping_cart_items[]
 }
 
 model credit_interests {
@@ -220,7 +204,7 @@ model installments {
   cancelled_by        Int?
   payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
   credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-  cancelled_by_user   users?          @relation("InstallmentsCancelledBy", fields: [cancelled_by], references: [id_user])
+  users               users?          @relation(fields: [cancelled_by], references: [id_user])
 }
 
 model modules {
@@ -254,6 +238,19 @@ model order_details {
   products        products     @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_producto")
 }
 
+model order_payment_receipts {
+  id_order_payment_receipt Int          @id @default(autoincrement())
+  id_order                 Int
+  image_url                String       @db.VarChar(500)
+  file_name                String?      @db.VarChar(255)
+  observations             String?      @db.VarChar(255)
+  verification_status      String       @default("Pendiente") @db.VarChar(20)
+  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
+  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
+
+  @@index([id_order], map: "idx_order_payment_receipts_id_order")
+}
+
 model order_payments {
   id_order_payment  Int             @id @default(autoincrement())
   id_order          Int
@@ -267,19 +264,6 @@ model order_payments {
   payment_methods   payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payments_payment_method")
 
   @@index([id_order], map: "idx_order_payments_id_order")
-}
-
-model order_payment_receipts {
-  id_order_payment_receipt Int          @id @default(autoincrement())
-  id_order                 Int
-  image_url                String       @db.VarChar(500)
-  file_name                String?      @db.VarChar(255)
-  observations             String?      @db.VarChar(255)
-  verification_status      String       @default("Pendiente") @db.VarChar(20)
-  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
-  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
-
-  @@index([id_order], map: "idx_order_payment_receipts_id_order")
 }
 
 model order_statuses {
@@ -416,7 +400,6 @@ model products {
   bulk_discount_pct      Decimal?                @default(0) @db.Decimal(5, 2)
   barcodes               barcodes[]
   client_favorites       client_favorites[]
-  shopping_cart_items    shopping_cart_items[]
   order_details          order_details[]
   prd                    prd[]
   product_categories     product_categories[]
@@ -688,6 +671,22 @@ model sales_returns {
   sales                sales                  @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_venta_fkey")
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shopping_cart_items {
+  id_cart_item Int      @id @default(autoincrement())
+  id_client    Int
+  id_product   Int
+  quantity     Int
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @default(now()) @db.Timestamp(6)
+  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
+  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
+
+  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
+  @@index([id_client], map: "idx_shopping_cart_items_client")
+  @@index([id_product], map: "idx_shopping_cart_items_product")
+}
+
 model subcategories {
   id_subcategory        Int                     @id(map: "subcategorias_pkey") @default(autoincrement())
   name_subcategory      String                  @db.VarChar(100)
@@ -708,60 +707,18 @@ model unit_measures {
 }
 
 model users {
-  id_user                   Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  full_name                 String            @db.VarChar(255)
-  email                     String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
-  pass_word                 String            @db.VarChar(255)
-  creation_date             DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  phone                     BigInt?
-  id_status                 Int?
-  token_version             Int               @default(0)
-  id_google                 String?
-  access                    access[]
-  clients                   clients?
-  employees                 employees?
-  installments_cancelled_by installments[]    @relation("InstallmentsCancelledBy")
-  general_statuses          general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model order_payment_receipts {
-  id_order_payment_receipt Int          @id @default(autoincrement())
-  id_order                 Int
-  image_url                String       @db.VarChar(500)
-  file_name                String?      @db.VarChar(255)
-  observations             String?      @db.VarChar(255)
-  verification_status      String       @default("Pendiente") @db.VarChar(20)
-  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
-  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
-
-  @@index([id_order], map: "idx_order_payment_receipts_id_order")
-}
-
-model client_favorites {
-  id_favorite Int      @id @default(autoincrement())
-  id_client   Int
-  id_product  Int
-  created_at  DateTime @default(now()) @db.Timestamp(6)
-  clients     clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_client")
-  products    products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_product")
-
-  @@unique([id_client, id_product], map: "uq_client_favorites_client_product")
-  @@index([id_client], map: "idx_client_favorites_client")
-  @@index([id_product], map: "idx_client_favorites_product")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model shopping_cart_items {
-  id_cart_item Int      @id @default(autoincrement())
-  id_client    Int
-  id_product   Int
-  quantity     Int
-  created_at   DateTime @default(now()) @db.Timestamp(6)
-  updated_at   DateTime @default(now()) @db.Timestamp(6)
-  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
-  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
-
-  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
-  @@index([id_client], map: "idx_shopping_cart_items_client")
-  @@index([id_product], map: "idx_shopping_cart_items_product")
+  id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
+  full_name        String            @db.VarChar(255)
+  email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
+  pass_word        String            @db.VarChar(255)
+  creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  phone            BigInt?
+  id_status        Int?
+  token_version    Int               @default(0)
+  id_google        String?
+  access           access[]
+  clients          clients?
+  employees        employees?
+  installments     installments[]
+  general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
