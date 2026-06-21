@@ -209,6 +209,24 @@ export const resetPasswordSchema = z
   });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+
+  currentPassword: z
+    .string()
+    .optional(),
+
+  newPassword: z
+    .string()
+    .min(
+      8,
+      "La contraseña debe tener al menos 8 caracteres"
+    )
+    .regex(
+      /[A-Z]/,
+      "La contraseña debe contener al menos una mayúscula"
+    )
+    .regex(
+      /[0-9]/,
+      "La contraseña debe contener al menos un número"
+    ),
+
 });

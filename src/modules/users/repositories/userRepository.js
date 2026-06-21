@@ -383,6 +383,7 @@ export class UserRepository {
         phone: true,
         id_status: true,
         pass_word: true,
+        id_google: true,
         token_version: true
       }
     });
@@ -491,33 +492,19 @@ export class UserRepository {
   static async getUserWithRole(
     id_user
   ) {
-
-    const user =
-      await prisma.users.findUnique({
-
-        where: {
-          id_user
-        },
-
-        include: {
-
-          clients: {
-
-            select: {
-
-              id_client: true,
-
-              client_type: true
-
-            }
-
+    const user = await prisma.users.findUnique({
+      where: {
+        id_user
+      },
+      include: {
+        clients: {
+          select: {
+            id_client: true,
+            client_type: true
           }
-
         }
-        
-
       }
-    );
+    });
 
     if (!user) {
       return null;
