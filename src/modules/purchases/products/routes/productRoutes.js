@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { authMiddleware} from "../../../../shared/middlewares/authMiddleware.js"
+
 import {
   createProduct,
   getAllProducts,
