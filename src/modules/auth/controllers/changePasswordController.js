@@ -1,6 +1,9 @@
 import { ChangePasswordUseCase } from "../use-cases/changePasswordUseCase.js";
 import { ChangePasswordDto } from "../dtos/changePasswordDto.js";
-import { changePasswordSchema } from "../validators/authValidators.js";
+import {
+  changePasswordSchema,
+  getZodIssues,
+} from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/validationError.js";
 
 
@@ -11,7 +14,7 @@ export class ChangePasswordController {
       if (!validationResult.success) {
         throw new ValidationError(
           "Validation failed",
-          validationResult.error.errors,
+          getZodIssues(validationResult.error),
         );
       }
 

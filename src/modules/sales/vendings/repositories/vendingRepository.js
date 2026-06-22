@@ -250,6 +250,60 @@ const getCreditAmount = (paymentMethods = []) => {
   return Number(creditPayment?.amount || 0);
 };
 
+const groupQuantitiesByBarcode = (details = []) =>
+  Array.from(
+    details.reduce((grouped, detail) => {
+      const barcode = String(detail.barcode || "").trim();
+      const quantity = Number(detail.quantity || 0);
+
+      if (!barcode || quantity <= 0) {
+        return grouped;
+      }
+
+      grouped.set(
+        barcode,
+        (grouped.get(barcode) || 0) + quantity
+      );
+
+      return grouped;
+    }, new Map()),
+    ([barcode, quantity]) => ({
+      barcode,
+      quantity,
+    })
+  );
+
+const decreaseStockAtomically = async (tx, details = []) => {
+  const groupedDetails =
+    groupQuantitiesByBarcode(details);
+
+  for (const detail of groupedDetails) {
+    const result =
+      await tx.barcodes.updateMany({
+        where: {
+          barcode:
+            detail.barcode,
+          stock: {
+            gte:
+              detail.quantity,
+          },
+        },
+        data: {
+          stock: {
+            decrement:
+              detail.quantity,
+          },
+        },
+      });
+
+    if (result.count !== 1) {
+      throw new Error(
+        `Stock insuficiente para el codigo de barras ${detail.barcode}`
+      );
+    }
+  }
+};
+
 const buildCreditData = ({ data, idCustomer, creditAmount }) => {
   if (creditAmount <= 0) {
     return null;
@@ -426,6 +480,11 @@ export class VendingRepository {
             },
             select: {
               id_customer: true,
+              sales: {
+                select: {
+                  id_sale: true,
+                },
+              },
               clients: {
                 select: {
                   id_client: true,
@@ -454,6 +513,10 @@ export class VendingRepository {
 
         if (!order) {
           throw new Error("Pedido no encontrado");
+        }
+
+        if (order.sales) {
+          throw new Error("El pedido ya tiene una venta asociada");
         }
 
         const creditData =
@@ -542,21 +605,9 @@ export class VendingRepository {
         }
 
         if (data.decreaseStock) {
-          await Promise.all(
-            (data.orderDetails || []).map((detail) =>
-              tx.barcodes.updateMany({
-                where: {
-                  barcode:
-                    detail.barcode,
-                },
-                data: {
-                  stock: {
-                    decrement:
-                      detail.quantity,
-                  },
-                },
-              })
-            )
+          await decreaseStockAtomically(
+            tx,
+            data.orderDetails || []
           );
         }
 

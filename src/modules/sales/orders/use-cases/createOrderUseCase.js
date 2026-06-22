@@ -3,9 +3,11 @@ import {
   ORDER_STATUSES,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
+  SALE_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
+import { VendingRepository } from '../../vendings/repositories/vendingRepository.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import {
   calculateOrderTotals,
@@ -13,6 +15,17 @@ import {
 } from '../helpers/orderHelpers.js';
 
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
+const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
+const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
+const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
+const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
+const APPROVED_SALE_STATUS_ID = SALE_STATUSES[1].id;
+const DIRECT_SALE_TYPE_NAME = 'DIRECTA';
+const PAID_ORDER_ALLOWED_STATUS_IDS = [
+  READY_ORDER_STATUS_ID,
+  DELIVERED_ORDER_STATUS_ID,
+];
 
 const roundMoney = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -170,13 +183,35 @@ export class CreateOrderUseCase {
     const paymentStatus = isPaid
       ? PAYMENT_STATUSES[2]
       : PAYMENT_STATUSES[1];
+    const idOrderStatus = Number(dto.idOrderStatus || IN_PROCESS_ORDER_STATUS_ID);
+
+    if (isPaid && !PAID_ORDER_ALLOWED_STATUS_IDS.includes(idOrderStatus)) {
+      throw new AppError(
+        'Un pedido pagado al registrarse solo puede quedar en estado Listo o Entregado.',
+        400
+      );
+    }
+
+    if (!isPaid && idOrderStatus === DELIVERED_ORDER_STATUS_ID) {
+      throw new AppError(
+        'Un pedido con pago parcial no puede registrarse como Entregado.',
+        400
+      );
+    }
+
+    if (idOrderStatus === CANCELLED_ORDER_STATUS_ID) {
+      throw new AppError(
+        'Para cancelar un pedido debe usar la ruta de cancelacion y enviar un motivo.',
+        400
+      );
+    }
 
     return {
       idClient: dto.idClient,
       idEmployee,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
-      idOrderStatus: dto.idOrderStatus || ORDER_STATUSES[1].id,
+      idOrderStatus,
       idPaymentStatus: paymentStatus.id,
       paymentStatus: paymentStatus.name,
       paymentDeadline: isPaid ? null : dto.paymentDeadline || buildPaymentDeadline(),
@@ -196,8 +231,75 @@ export class CreateOrderUseCase {
     return mapOrder(order);
   }
 
+  async createPaidOrderWithDirectSale(orderData) {
+    if (!orderData.idEmployee) {
+      throw new AppError(
+        'Debe asociar un empleado para registrar una venta directa desde un pedido pagado.',
+        400
+      );
+    }
+
+    const saleType = await VendingRepository.findSaleTypeByName(
+      DIRECT_SALE_TYPE_NAME
+    );
+
+    if (!saleType) {
+      throw new AppError('El tipo de venta DIRECTA no existe.', 404);
+    }
+
+    const order = await this.repo.create(orderData);
+
+    try {
+      await VendingRepository.create({
+        idOrder: order.id_order,
+        idEmployee: orderData.idEmployee,
+        subtotal: orderData.subtotal,
+        idSaleStatus: APPROVED_SALE_STATUS_ID,
+        idSaleType: saleType.id_sale_type,
+        paymentMethods: orderData.initialPayments.map((payment) => ({
+          idPaymentMethod: payment.idPaymentMethod,
+          amount: payment.amount,
+        })),
+        orderDetails: orderData.items,
+        decreaseStock: true,
+        markOrderAsPaid: false,
+      });
+    } catch (error) {
+      await this.repo.deleteCreatedOrder(order.id_order);
+
+      if (
+        error.code === 'P2002' ||
+        error.message?.includes('venta asociada')
+      ) {
+        throw new AppError(
+          'El pedido ya tiene una venta asociada.',
+          409
+        );
+      }
+
+      if (error.message?.includes('Stock insuficiente')) {
+        throw new AppError(
+          error.message,
+          409
+        );
+      }
+
+      throw error;
+    }
+
+    const orderWithSale = await this.repo.findSummaryById(order.id_order);
+
+    void notifyOrderCreated(orderWithSale);
+
+    return mapOrder(orderWithSale);
+  }
+
   async execute(dto) {
     const orderData = await this.prepare(dto);
+
+    if (orderData.idPaymentStatus === PAID_PAYMENT_STATUS_ID) {
+      return this.createPaidOrderWithDirectSale(orderData);
+    }
 
     return this.createPrepared(orderData);
   }

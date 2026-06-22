@@ -33,6 +33,17 @@ const mapPayments = (payments = []) =>
     createdAt: payment.created_at || null,
   }));
 
+const mapPaymentReceipts = (receipts = []) =>
+  receipts.map((receipt) => ({
+    id: receipt.id_order_payment_receipt,
+    orderId: receipt.id_order,
+    imageUrl: receipt.image_url,
+    fileName: receipt.file_name || null,
+    observations: receipt.observations || null,
+    status: receipt.verification_status || 'Pendiente',
+    uploadedAt: receipt.uploaded_at || null,
+  }));
+
 const mapSale = (sale) => {
   if (!sale) {
     return null;
@@ -47,6 +58,13 @@ const mapSale = (sale) => {
     saleDate: sale.sale_date || null,
   };
 };
+
+const mapProductImages = (images = []) =>
+  images.map((image) => ({
+    id: image.id_image,
+    url: image.image_url,
+    isPrimary: Boolean(image.is_primary),
+  }));
 
 export const mapOrder = (order) => {
   const subtotal =
@@ -70,6 +88,9 @@ export const mapOrder = (order) => {
     Number(subtotal) + Number(ivaAmount);
 
   const payments = mapPayments(order.order_payments || []);
+  const paymentReceipts = mapPaymentReceipts(
+    order.order_payment_receipts || []
+  );
   const paymentStatus = mapPaymentStatus(order);
   const sale = mapSale(order.sales);
   const isPaid =
@@ -139,16 +160,25 @@ export const mapOrder = (order) => {
     hasSale: Boolean(sale),
     sale,
     payments,
-    details: (order.order_details || []).map((detail) => ({
-      id: detail.id_order_detail,
-      productId: detail.id_product,
-      productName: detail.products?.name || null,
-      barcode: detail.barcode,
-      quantity: detail.quantity,
-      unitPrice: Number(detail.unit_price),
-      subtotal: Number(detail.subtotal),
-      ivaAmount: Number(detail.iva_amount),
-    })),
+    paymentReceipts,
+    details: (order.order_details || []).map((detail) => {
+      const images = mapProductImages(
+        detail.products?.product_images || []
+      );
+
+      return {
+        id: detail.id_order_detail,
+        productId: detail.id_product,
+        productName: detail.products?.name || null,
+        barcode: detail.barcode,
+        quantity: detail.quantity,
+        unitPrice: Number(detail.unit_price),
+        subtotal: Number(detail.subtotal),
+        ivaAmount: Number(detail.iva_amount),
+        image: images.find((image) => image.isPrimary)?.url ?? images[0]?.url ?? null,
+        images,
+      };
+    }),
   };
 };
 

@@ -29,6 +29,7 @@ import orderRoutes from "./modules/sales/orders/routes/orderRoutes.js";
 import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
 import indicatorsRoutes from "./modules/performance/indicators/routes/indicatorRoutes.js";
+import storefrontRoutes from "./modules/sales/storefront/routes/storefrontRoutes.js";
 
 const app = express();
 
@@ -89,7 +90,6 @@ app.use("/api/orders", orderRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
-app.use("/api/products", productRoutes);
 app.use("/api/supplier-purchases", supplierPurchaseRoutes);
 app.use("/api/purchase-returns", purchaseReturnRoutes);
 app.use('/api/non-conforming-products', nonconformingRoutes);
@@ -102,6 +102,9 @@ app.use("/api/roles", roleRoutes);
 
 /* Rutas de clientes */
 app.use("/api/clients", clientRoutes);
+
+/* Carrito y favoritos del cliente autenticado */
+app.use("/api/storefront", storefrontRoutes);
 
 /* Rutas de ventas */
 app.use("/api/vendings", authMiddleware, vendingRoutes);

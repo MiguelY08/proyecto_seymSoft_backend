@@ -120,6 +120,13 @@ async getInstallmentsByCredit(id_credit) {
 
     include: {
       payment_methods: true,
+
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+        },
+      },
     },
 
     orderBy: {
@@ -140,7 +147,12 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      users: true,
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+        },
+      },
 
       credits: {
         include: {
@@ -258,9 +270,9 @@ async getInstallmentById(id_installment) {
     });
   }
 
-  /**
-   * Obtiene crédito a partir de una venta.
-   */
+/**
+ * Obtiene un crédito a partir de una venta.
+ */
 async getCreditBySaleId(id_sale) {
   return this.prisma.credits.findFirst({
     where: {
@@ -279,7 +291,13 @@ async getCreditBySaleId(id_sale) {
       installments: {
         include: {
           payment_methods: true,
-          users: true,
+
+          users: {
+            select: {
+              id_user: true,
+              full_name: true,
+            },
+          },
         },
 
         orderBy: {
@@ -289,6 +307,7 @@ async getCreditBySaleId(id_sale) {
     },
   });
 }
+
   // =====================================================
   // TRANSACCIONES DE NEGOCIO
   // =====================================================

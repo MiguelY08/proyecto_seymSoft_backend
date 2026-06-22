@@ -1,5 +1,16 @@
 import { prisma } from "../../../../config/prisma.js";
+import {
+  RETURN_DETAIL_STATUS_IDS,
+  RETURN_LIFECYCLE,
+  calculatePurchaseStatusFromReturns,
+  calculateReturnLifecycle,
+} from "../helpers/purchaseReturnHelper.js";
 import { PurchaseReturnMapper } from "../mappers/purchaseReturnMapper.js";
+
+const getHeaderStatusFromLifecycle = (lifecycle) =>
+  lifecycle === RETURN_LIFECYCLE.COMPLETED
+    ? RETURN_DETAIL_STATUS_IDS.READY
+    : RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT;
 
 export class PurchaseReturnRepository {
   static async findById(idPurchaseReturn) {
@@ -298,6 +309,286 @@ export class PurchaseReturnRepository {
         });
       }
     });
+  }
+
+  static assertValidUpdateChangeset(changeset) {
+    if (
+      !Number(changeset?.idPurchaseReturn) ||
+      !Number(changeset?.idPurchase)
+    ) {
+      throw new Error("Invalid purchase return update changeset.");
+    }
+  }
+
+  static createDomainError(message, errorCode, meta = null) {
+    const error = new Error(message);
+    error.errorCode = errorCode;
+    error.meta = meta;
+    return error;
+  }
+
+  static groupQuantitiesBy(items, key) {
+    return items.reduce((grouped, item) => {
+      const groupKey = Number(item[key]);
+      grouped.set(
+        groupKey,
+        (grouped.get(groupKey) || 0) + Number(item.quantity)
+      );
+      return grouped;
+    }, new Map());
+  }
+
+  static async assertFreshDetailsToAdd(tx, changeset) {
+    if (changeset.detailsToAdd.length === 0) {
+      return;
+    }
+
+    const requestedByPurchaseDetail =
+      this.groupQuantitiesBy(
+        changeset.detailsToAdd,
+        "idPurchaseDetail"
+      );
+
+    const requestedByBarcode =
+      this.groupQuantitiesBy(
+        changeset.detailsToAdd,
+        "idBarcode"
+      );
+
+    for (const [
+      idPurchaseDetail,
+      requestedQuantity,
+    ] of requestedByPurchaseDetail.entries()) {
+      const purchaseDetail =
+        await tx.purchase_details.findUnique({
+          where: {
+            id_purchase_detail: idPurchaseDetail,
+          },
+          select: {
+            id_purchase: true,
+            quantity: true,
+          },
+        });
+
+      if (!purchaseDetail) {
+        throw this.createDomainError(
+          `El detalle de compra ${idPurchaseDetail} no existe.`,
+          "PURCHASE_DETAIL_NOT_FOUND"
+        );
+      }
+
+      if (
+        Number(purchaseDetail.id_purchase) !==
+        Number(changeset.idPurchase)
+      ) {
+        throw this.createDomainError(
+          `El detalle de compra ${idPurchaseDetail} no pertenece a la compra de la devolucion.`,
+          "PURCHASE_DETAIL_DOES_NOT_BELONG_TO_PURCHASE"
+        );
+      }
+
+      const returnedResult =
+        await tx.prd.aggregate({
+          _sum: {
+            quantity: true,
+          },
+          where: {
+            id_purchase_detail: idPurchaseDetail,
+          },
+        });
+
+      const returnedQuantity =
+        Number(returnedResult._sum.quantity || 0);
+
+      const availableQuantity =
+        Math.max(
+          Number(purchaseDetail.quantity || 0) -
+            returnedQuantity,
+          0
+        );
+
+      if (requestedQuantity > availableQuantity) {
+        throw this.createDomainError(
+          `La cantidad a devolver supera la cantidad disponible (${availableQuantity}).`,
+          "RETURN_QUANTITY_EXCEEDED",
+          {
+            idPurchaseDetail,
+            availableQuantity,
+          }
+        );
+      }
+    }
+
+    for (const [
+      idBarcode,
+      requestedQuantity,
+    ] of requestedByBarcode.entries()) {
+      const barcode =
+        await tx.barcodes.findUnique({
+          where: {
+            id_barcode: idBarcode,
+          },
+          select: {
+            stock: true,
+          },
+        });
+
+      const availableStock =
+        Number(barcode?.stock || 0);
+
+      if (requestedQuantity > availableStock) {
+        throw this.createDomainError(
+          "La cantidad a devolver supera el stock disponible.",
+          "INSUFFICIENT_STOCK",
+          {
+            idBarcode,
+            availableStock,
+          }
+        );
+      }
+    }
+  }
+
+  static async recalculateUpdateStatuses(tx, changeset) {
+    const currentReturn =
+      await tx.purchases_returns.findUnique({
+        where: {
+          id_purchase_return:
+            changeset.idPurchaseReturn,
+        },
+        select: {
+          prd: {
+            select: {
+              id_return_status: true,
+            },
+          },
+        },
+      });
+
+    const lifecycle =
+      calculateReturnLifecycle({
+        details: currentReturn?.prd || [],
+      });
+
+    const idReturnStatus =
+      getHeaderStatusFromLifecycle(lifecycle);
+
+    await tx.purchases_returns.update({
+      where: {
+        id_purchase_return:
+          changeset.idPurchaseReturn,
+      },
+      data: {
+        id_return_status: idReturnStatus,
+      },
+    });
+
+    const purchaseReturns =
+      await tx.purchases_returns.findMany({
+        where: {
+          id_purchase: changeset.idPurchase,
+        },
+        select: this.getRawReturnForPurchaseStatusSelect(),
+      });
+
+    const idPurchaseStatus =
+      calculatePurchaseStatusFromReturns(
+        purchaseReturns
+      );
+
+    await tx.purchases.update({
+      where: {
+        id_purchase: changeset.idPurchase,
+      },
+      data: {
+        id_purchase_status: idPurchaseStatus,
+      },
+    });
+  }
+
+  static async applyUpdateChangeset(changeset) {
+    this.assertValidUpdateChangeset(changeset);
+
+    const updatedReturn =
+      await prisma.$transaction(async (tx) => {
+        await this.assertFreshDetailsToAdd(
+          tx,
+          changeset
+        );
+
+        for (const stockIncrement of changeset.stockIncrements) {
+          await tx.barcodes.update({
+            where: {
+              id_barcode: Number(stockIncrement.idBarcode),
+            },
+            data: {
+              stock: {
+                increment: Number(stockIncrement.quantity),
+              },
+            },
+          });
+        }
+
+        for (const detail of changeset.detailStatusUpdates) {
+          await tx.prd.update({
+            where: {
+              id_purchase_return_details:
+                Number(detail.idPurchaseReturnDetail),
+            },
+            data: {
+              id_return_status:
+                Number(detail.idReturnStatus),
+            },
+          });
+        }
+
+        if (changeset.detailsToAdd.length > 0) {
+          await tx.prd.createMany({
+            data: changeset.detailsToAdd.map((detail) => ({
+              id_purchase_return:
+                changeset.idPurchaseReturn,
+              barcode: detail.barcode,
+              quantity: detail.quantity,
+              supplier_date: detail.supplierDate ?? null,
+              id_return_reason: detail.idReturnReason,
+              id_return_method: detail.idReturnMethod,
+              id_return_status: detail.idReturnStatus,
+              id_product: detail.idProduct,
+              id_purchase_detail: detail.idPurchaseDetail,
+            })),
+          });
+        }
+
+        for (const stockDecrement of changeset.stockDecrements) {
+          await tx.barcodes.update({
+            where: {
+              id_barcode: Number(stockDecrement.idBarcode),
+            },
+            data: {
+              stock: {
+                decrement: Number(stockDecrement.quantity),
+              },
+            },
+          });
+        }
+
+        await this.recalculateUpdateStatuses(
+          tx,
+          changeset
+        );
+
+        return tx.purchases_returns.findUnique({
+          where: {
+            id_purchase_return:
+              changeset.idPurchaseReturn,
+          },
+          select: this.getByIdSelect(),
+        });
+      });
+
+    return PurchaseReturnMapper.toDetailResponse(
+      updatedReturn
+    );
   }
 
   static async updateDetailStatus(idPurchaseReturnDetail, idReturnStatus) {

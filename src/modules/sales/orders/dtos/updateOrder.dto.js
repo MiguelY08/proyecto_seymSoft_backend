@@ -1,5 +1,18 @@
+import {
+  normalizeDeliveryAddress,
+  normalizeDeliveryType,
+} from '../../shared/deliveryTypes.js';
+
 export class UpdateOrderDto {
   constructor(data) {
+    const deliveryType = normalizeDeliveryType(
+      data.deliveryType ?? data.delivery_type ?? 'Recoge'
+    );
+    const deliveryAddress = normalizeDeliveryAddress(
+      deliveryType,
+      data.deliveryAddress ?? data.delivery_adress
+    );
+
     this.idClient = data.idClient ?? data.id_client;
     this.idOrderStatus =
       data.idOrderStatus ??
@@ -10,11 +23,8 @@ export class UpdateOrderDto {
     this.paymentStatus =
       data.paymentStatus ??
       data.payment_status;
-    this.deliveryType = data.deliveryType ?? 'Recoge';
-    this.deliveryAddress =
-      data.deliveryAddress ??
-      data.delivery_adress ??
-      'El cliente lo recoge';
+    this.deliveryType = deliveryType;
+    this.deliveryAddress = deliveryAddress;
     this.items = data.items ?? [];
 
     if (!this.idClient) {

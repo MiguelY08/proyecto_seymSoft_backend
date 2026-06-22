@@ -1,7 +1,7 @@
 import { RegisterUseCase } from "../use-cases/registerUseCase.js";
 import { RegisterDto } from "../dtos/registerDto.js";
 import { AuthResponseDto } from "../dtos/authResponseDto.js";
-import { registerSchema } from "../validators/authValidators.js";
+import { getZodIssues, registerSchema } from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/validationError.js";
 
 export class RegisterController {
@@ -12,7 +12,7 @@ export class RegisterController {
       if (!validationResult.success) {
         throw new ValidationError(
           "Validation failed",
-          validationResult.error.errors,
+          getZodIssues(validationResult.error),
         );
       }
 

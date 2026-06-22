@@ -59,12 +59,18 @@ export class GoogleAuthController {
         error
       );
 
+        if (
+        error.message ===
+        "Tu cuenta se encuentra inactiva. Contacta al administrador."
+      ) {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/login?error=account_inactive`
+        );
+      }
+
       return res.redirect(
-
         `${process.env.FRONTEND_URL}/login?error=google_auth_failed`
-
       );
-
     }
 
   }

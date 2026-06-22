@@ -814,6 +814,11 @@ export const createVendingUseCase = async (params) => {
         "DUPLICATE_SALE_ORDER";
     }
 
+    if (error.message?.includes("Stock insuficiente")) {
+      errorCode =
+        "INSUFFICIENT_STOCK";
+    }
+
     if (error.message?.includes("credito")) {
       errorCode =
         "CREDIT_ERROR";
@@ -823,8 +828,9 @@ export const createVendingUseCase = async (params) => {
       success: false,
       data: null,
       error:
-        "Error creando venta: " +
-        error.message,
+        errorCode === "INSUFFICIENT_STOCK"
+          ? error.message
+          : "Error creando venta: " + error.message,
       errorCode,
     };
   }

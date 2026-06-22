@@ -87,6 +87,9 @@ export class RegisterUseCase {
 
     return {
       user: cleanUser,
+      role: null,
+      permissions: [],
+      client: null,
       accessToken,
       refreshToken,
     };

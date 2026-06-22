@@ -1,8 +1,9 @@
-import { prisma } from '../../../../config/prisma.js';
+﻿import { prisma } from '../../../../config/prisma.js';
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
+import { normalizeDeliveryType } from '../../shared/deliveryTypes.js';
 
 const getPaymentStatusById = (id) =>
   PAYMENT_STATUSES[Number(id)] || PAYMENT_STATUSES[1];
@@ -22,6 +23,14 @@ const resolvePaymentStatus = (data = {}) => {
   }
 
   return PAYMENT_STATUSES[1];
+};
+
+const normalizeDeliveryTypeFilter = (value) => {
+  try {
+    return normalizeDeliveryType(value);
+  } catch {
+    return null;
+  }
 };
 
 const orderInclude = {
@@ -46,6 +55,11 @@ const orderInclude = {
       },
       orderBy: {
         id_order_payment: 'asc',
+      },
+    },
+    order_payment_receipts: {
+      orderBy: {
+        id_order_payment_receipt: 'desc',
       },
     },
     sales: {
@@ -82,6 +96,21 @@ const orderInclude = {
             wholesale_price: true,
             partner_price: true,
             bulk_price: true,
+            product_images: {
+              select: {
+                id_image: true,
+                image_url: true,
+                is_primary: true,
+              },
+              orderBy: [
+                {
+                  is_primary: 'desc',
+                },
+                {
+                  id_image: 'asc',
+                },
+              ],
+            },
           },
         },
       },
@@ -166,6 +195,20 @@ const orderSummarySelect = {
       id_order_payment: 'asc',
     },
   },
+  order_payment_receipts: {
+    select: {
+      id_order_payment_receipt: true,
+      id_order: true,
+      image_url: true,
+      file_name: true,
+      observations: true,
+      verification_status: true,
+      uploaded_at: true,
+    },
+    orderBy: {
+      id_order_payment_receipt: 'desc',
+    },
+  },
   order_details: {
     select: {
       id_order_detail: true,
@@ -178,6 +221,21 @@ const orderSummarySelect = {
       products: {
         select: {
           name: true,
+          product_images: {
+            select: {
+              id_image: true,
+              image_url: true,
+              is_primary: true,
+            },
+            orderBy: [
+              {
+                is_primary: 'desc',
+              },
+              {
+                id_image: 'asc',
+              },
+            ],
+          },
         },
       },
     },
@@ -253,7 +311,7 @@ const orderListSelect = {
       amount: true,
       payment_date: true,
       observations: true,
-      reference: true,
+      reference: true,  
       created_at: true,
       payment_methods: {
         select: {
@@ -264,6 +322,54 @@ const orderListSelect = {
     },
     orderBy: {
       id_order_payment: 'asc',
+    },
+  },
+  order_payment_receipts: {
+    select: {
+      id_order_payment_receipt: true,
+      id_order: true,
+      image_url: true,
+      file_name: true,
+      observations: true,
+      verification_status: true,
+      uploaded_at: true,
+    },
+    orderBy: {
+      id_order_payment_receipt: 'desc',
+    },
+  },
+  order_details: {
+    select: {
+      id_order_detail: true,
+      id_product: true,
+      barcode: true,
+      quantity: true,
+      unit_price: true,
+      subtotal: true,
+      iva_amount: true,
+      products: {
+        select: {
+          name: true,
+          product_images: {
+            select: {
+              id_image: true,
+              image_url: true,
+              is_primary: true,
+            },
+            orderBy: [
+              {
+                is_primary: 'desc',
+              },
+              {
+                id_image: 'asc',
+              },
+            ],
+          },
+        },
+      },
+    },
+    orderBy: {
+      id_order_detail: 'asc',
     },
   },
 };
@@ -287,7 +393,11 @@ export class OrderRepository {
     }
 
     if (filters.deliveryType && filters.deliveryType !== 'Todos') {
-      where.delivery_type = filters.deliveryType;
+      const deliveryType = normalizeDeliveryTypeFilter(filters.deliveryType);
+
+      if (deliveryType) {
+        where.delivery_type = deliveryType;
+      }
     }
 
     if (filters.startDate || filters.endDate) {
@@ -493,6 +603,36 @@ export class OrderRepository {
     return this.findSummaryById(idOrder);
   }
 
+  async deleteCreatedOrder(idOrder) {
+    const orderId = Number(idOrder);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.order_payments.deleteMany({
+        where: {
+          id_order: orderId,
+        },
+      });
+
+      await tx.order_payment_receipts.deleteMany({
+        where: {
+          id_order: orderId,
+        },
+      });
+
+      await tx.order_details.deleteMany({
+        where: {
+          id_order: orderId,
+        },
+      });
+
+      await tx.sales_orders.delete({
+        where: {
+          id_order: orderId,
+        },
+      });
+    });
+  }
+
   async update(id, data) {
     const paymentStatus = resolvePaymentStatus(data);
     const idOrder = Number(id);
@@ -581,6 +721,36 @@ export class OrderRepository {
       },
       include: {
         payment_methods: true,
+      },
+    });
+  }
+
+  async findReceiptUploadContextById(idOrder) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(idOrder),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        id_payment_status: true,
+        clients: {
+          select: {
+            id_user: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createPaymentReceipt(idOrder, data) {
+    return prisma.order_payment_receipts.create({
+      data: {
+        id_order: Number(idOrder),
+        image_url: data.imageUrl,
+        file_name: data.fileName || null,
+        observations: data.observations || null,
+        verification_status: 'Pendiente',
       },
     });
   }

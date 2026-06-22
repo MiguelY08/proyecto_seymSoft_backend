@@ -1,5 +1,8 @@
 import { ForgotPasswordUseCase } from "../use-cases/forgotPasswordUseCase.js";
-import { forgotPasswordSchema } from "../validators/authValidators.js";
+import {
+  forgotPasswordSchema,
+  getZodIssues,
+} from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/validationError.js";
 
 export class ForgotPasswordController {
@@ -10,7 +13,7 @@ export class ForgotPasswordController {
       if (!validationResult.success) {
         throw new ValidationError(
           "Validation failed",
-          validationResult.error.errors,
+          getZodIssues(validationResult.error),
         );
       }
 

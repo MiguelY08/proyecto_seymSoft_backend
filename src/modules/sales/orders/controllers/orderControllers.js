@@ -1,6 +1,4 @@
 import { httpCodes } from '../../../../shared/constants/httpCodes.js';
-import { ORDER_STATUSES } from '../../../../shared/constants/generalStatuses.js';
-import { AppError } from '../../../../shared/errors/appError.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
@@ -10,6 +8,7 @@ import { GetAllOrdersUseCase } from '../use-cases/getAllOrdersUseCase.js';
 import { GetOrderByIdUseCase } from '../use-cases/getOrderByIdUseCase.js';
 import { CancelOrderUseCase } from '../use-cases/cancelOrderUseCase.js';
 import { RegisterOrderPaymentUseCase } from '../use-cases/registerOrderPaymentUseCase.js';
+import { UploadOrderPaymentReceiptUseCase } from '../use-cases/uploadOrderPaymentReceiptUseCase.js';
 import {
   validateOrderIdParams,
   validateRegisterOrderPayment,
@@ -23,18 +22,14 @@ export const createOrder = async (req, res, next) => {
     // Normalizar y validar datos de entrada con DTO.
     const dto = new CreateOrderDto(req.body);
 
-    if (Number(dto.idOrderStatus) === ORDER_STATUSES[3].id) {
-      throw new AppError(
-        'Los pedidos entregados deben registrarse desde el flujo de venta directa.',
-        httpCodes.BAD_REQUEST
-      );
-    }
-
     const data = await new CreateOrderUseCase(repo).execute(dto);
+    const message = data.hasSale
+      ? 'Pedido registrado exitosamente. Venta directa generada.'
+      : 'Pedido registrado exitosamente.';
 
     res.status(httpCodes.CREATED).json({
       success: true,
-      message: 'Pedido registrado exitosamente.',
+      message,
       data,
     });
   } catch (err) {
@@ -161,6 +156,49 @@ export const registerOrderPayment = async (req, res, next) => {
         ? 'Venta pendiente generada exitosamente para un pedido ya pagado.'
         : message,
       data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Almacenar una imagen como comprobante pendiente, sin afectar el valor pagado.
+export const uploadOrderPaymentReceipt = async (req, res, next) => {
+  try {
+    const paramsValidation = validateOrderIdParams(req.params);
+
+    if (!paramsValidation.success) {
+      return res.status(httpCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Errores de validacion en parametros.',
+        errors: paramsValidation.errors,
+      });
+    }
+
+    const observations = String(req.body?.observations || '').trim();
+
+    if (observations.length > 255) {
+      return res.status(httpCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Las observaciones no pueden exceder 255 caracteres.',
+      });
+    }
+
+    const data = await new UploadOrderPaymentReceiptUseCase(repo).execute(
+      paramsValidation.data.id,
+      req.file,
+      {
+        idUser: req.user?.id_user || req.user?.idUser,
+        observations: observations || null,
+      }
+    );
+
+    return res.status(httpCodes.CREATED).json({
+      success: true,
+      message: 'Comprobante almacenado y pendiente de verificacion.',
+      data: {
+        paymentReceipt: data,
+      },
     });
   } catch (err) {
     next(err);

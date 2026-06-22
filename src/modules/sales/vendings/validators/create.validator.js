@@ -1,5 +1,9 @@
 ﻿import { z } from "zod";
 import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+import {
+  DELIVERY_TYPES,
+  normalizeDeliveryType,
+} from "../../shared/deliveryTypes.js";
 
 const VENDING_TYPES = [
   "manual",
@@ -8,6 +12,24 @@ const VENDING_TYPES = [
 ];
 
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+
+const deliveryTypeSchema = z
+  .string()
+  .trim()
+  .min(1, "El tipo de entrega no puede estar vacio")
+  .max(50, "El tipo de entrega no puede exceder 50 caracteres")
+  .transform((value, ctx) => {
+    try {
+      return normalizeDeliveryType(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error.message,
+      });
+
+      return z.NEVER;
+    }
+  });
 
 const paymentMethodSchema = z.object({
   idPaymentMethod: z
@@ -62,11 +84,7 @@ const orderSchema = z.object({
     .positive("El ID del estado del pedido debe ser positivo")
     .optional(),
 
-  deliveryType: z
-    .string()
-    .trim()
-    .min(1, "El tipo de entrega no puede estar vacio")
-    .max(50, "El tipo de entrega no puede exceder 50 caracteres")
+  deliveryType: deliveryTypeSchema
     .optional(),
 
   deliveryAddress: z
@@ -81,7 +99,16 @@ const orderSchema = z.object({
       error: "El pedido debe tener al menos un producto",
     })
     .min(1, "El pedido debe tener al menos un producto"),
-}).strict();
+}).strict()
+  .superRefine((data, ctx) => {
+    if (data.deliveryType === DELIVERY_TYPES.DELIVERY && !data.deliveryAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryAddress"],
+        message: "La direccion de entrega es obligatoria para Domicilio",
+      });
+    }
+  });
 
 const creditSchema = z.object({
   dueDate: z
