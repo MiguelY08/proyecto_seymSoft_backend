@@ -49,6 +49,11 @@ const DETAIL_STATUS_FLOW_BY_METHOD = {
       RETURN_DETAIL_STATUS_IDS.READY,
     ],
   },
+  [RETURN_METHOD_IDS.NON_CONFORMING_PRODUCT]: {
+    [RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT]: [
+      RETURN_DETAIL_STATUS_IDS.READY,
+    ],
+  },
 };
 
 const toNumber = (value) => Number(value || 0);

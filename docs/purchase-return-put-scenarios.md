@@ -215,7 +215,34 @@ Resultado esperado:
 - `errorCode` es `RETURN_DETAIL_ALREADY_READY`.
 - No cambia stock ni estados.
 
-## 7. Devolucion anulada
+## 7. Producto no conforme pasa a Listo
+
+Precondiciones:
+
+- El detalle tiene metodo `Prod. no conforme`.
+- El detalle esta en `Pend. envio`.
+
+Request:
+
+```json
+{
+  "detailsToUpdate": [
+    {
+      "idPurchaseReturnDetail": 1,
+      "idReturnStatus": 4
+    }
+  ]
+}
+```
+
+Resultado esperado:
+
+- HTTP `200`.
+- El detalle queda en `Listo`.
+- No se incrementa el stock.
+- No se exige pasar por `Pend. reemplazo` ni `Pend. reembolso`.
+
+## 8. Devolucion anulada
 
 Precondiciones:
 
@@ -242,7 +269,7 @@ Resultado esperado:
 - `errorCode` es `PURCHASE_RETURN_ANNULLED`.
 - No cambia stock ni detalles.
 
-## 8. Revalidacion fresca dentro de transaccion
+## 9. Revalidacion fresca dentro de transaccion
 
 Precondiciones:
 
@@ -256,4 +283,3 @@ Resultado esperado:
   `INSUFFICIENT_STOCK`.
 - No debe quedar una combinacion parcial de estado actualizado sin detalle
   agregado, ni stock descontado sin detalle creado.
-
