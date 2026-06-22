@@ -77,17 +77,6 @@ export const calculateGeneralStatus = (details = []) => {
 };
 
 /**
- * Calcula si el stock debe restaurarse al anular
- */
-export const shouldRestoreStockOnCancel = (detail) => {
-  const isReplacementAndApproved = 
-    detail.metodo === RETURN_METHODS.REPLACEMENT &&
-    (detail.estado === 'Aprobada' || detail.estado === 'Entregado' || detail.estado === 'Listo');
-
-  return !isReplacementAndApproved;
-};
-
-/**
  * Valida si el motivo es defectuoso (para generar producto no conforme)
  */
 export const isDefectiveReason = (reason) => {
@@ -142,4 +131,14 @@ export const formatDate = (date) => {
     month: '2-digit',
     day: '2-digit'
   });
+};
+
+export const calculateReturnStockDelta = ({ method, isDefective, quantity }) => {
+  const units = Math.max(0, Number(quantity || 0));
+
+  if (method === RETURN_METHODS.REPLACEMENT) {
+    return isDefective ? -units : 0;
+  }
+
+  return isDefective ? 0 : units;
 };

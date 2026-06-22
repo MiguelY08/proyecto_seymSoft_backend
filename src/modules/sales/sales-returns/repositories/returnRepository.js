@@ -3,6 +3,7 @@
 import { prisma } from '../../../../config/prisma.js';
 import { ReturnMapper } from '../mappers/returnMapper.js';
 import { processAndSaveImage, deleteImage } from '../../../../shared/utils/imageProcessor.js';
+import { calculateReturnStockDelta } from '../helpers/returnHelpers.js';
 
 const BUCKET_NAME = process.env.SUPABASE_BUCKET_SALES_RETURNS || 'sales_returns';
 
@@ -45,11 +46,19 @@ export class ReturnRepository {
             barcodes: {
               include: {
                 products: {
-                  select: {
-                    id_product: true,
-                    name: true,
-                    reference: true,
-                    retail_price: true
+                    select: {
+                      id_product: true,
+                      name: true,
+                      reference: true,
+                      retail_price: true,
+                      product_images: {
+                        orderBy: [
+                          { is_primary: 'desc' },
+                          { id_image: 'asc' }
+                        ],
+                        take: 1,
+                        select: { image_url: true }
+                      }
                   }
                 }
               }
@@ -61,6 +70,20 @@ export class ReturnRepository {
             id_evidence: true,
             image_path: true,
             image_description: true
+          }
+        },
+        sales: {
+          select: {
+            sales_orders: {
+              select: {
+                order_details: {
+                  select: {
+                    barcode: true,
+                    unit_price: true
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -97,99 +120,157 @@ export class ReturnRepository {
     });
   }
 
-  static async findAll(filters = {}) {
-    const { page = 1, limit = 13, search = '', startDate = '', endDate = '' } = filters;
-    const skip = (page - 1) * limit;
+// ============================================
+// find ALL CON RETAIL_PRICE
+// ============================================
 
-    const where = {};
+static async findAll(filters = {}) {
+  const { page = 1, limit = 13, search = '', startDate = '', endDate = '', clientId = null } = filters;
+  const skip = (page - 1) * limit;
 
-    if (search) {
-      where.OR = [
-        { return_number: { contains: search, mode: 'insensitive' } },
-        { returnable_sale_data: { path: ['invoiceNumber'], string_contains: search } },
-        { returnable_sale_data: { path: ['clientName'], string_contains: search } }
-      ];
-    }
+  const where = {};
 
-    if (startDate && endDate) {
-      where.creation_date = {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
-      };
-    } else if (startDate) {
-      where.creation_date = { gte: new Date(startDate) };
-    } else if (endDate) {
-      where.creation_date = { lte: new Date(endDate) };
-    }
+  if (clientId) {
+    where.sales = {
+      sales_orders: {
+        id_customer: Number(clientId)
+      }
+    };
+  }
 
-    const [items, total] = await Promise.all([
-      prisma.sales_returns.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { creation_date: 'desc' },
-        include: {
-          return_statuses: {
-            select: {
-              id_return_status: true,
-              name_status: true
-            }
-          },
-          sale_return_details: {
-            include: {
-              return_reasons: {
-                select: {
-                  id_return_reason: true,
-                  description: true
-                }
-              },
-              return_methods: {
-                select: {
-                  id_return_method: true,
-                  description: true
-                }
-              },
-              return_statuses: {
-                select: {
-                  id_return_status: true,
-                  name_status: true
-                }
-              },
-              barcodes: {
-                include: {
-                  products: {
+  if (search) {
+    where.OR = [
+      { return_number: { contains: search, mode: 'insensitive' } },
+      { returnable_sale_data: { path: ['invoiceNumber'], string_contains: search } },
+      { returnable_sale_data: { path: ['clientName'], string_contains: search } }
+    ];
+  }
+
+  if (startDate && endDate) {
+    where.creation_date = {
+      gte: new Date(startDate),
+      lte: new Date(endDate)
+    };
+  } else if (startDate) {
+    where.creation_date = { gte: new Date(startDate) };
+  } else if (endDate) {
+    where.creation_date = { lte: new Date(endDate) };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.sales_returns.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { creation_date: 'desc' },
+      include: {
+        return_statuses: {
+          select: {
+            id_return_status: true,
+            name_status: true
+          }
+        },
+        sale_return_details: {
+          include: {
+            return_reasons: {
+              select: {
+                id_return_reason: true,
+                description: true
+              }
+            },
+            return_methods: {
+              select: {
+                id_return_method: true,
+                description: true
+              }
+            },
+            return_statuses: {
+              select: {
+                id_return_status: true,
+                name_status: true
+              }
+            },
+            barcodes: {
+              include: {
+                products: {
                     select: {
                       id_product: true,
                       name: true,
                       reference: true,
-                      retail_price: true
-                    }
+                      retail_price: true,
+                      product_images: {
+                        orderBy: [
+                          { is_primary: 'desc' },
+                          { id_image: 'asc' }
+                        ],
+                        take: 1,
+                        select: { image_url: true }
+                      }
                   }
                 }
               }
             }
-          },
-          sale_return_evidence: {
-            select: {
-              id_evidence: true,
-              image_path: true,
-              image_description: true
+          }
+        },
+        sale_return_evidence: {
+          select: {
+            id_evidence: true,
+            image_path: true,
+            image_description: true
+          }
+        },
+        sales: {
+          select: {
+            sales_orders: {
+              select: {
+                order_details: {
+                  select: {
+                    barcode: true,
+                    unit_price: true
+                  }
+                }
+              }
             }
           }
         }
-      }),
-      prisma.sales_returns.count({ where })
-    ]);
-
-    return {
-      data: items.map(item => ReturnMapper.toListDto(item)),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
       }
-    };
+    }),
+    prisma.sales_returns.count({ where })
+  ]);
+
+  return {
+    data: items.map(item => ReturnMapper.toListDto(item)),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
+
+  static async findClientIdByUserId(idUser) {
+    const client = await prisma.clients.findUnique({
+      where: { id_user: Number(idUser) },
+      select: { id_client: true }
+    });
+
+    return client?.id_client || null;
+  }
+
+  static async belongsToClient(idReturn, idClient) {
+    const count = await prisma.sales_returns.count({
+      where: {
+        id_sales_return: Number(idReturn),
+        sales: {
+          sales_orders: {
+            id_customer: Number(idClient)
+          }
+        }
+      }
+    });
+
+    return count > 0;
   }
 
   // ============================================
@@ -221,6 +302,13 @@ export class ReturnRepository {
               include: {
                 products: {
                   include: {
+                    product_images: {
+                      orderBy: [
+                        { is_primary: 'desc' },
+                        { id_image: 'asc' }
+                      ],
+                      take: 1
+                    },
                     barcodes: {
                       select: {
                         id_barcode: true,
@@ -276,6 +364,8 @@ export class ReturnRepository {
             subtotal: Number(orderDetail.subtotal || 0),
             ivaAmount: Number(orderDetail.iva_amount || 0),
             stockAvailable: barcode.stock || 0
+            ,
+            imageUrl: orderDetail.products?.product_images?.[0]?.image_url || null
           });
         });
       });
@@ -323,8 +413,9 @@ export class ReturnRepository {
         }
       });
 
+      const createdDetails = [];
       for (const detail of data.details) {
-        await tx.sale_return_details.create({
+        const createdDetail = await tx.sale_return_details.create({
           data: {
             id_sales_return: saleReturn.id_sales_return,
             barcode: detail.barcode,
@@ -334,6 +425,25 @@ export class ReturnRepository {
             id_return_status: detail.idReturnStatus,
             id_barcode: detail.idBarcode,
             description: detail.description || null
+          }
+        });
+        createdDetails.push(createdDetail);
+      }
+
+      if (Array.isArray(data.returnableSaleData?.details)) {
+        const detailsSnapshot = data.returnableSaleData.details.map((detail, index) => ({
+          ...detail,
+          idSaleReturnDetail: createdDetails[index]?.id_sale_return_detail || null
+        }));
+
+        await tx.sales_returns.update({
+          where: { id_sales_return: saleReturn.id_sales_return },
+          data: {
+            returnable_sale_data: {
+              ...data.returnableSaleData,
+              details: detailsSnapshot,
+              creditEvents: []
+            }
           }
         });
       }
@@ -443,23 +553,104 @@ export class ReturnRepository {
   static async cancelReturn({
     idReturn,
     idReturnStatus,
-    cancellationReason,
-    detailsToRestore = [],
-  }) {
+    cancellationReason
+  }) 
+  
+  {
     return prisma.$transaction(async (tx) => {
-      for (const detail of detailsToRestore) {
-        if (detail.id_barcode) {
+      const returnForCredit = await tx.sales_returns.findUnique({
+        where: { id_sales_return: Number(idReturn) },
+        include: {
+          sales: {
+            select: {
+              sales_orders: { select: { id_customer: true } }
+            }
+          }
+        }
+      });
+
+      const saleData = returnForCredit?.returnable_sale_data || {};
+      const snapshotDetails = Array.isArray(saleData.details) ? [...saleData.details] : [];
+      const creditEvents = Array.isArray(saleData.creditEvents) ? [...saleData.creditEvents] : [];
+      const appliedDetails = snapshotDetails.filter(
+        detail => detail.creditApplied && !detail.creditReversed
+      );
+
+      if (appliedDetails.length > 0) {
+        const clientId = returnForCredit.sales?.sales_orders?.id_customer || Number(saleData.clientId);
+        const reversalAmount = appliedDetails.reduce(
+          (total, detail) => total + Number(detail.creditAmount || 0),
+          0
+        );
+        const client = await tx.clients.findUnique({
+          where: { id_client: Number(clientId) },
+          select: { credit_balance: true }
+        });
+
+        if (Number(client?.credit_balance || 0) < reversalAmount) {
+          throw new Error('No se puede anular: el cliente ya utilizó parte del saldo a favor aplicado.');
+        }
+
+        await tx.clients.update({
+          where: { id_client: Number(clientId) },
+          data: { credit_balance: { decrement: reversalAmount } }
+        });
+
+        const reversedAt = new Date().toISOString();
+        appliedDetails.forEach((appliedDetail) => {
+          const index = snapshotDetails.findIndex(
+            detail => detail.idSaleReturnDetail === appliedDetail.idSaleReturnDetail
+          );
+          snapshotDetails[index] = {
+            ...snapshotDetails[index],
+            creditReversed: true,
+            creditReversedAt: reversedAt
+          };
+          creditEvents.push({
+            id: `return-${idReturn}-detail-${appliedDetail.idSaleReturnDetail}-reversal`,
+            type: 'REVERSAL',
+            clientId: Number(clientId),
+            returnId: Number(idReturn),
+            returnNumber: returnForCredit.return_number,
+            invoiceNumber: saleData.invoiceNumber || String(returnForCredit.id_sale),
+            detailId: appliedDetail.idSaleReturnDetail,
+            productName: appliedDetail.productName || 'Producto',
+            quantity: Number(appliedDetail.quantity || 0),
+            unitPrice: Number(appliedDetail.unitPrice || 0),
+            amount: Number(appliedDetail.creditAmount || 0),
+            reason: 'Reversión de saldo por anulación de devolución',
+            processedBy: saleData.employeeName || 'Sistema',
+            createdAt: reversedAt
+          });
+        });
+      }
+
+      const stockAppliedDetails = snapshotDetails.filter(detail => detail.stockApplied);
+      for (const stockDetail of stockAppliedDetails) {
+        const reverseDelta = -Number(stockDetail.stockDelta || 0);
+        if (reverseDelta !== 0 && stockDetail.idBarcode) {
+          const barcode = await tx.barcodes.findUnique({
+            where: { id_barcode: Number(stockDetail.idBarcode) },
+            select: { stock: true }
+          });
+          if (reverseDelta < 0 && Number(barcode?.stock || 0) < Math.abs(reverseDelta)) {
+            throw new Error('No se puede anular: el stock recibido en la devolución ya no está disponible.');
+          }
           await tx.barcodes.update({
-            where: {
-              id_barcode: detail.id_barcode,
-            },
-            data: {
-              stock: {
-                increment: detail.quantity,
-              },
-            },
+            where: { id_barcode: Number(stockDetail.idBarcode) },
+            data: { stock: { increment: reverseDelta } }
           });
         }
+
+        const index = snapshotDetails.findIndex(
+          detail => detail.idSaleReturnDetail === stockDetail.idSaleReturnDetail
+        );
+        snapshotDetails[index] = {
+          ...snapshotDetails[index],
+          stockApplied: false,
+          stockReversed: true,
+          stockReversedAt: new Date().toISOString()
+        };
       }
 
       const updatedReturn = await tx.sales_returns.update({
@@ -470,21 +661,18 @@ export class ReturnRepository {
           id_return_status: idReturnStatus,
           cancellation_reason: cancellationReason,
           cancelled_at: new Date(),
+          returnable_sale_data: {
+            ...saleData,
+            details: snapshotDetails,
+            creditEvents
+          }
         },
       });
 
-      if (detailsToRestore.length > 0) {
-        const detailIds = detailsToRestore.map(d => d.id_sale_return_detail);
-        
-        await tx.sale_return_details.updateMany({
-          where: {
-            id_sale_return_detail: { in: detailIds },
-          },
-          data: {
-            id_return_status: idReturnStatus,
-          },
-        });
-      }
+      await tx.sale_return_details.updateMany({
+        where: { id_sales_return: Number(idReturn) },
+        data: { id_return_status: idReturnStatus }
+      });
 
       return updatedReturn;
     });
@@ -594,6 +782,245 @@ export class ReturnRepository {
     return prisma.clients.update({
       where: { id_client: Number(idClient) },
       data: { credit_balance: newBalance }
+    });
+  }
+
+  static async applyStockForDetailUpdates(idReturn, detailUpdates = []) {
+    return prisma.$transaction(async (tx) => {
+      const saleReturn = await tx.sales_returns.findUnique({
+        where: { id_sales_return: Number(idReturn) },
+        include: {
+          sale_return_details: {
+            include: {
+              return_methods: true,
+              return_reasons: true,
+              barcodes: true
+            }
+          }
+        }
+      });
+
+      if (!saleReturn) return [];
+
+      const saleData = saleReturn.returnable_sale_data || {};
+      const snapshotDetails = Array.isArray(saleData.details) ? [...saleData.details] : [];
+      const stockEvents = [];
+
+      for (const update of detailUpdates) {
+        const currentDetail = saleReturn.sale_return_details.find(
+          detail => detail.id_sale_return_detail === update.idSaleReturnDetail
+        );
+        if (!currentDetail?.id_barcode) continue;
+
+        const targetStatus = await tx.return_statuses.findUnique({
+          where: { id_return_status: Number(update.idReturnStatus) },
+          select: { name_status: true }
+        });
+        const snapshotIndex = snapshotDetails.findIndex(
+          detail => detail.idSaleReturnDetail === update.idSaleReturnDetail
+        );
+        if (snapshotIndex < 0) continue;
+
+        const snapshot = snapshotDetails[snapshotIndex];
+        const quantity = Number(currentDetail.quantity || 0);
+        const method = currentDetail.return_methods?.description || '';
+        const reason = currentDetail.return_reasons?.description || '';
+        const isDefective = snapshot.isDefective === true ||
+          ['DEFECTUOSO', 'MAL_ESTADO', 'PRODUCTO_INCOMPLETO'].includes(reason);
+        const isReady = targetStatus?.name_status === 'Listo';
+
+        if (!isReady && snapshot.stockApplied) {
+          const reverseDelta = -Number(snapshot.stockDelta || 0);
+          if (reverseDelta !== 0) {
+            const barcode = await tx.barcodes.findUnique({
+              where: { id_barcode: currentDetail.id_barcode },
+              select: { stock: true }
+            });
+            if (reverseDelta < 0 && Number(barcode?.stock || 0) < Math.abs(reverseDelta)) {
+              throw new Error('No se puede revertir el movimiento: el stock disponible es insuficiente.');
+            }
+            await tx.barcodes.update({
+              where: { id_barcode: currentDetail.id_barcode },
+              data: { stock: { increment: reverseDelta } }
+            });
+          }
+
+          snapshotDetails[snapshotIndex] = {
+            ...snapshot,
+            stockApplied: false,
+            stockRevertedAt: new Date().toISOString()
+          };
+          stockEvents.push({
+            detailId: update.idSaleReturnDetail,
+            type: 'REVERTED',
+            delta: reverseDelta
+          });
+          continue;
+        }
+
+        if (!isReady || snapshot.stockApplied) continue;
+
+        const stockDelta = calculateReturnStockDelta({
+          method,
+          isDefective,
+          quantity
+        });
+
+        if (stockDelta !== 0) {
+          const barcode = await tx.barcodes.findUnique({
+            where: { id_barcode: currentDetail.id_barcode },
+            select: { stock: true }
+          });
+          if (stockDelta < 0 && Number(barcode?.stock || 0) < Math.abs(stockDelta)) {
+            throw new Error('No hay stock suficiente para entregar el producto de reemplazo.');
+          }
+          await tx.barcodes.update({
+            where: { id_barcode: currentDetail.id_barcode },
+            data: { stock: { increment: stockDelta } }
+          });
+        }
+
+        const appliedAt = new Date().toISOString();
+        snapshotDetails[snapshotIndex] = {
+          ...snapshot,
+          isDefective,
+          stockApplied: true,
+          stockDelta,
+          stockAppliedAt: appliedAt
+        };
+        stockEvents.push({
+          detailId: update.idSaleReturnDetail,
+          type: 'APPLIED',
+          method,
+          isDefective,
+          delta: stockDelta,
+          appliedAt
+        });
+      }
+
+      if (stockEvents.length > 0) {
+        await tx.sales_returns.update({
+          where: { id_sales_return: Number(idReturn) },
+          data: {
+            returnable_sale_data: {
+              ...saleData,
+              details: snapshotDetails
+            }
+          }
+        });
+      }
+
+      return stockEvents;
+    });
+  }
+
+  static async applyCreditForReadyDetails(idReturn, detailUpdates = []) {
+    return prisma.$transaction(async (tx) => {
+      const saleReturn = await tx.sales_returns.findUnique({
+        where: { id_sales_return: Number(idReturn) },
+        include: {
+          sales: {
+            select: {
+              sales_orders: {
+                select: { id_customer: true }
+              }
+            }
+          },
+          sale_return_details: {
+            include: {
+              return_methods: true,
+              return_statuses: true,
+              barcodes: {
+                include: {
+                  products: { select: { name: true } }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!saleReturn) return [];
+
+      const saleData = saleReturn.returnable_sale_data || {};
+      const snapshotDetails = Array.isArray(saleData.details) ? [...saleData.details] : [];
+      const creditEvents = Array.isArray(saleData.creditEvents) ? [...saleData.creditEvents] : [];
+      const clientId = saleReturn.sales?.sales_orders?.id_customer || Number(saleData.clientId);
+      const appliedEvents = [];
+
+      for (const update of detailUpdates) {
+        const currentDetail = saleReturn.sale_return_details.find(
+          detail => detail.id_sale_return_detail === update.idSaleReturnDetail
+        );
+        if (!currentDetail) continue;
+
+        const targetStatus = await tx.return_statuses.findUnique({
+          where: { id_return_status: update.idReturnStatus }
+        });
+        const methodName = currentDetail.return_methods?.description || '';
+        const snapshotIndex = snapshotDetails.findIndex(
+          detail => detail.idSaleReturnDetail === update.idSaleReturnDetail
+        );
+        const snapshot = snapshotDetails[snapshotIndex];
+
+        if (
+          targetStatus?.name_status !== 'Listo' ||
+          methodName !== 'Saldo a favor' ||
+          !snapshot?.applyCredit ||
+          snapshot?.creditApplied
+        ) {
+          continue;
+        }
+
+        const amount = Number(snapshot.unitPrice || 0) * Number(currentDetail.quantity || 0);
+        if (!clientId || amount <= 0) continue;
+
+        await tx.clients.update({
+          where: { id_client: Number(clientId) },
+          data: { credit_balance: { increment: amount } }
+        });
+
+        const event = {
+          id: `return-${idReturn}-detail-${update.idSaleReturnDetail}-credit`,
+          type: 'CREDIT',
+          clientId: Number(clientId),
+          returnId: Number(idReturn),
+          returnNumber: saleReturn.return_number,
+          invoiceNumber: saleData.invoiceNumber || String(saleReturn.id_sale),
+          detailId: update.idSaleReturnDetail,
+          productName: currentDetail.barcodes?.products?.name || snapshot.productName || 'Producto',
+          quantity: Number(currentDetail.quantity || 0),
+          unitPrice: Number(snapshot.unitPrice || 0),
+          amount,
+          reason: 'Saldo a favor por devolución de venta',
+          processedBy: saleData.employeeName || 'Sistema',
+          createdAt: new Date().toISOString()
+        };
+
+        snapshotDetails[snapshotIndex] = {
+          ...snapshot,
+          creditApplied: true,
+          creditAppliedAt: event.createdAt,
+          creditAmount: amount
+        };
+        creditEvents.push(event);
+        appliedEvents.push(event);
+      }
+
+      if (appliedEvents.length > 0) {
+        await tx.sales_returns.update({
+          where: { id_sales_return: Number(idReturn) },
+          data: {
+            returnable_sale_data: {
+              ...saleData,
+              details: snapshotDetails,
+              creditEvents
+            }
+          }
+        });
+      }
+
+      return appliedEvents;
     });
   }
 

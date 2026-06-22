@@ -43,7 +43,7 @@ const getPaymentMethodsFromOrder = (payments = []) => {
   );
 };
 
-const generateSaleFromPaidOrder = async (repo, idOrder) => {
+const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
   const orderWithPayments = await repo.findPaymentStateById(idOrder);
   const paymentMethods = getPaymentMethodsFromOrder(
     orderWithPayments.order_payments
@@ -51,6 +51,8 @@ const generateSaleFromPaidOrder = async (repo, idOrder) => {
 
   const saleResult = await createVendingUseCase({
     vendingType: DEFAULT_VENDING_TYPE,
+    idUser: options.idUser,
+    idEmployee: options.idEmployee,
     data: {
       idOrder: orderWithPayments.id_order,
       idSaleStatus: SALE_STATUSES[1].id,
@@ -67,6 +69,32 @@ const generateSaleFromPaidOrder = async (repo, idOrder) => {
 
   return saleResult.data?.sale || null;
 };
+
+const validateSaleFromPaidOrder = async ({
+  idOrder,
+  paymentMethods,
+  options = {},
+}) => {
+  const saleResult = await createVendingUseCase({
+    vendingType: DEFAULT_VENDING_TYPE,
+    idUser: options.idUser,
+    idEmployee: options.idEmployee,
+    dryRun: true,
+    data: {
+      idOrder,
+      idSaleStatus: SALE_STATUSES[1].id,
+      paymentMethods,
+    },
+  });
+
+  if (!saleResult.success) {
+    throw new AppError(
+      saleResult.error || 'Error validando la venta del pedido pagado.',
+      400
+    );
+  }
+};
+
 const notifyPaymentRegistered = async ({
   order,
   paymentMethod,
@@ -105,7 +133,7 @@ export class RegisterOrderPaymentUseCase {
     this.repo = repo;
   }
 
-  async execute(idOrder, data) {
+  async execute(idOrder, data, options = {}) {
     const order = await this.repo.findPaymentStateById(idOrder);
 
     if (!order) {
@@ -124,7 +152,8 @@ export class RegisterOrderPaymentUseCase {
       if (!order.sales) {
         const generatedSale = await generateSaleFromPaidOrder(
           this.repo,
-          order.id_order
+          order.id_order,
+          options
         );
         const finalOrder = await this.repo.findSummaryById(order.id_order);
 
@@ -183,7 +212,8 @@ export class RegisterOrderPaymentUseCase {
       if (!order.sales) {
         const generatedSale = await generateSaleFromPaidOrder(
           this.repo,
-          order.id_order
+          order.id_order,
+          options
         );
 
         await this.repo.updatePaymentStatus(
@@ -221,16 +251,30 @@ export class RegisterOrderPaymentUseCase {
       );
     }
 
-    await this.repo.createPayment(order.id_order, {
-      ...data,
-      amount,
-    });
-
     const paidAfter = roundMoney(
       paidBefore + amount
     );
     const pendingAfter = roundMoney(orderTotal - paidAfter);
     const isPaid = pendingAfter <= 0;
+
+    if (isPaid && !order.sales) {
+      await validateSaleFromPaidOrder({
+        idOrder: order.id_order,
+        paymentMethods: getPaymentMethodsFromOrder([
+          ...order.order_payments,
+          {
+            id_payment_method: data.idPaymentMethod,
+            amount,
+          },
+        ]),
+        options,
+      });
+    }
+
+    await this.repo.createPayment(order.id_order, {
+      ...data,
+      amount,
+    });
 
     let generatedSale = null;
 
@@ -238,7 +282,8 @@ export class RegisterOrderPaymentUseCase {
     if (isPaid && !order.sales) {
       generatedSale = await generateSaleFromPaidOrder(
         this.repo,
-        order.id_order
+        order.id_order,
+        options
       );
     }
 

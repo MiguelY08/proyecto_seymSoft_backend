@@ -7,6 +7,7 @@ export class AuthResponseDto {
     user,
     role,
     permissions,
+    client,
     accessToken,
     refreshToken
   }) {
@@ -16,6 +17,8 @@ export class AuthResponseDto {
     this.role = role || null;
 
     this.permissions = permissions || [];
+
+    this.client = client || null;
 
     this.accessToken = accessToken;
 

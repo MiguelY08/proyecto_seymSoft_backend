@@ -44,6 +44,7 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
     // 4. Si hay detalles para actualizar
     let newGeneralStatus = existingReturn.return_statuses?.name_status || 'En Proceso';
     let stockUpdated = false;
+    let stockEvents = [];
     const nonConformingToCreate = [];
     
     if (updateData.details && updateData.details.length > 0) {
@@ -57,10 +58,24 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
         }
       });
 
+      stockEvents = await ReturnRepository.applyStockForDetailUpdates(
+        id,
+        updateData.details
+      );
+      stockUpdated = stockEvents.length > 0;
+
       // Actualizar los estados de los productos
       for (const detail of updateData.details) {
         // Buscar el detalle actual
         const currentDetail = currentDetails.find(d => d.id_sale_return_detail === detail.idSaleReturnDetail);
+        if (!currentDetail) {
+          return {
+            success: false,
+            data: null,
+            error: `El detalle ${detail.idSaleReturnDetail} no pertenece a esta devolución`,
+            errorCode: 'VALIDATION_ERROR'
+          };
+        }
         
         // Verificar si el motivo actual es defectuoso
         const isDefective = currentDetail?.return_reasons?.description 
@@ -87,21 +102,6 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
               idStatus: 1 // Pendiente
             });
           }
-        }
-
-        // Si el producto pasa a "Listo" (id: 4) y NO estaba en "Listo" antes
-        if (detail.idReturnStatus === 4 && currentDetail?.id_return_status !== 4) {
-          await prisma.barcodes.update({
-            where: {
-              id_barcode: currentDetail.id_barcode
-            },
-            data: {
-              stock: {
-                increment: currentDetail.quantity
-              }
-            }
-          });
-          stockUpdated = true;
         }
 
         await prisma.sale_return_details.update({
@@ -150,8 +150,7 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
 
       // Calcular el nuevo estado general
       const newStatus = calculateGeneralStatus(detailsForStatus);
-      newGeneralStatus = newStatus === 'COMPLETED' ? 'Procesada' : 
-                         newStatus === 'CANCELLED' ? 'Anulado' : 'En Proceso';
+      newGeneralStatus = newStatus;
     }
 
     // 5. Obtener el ID del nuevo estado
@@ -172,8 +171,14 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
       totalProducts: updateData.totalProducts || existingReturn.total_products || 0,
       totalUnits: updateData.totalUnits || existingReturn.total_units || 0,
       description: updateData.description || existingReturn.description || '',
+      evidenceDescription: updateData.evidenceDescription || '',
       details: updateData.details || []
     }, evidenceFiles);
+
+    const creditEvents = await ReturnRepository.applyCreditForReadyDetails(
+      id,
+      updateData.details || []
+    );
 
     return {
       success: true,
@@ -183,6 +188,10 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
         status: newGeneralStatus,
         stockUpdated: stockUpdated,
         nonConformingCreated: nonConformingToCreate.length
+        ,
+        creditApplied: creditEvents.reduce((total, event) => total + event.amount, 0),
+        creditEvents,
+        stockEvents
       },
       error: null,
       errorCode: null
@@ -190,6 +199,22 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
 
   } catch (error) {
     console.error('[updateReturnUseCase]', error);
+    if (error.message?.includes('stock suficiente')) {
+      return {
+        success: false,
+        data: null,
+        error: error.message,
+        errorCode: 'INSUFFICIENT_REPLACEMENT_STOCK'
+      };
+    }
+    if (error.message?.includes('revertir el movimiento')) {
+      return {
+        success: false,
+        data: null,
+        error: error.message,
+        errorCode: 'STOCK_MOVEMENT_ALREADY_USED'
+      };
+    }
     return {
       success: false,
       data: null,

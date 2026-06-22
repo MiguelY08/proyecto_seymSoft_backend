@@ -1,4 +1,4 @@
-import { prisma } from '../../../../config/prisma.js';
+﻿import { prisma } from '../../../../config/prisma.js';
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -48,6 +48,11 @@ const orderInclude = {
         id_order_payment: 'asc',
       },
     },
+    order_payment_receipts: {
+      orderBy: {
+        id_order_payment_receipt: 'desc',
+      },
+    },
     sales: {
       select: {
         id_sale: true,
@@ -70,6 +75,21 @@ const orderInclude = {
             wholesale_price: true,
             partner_price: true,
             bulk_price: true,
+            product_images: {
+              select: {
+                id_image: true,
+                image_url: true,
+                is_primary: true,
+              },
+              orderBy: [
+                {
+                  is_primary: 'desc',
+                },
+                {
+                  id_image: 'asc',
+                },
+              ],
+            },
           },
         },
       },
@@ -141,6 +161,20 @@ const orderSummarySelect = {
       id_order_payment: 'asc',
     },
   },
+  order_payment_receipts: {
+    select: {
+      id_order_payment_receipt: true,
+      id_order: true,
+      image_url: true,
+      file_name: true,
+      observations: true,
+      verification_status: true,
+      uploaded_at: true,
+    },
+    orderBy: {
+      id_order_payment_receipt: 'desc',
+    },
+  },
   order_details: {
     select: {
       id_order_detail: true,
@@ -153,6 +187,21 @@ const orderSummarySelect = {
       products: {
         select: {
           name: true,
+          product_images: {
+            select: {
+              id_image: true,
+              image_url: true,
+              is_primary: true,
+            },
+            orderBy: [
+              {
+                is_primary: 'desc',
+              },
+              {
+                id_image: 'asc',
+              },
+            ],
+          },
         },
       },
     },
@@ -215,7 +264,7 @@ const orderListSelect = {
       amount: true,
       payment_date: true,
       observations: true,
-      reference: true,
+      reference: true,  
       created_at: true,
       payment_methods: {
         select: {
@@ -226,6 +275,54 @@ const orderListSelect = {
     },
     orderBy: {
       id_order_payment: 'asc',
+    },
+  },
+  order_payment_receipts: {
+    select: {
+      id_order_payment_receipt: true,
+      id_order: true,
+      image_url: true,
+      file_name: true,
+      observations: true,
+      verification_status: true,
+      uploaded_at: true,
+    },
+    orderBy: {
+      id_order_payment_receipt: 'desc',
+    },
+  },
+  order_details: {
+    select: {
+      id_order_detail: true,
+      id_product: true,
+      barcode: true,
+      quantity: true,
+      unit_price: true,
+      subtotal: true,
+      iva_amount: true,
+      products: {
+        select: {
+          name: true,
+          product_images: {
+            select: {
+              id_image: true,
+              image_url: true,
+              is_primary: true,
+            },
+            orderBy: [
+              {
+                is_primary: 'desc',
+              },
+              {
+                id_image: 'asc',
+              },
+            ],
+          },
+        },
+      },
+    },
+    orderBy: {
+      id_order_detail: 'asc',
     },
   },
 };
@@ -536,6 +633,36 @@ export class OrderRepository {
       },
       include: {
         payment_methods: true,
+      },
+    });
+  }
+
+  async findReceiptUploadContextById(idOrder) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(idOrder),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        id_payment_status: true,
+        clients: {
+          select: {
+            id_user: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createPaymentReceipt(idOrder, data) {
+    return prisma.order_payment_receipts.create({
+      data: {
+        id_order: Number(idOrder),
+        image_url: data.imageUrl,
+        file_name: data.fileName || null,
+        observations: data.observations || null,
+        verification_status: 'Pendiente',
       },
     });
   }

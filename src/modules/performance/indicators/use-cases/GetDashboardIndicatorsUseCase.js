@@ -13,11 +13,19 @@ export class GetDashboardIndicatorsUseCase {
       stock,
       topProductsQuantity,
       topProductsPrice,
+      commercialTrends,
+      categoryDemand,
+      topClients,
+      activeClients,
     ] = await Promise.all([
       GetMonthlySalesIndicatorUseCase.execute(),
       GetStockIndicatorUseCase.execute(),
       indicatorsRepository.getTopProductsByQuantity(),
       indicatorsRepository.getTopProductsByAmount(),
+      indicatorsRepository.getMonthlyCommercialTrends(),
+      indicatorsRepository.getTopCategoriesByDemand(),
+      indicatorsRepository.getTopClientsByAmount(),
+      indicatorsRepository.getActiveClientsCount(),
     ]);
 
     return DashboardIndicatorsMapper.toDto({
@@ -31,7 +39,24 @@ export class GetDashboardIndicatorsUseCase {
         price: TopProductsIndicatorMapper.toDto(
             topProductsPrice
         ).products,
-        }
+        },
+      commercialTrends: commercialTrends.map((item) => ({
+        month: item.month_key,
+        sales: Number(item.sales),
+        purchases: Number(item.purchases),
+        returns: Number(item.returns),
+      })),
+      categoryDemand: categoryDemand.map((item) => ({
+        idCategory: item.id_category,
+        categoryName: item.category_name,
+        units: Number(item.units),
+      })),
+      topClients: topClients.map((item) => ({
+        idClient: item.id_client,
+        clientName: item.full_name,
+        value: Number(item.value),
+      })),
+      activeClients,
     });
   }
 }

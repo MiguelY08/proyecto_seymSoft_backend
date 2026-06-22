@@ -13,6 +13,11 @@ import {
   getReturnableSalesController
 } from '../controllers/index.js';
 import { deleteEvidenceController } from '../controllers/deleteEvidenceController.js';
+import {
+  getMyReturnByIdController,
+  getMyReturnsController
+} from '../controllers/getMyReturnsController.js';
+import { authMiddleware } from '../../../../shared/middlewares/authMiddleware.js';
 
 const router = Router();
 
@@ -21,7 +26,7 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
-router.post('/', (req, res, next) => {
+const uploadEvidences = (req, res, next) => {
   upload.array('evidences')(req, res, (err) => {
     if (err) {
       console.error('❌ Error en multer:', err);
@@ -41,16 +46,20 @@ router.post('/', (req, res, next) => {
     }
     next();
   });
-}, createReturnController);
+};
+
+router.post('/', uploadEvidences, createReturnController);
 
 router.get('/', getAllReturnsController);
+router.get('/my-returns', authMiddleware, getMyReturnsController);
+router.get('/my-returns/:id', authMiddleware, getMyReturnByIdController);
 router.get('/returnable-sales', getReturnableSalesController);
 router.get('/available-invoices', getAvailableInvoicesController);
 router.get('/purchase-return-info', getPurchaseReturnInfoController);
 router.delete('/evidence/:id', deleteEvidenceController);
 
 router.get('/:id', getReturnByIdController);
-router.put('/:id', updateReturnController);
+router.put('/:id', uploadEvidences, updateReturnController);
 router.patch('/:id/cancel', cancelReturnController);
 
 export default router;

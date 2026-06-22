@@ -9,6 +9,7 @@ export const updateReturnSchema = z.object({
   body: z.object({
     status: z.enum(['En Proceso', 'Procesada', 'Anulado']).optional(),
     description: z.string().optional(),
+    evidenceDescription: z.string().optional(),
     details: z.array(
       z.object({
         idSaleReturnDetail: z.number().int().positive(),

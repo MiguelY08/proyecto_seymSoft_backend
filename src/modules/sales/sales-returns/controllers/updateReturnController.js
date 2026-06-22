@@ -8,14 +8,23 @@ const statusCodeByError = {
   RETURN_NOT_FOUND: 404,
   RETURN_IS_CANCELLED: 409,
   STATUS_NOT_FOUND: 404,
+  INSUFFICIENT_REPLACEMENT_STOCK: 409,
+  STOCK_MOVEMENT_ALREADY_USED: 409,
   DATABASE_ERROR: 500,
 };
 
 export const updateReturnController = async (req, res) => {
   try {
+    let bodyData = req.body;
+    if (typeof req.body.data === 'string') {
+      bodyData = JSON.parse(req.body.data);
+    } else if (req.body.data && typeof req.body.data === 'object') {
+      bodyData = req.body.data;
+    }
+
     const validation = validateUpdateReturn({
       params: req.params,
-      body: req.body,
+      body: bodyData,
     });
 
     if (!validation.success) {

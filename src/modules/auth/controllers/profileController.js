@@ -1,6 +1,7 @@
 import { ProfileUseCase } from "../use-cases/profileUseCase.js";
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
 import { UserRepository } from "../../users/repositories/userRepository.js";
+import { NotFoundError } from "../../../shared/errors/index.js";
 
 export class ProfileController {
   static async getProfile(req, res, next) {
@@ -27,6 +28,8 @@ export class ProfileController {
           user: result.user,
           role: result.role,
           permissions: result.permissions,
+          client:result.client,
+          requiresPasswordSetup:result.requiresPasswordSetup
         },
       });
  

@@ -16,7 +16,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
   console.log('📦 evidenceDescription:', evidenceDescription);
 
   try {
-    // 1. Validar que la venta existe
     const sale = await ReturnRepository.findSaleById(returnData.idSale);
     if (!sale) {
       console.log('❌ Venta no encontrada:', returnData.idSale);
@@ -30,7 +29,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
 
     console.log('📦 [createReturnUseCase] Venta encontrada:', sale.id_sale);
 
-    // 2. Verificar que la venta no tenga ya una devolución
     const existingReturn = await prisma.sales_returns.findFirst({
       where: { id_sale: returnData.idSale }
     });
@@ -44,7 +42,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       };
     }
 
-    // 3. Obtener estado "En Proceso" (fallback)
     const pendingStatus = await ReturnRepository.findReturnStatusByName('En Proceso');
     if (!pendingStatus) {
       console.log('❌ Estado "En Proceso" no encontrado');
@@ -56,12 +53,8 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       };
     }
 
-    // 4. Generar número de devolución
     const returnNumber = generateReturnNumber();
 
-    // ============================================================
-    // 5. CONSTRUIR DATOS DE LA VENTA CON TODA LA INFORMACIÓN
-    // ============================================================
     const order = sale.sales_orders;
     const client = order?.clients;
     const clientUser = client?.users;
@@ -93,14 +86,25 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       clientAddress: clientAddress,
       employeeName: employeeName,
       hasDelivery: hasDelivery,
-      deliveryAddress: deliveryAddress
+      deliveryAddress: deliveryAddress,
+      details: returnData.details.map(detail => ({
+        idProduct: detail.idProduct,
+        barcode: detail.barcode,
+        idBarcode: detail.idBarcode,
+        productName: detail.productName || '',
+        quantity: detail.quantity,
+        unitPrice: Number(detail.unitPrice || 0),
+        imageUrl: detail.imageUrl || null,
+        isDefective: isDefectiveReason(detail.reasonName || ''),
+        applyCredit: detail.idReturnMethod === 3 && detail.applyCredit === true,
+        creditApplied: false,
+        stockApplied: false,
+        stockDelta: 0
+      }))
     };
 
     console.log('📦 [createReturnUseCase] returnableSaleData:', JSON.stringify(returnableSaleData, null, 2));
 
-    // ============================================================
-    // 6. CALCULAR TOTALES Y PREPARAR DETALLES
-    // ============================================================
     let totalAmount = 0;
     let totalUnits = 0;
     const totalProducts = returnData.details.length;
@@ -111,61 +115,59 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
     const details = [];
 
     for (const detail of returnData.details) {
-  const quantity = detail.quantity || 1;
-  const unitPrice = detail.unitPrice || 0;
-  totalAmount += quantity * unitPrice;
-  totalUnits += quantity;
+      const quantity = detail.quantity || 1;
+      const unitPrice = detail.unitPrice || 0;
+      totalAmount += quantity * unitPrice;
+      totalUnits += quantity;
 
-  const isDefective = isDefectiveReason(detail.reasonName || '');
+      const isDefective = isDefectiveReason(detail.reasonName || '');
 
-  // Si es defectuoso, verificar si está dentro del plazo de compra
-  if (isDefective && detail.idBarcode) {
-    try {
-      const purchaseInfo = await ReturnRepository.getPurchaseReturnInfo(detail.idBarcode);
-      if (!purchaseInfo.canReturn) {
-        nonConformingToCreate.push({
-          idBarcode: detail.idBarcode,
-          quantity: quantity,
-          reason: `Producto defectuoso detectado en devolución venta #${returnNumber} - ${detail.reasonName || 'Sin motivo'}`
-        });
+      if (isDefective && detail.idBarcode) {
+        try {
+          const purchaseInfo = await ReturnRepository.getPurchaseReturnInfo(detail.idBarcode);
+          if (!purchaseInfo.canReturn) {
+            nonConformingToCreate.push({
+              idBarcode: detail.idBarcode,
+              quantity: quantity,
+              reason: `Producto defectuoso detectado en devolución venta #${returnNumber} - ${detail.reasonName || 'Sin motivo'}`
+            });
+          }
+        } catch (error) {
+          console.error('[createReturnUseCase] Error verificando compra:', error);
+          nonConformingToCreate.push({
+            idBarcode: detail.idBarcode,
+            quantity: quantity,
+            reason: `Producto defectuoso (error verificación) en devolución #${returnNumber}`
+          });
+        }
       }
-    } catch (error) {
-      console.error('[createReturnUseCase] Error verificando compra:', error);
-      nonConformingToCreate.push({
-        idBarcode: detail.idBarcode,
+
+      // ✅ OBTENER ESTADO SELECCIONADO - SOLUCIÓN ERROR #1
+      const statusName = detail.status || 'Pend. envio';
+      console.log('📦 statusName recibido:', statusName);
+      const statusRecord = await ReturnRepository.findReturnStatusByName(statusName);
+      const statusId = statusRecord?.id_return_status || pendingStatus.id_return_status;
+      console.log('📦 statusId encontrado:', statusId, 'para statusName:', statusName);
+
+      const isOther = detail.idReturnReason === 4;
+
+      details.push({
+        barcode: detail.barcode,
         quantity: quantity,
-        reason: `Producto defectuoso (error verificación) en devolución #${returnNumber}`
+        idReturnReason: detail.idReturnReason,
+        idReturnMethod: detail.idReturnMethod,
+        idReturnStatus: statusId,  // ✅ SOLUCIÓN ERROR #1
+        idBarcode: detail.idBarcode,
+        reasonName: detail.reasonName || '',
+        isDefective: isDefective,
+        description: isOther ? detail.descripcionMotivo || '' : '',
+        estado: statusName,
+        metodo: detail.metodo || ''
       });
     }
-  }
-
-  // ✅ OBTENER ESTADO SELECCIONADO
-  const statusName = detail.status || 'En Proceso';
-  const statusRecord = await ReturnRepository.findReturnStatusByName(statusName);
-  const statusId = statusRecord?.id_return_status || pendingStatus.id_return_status;
-
-  const isOther = detail.idReturnReason === 4;
-
-  details.push({
-    barcode: detail.barcode,
-    quantity: quantity,
-    idReturnReason: detail.idReturnReason,
-    idReturnMethod: detail.idReturnMethod,
-    idReturnStatus: statusId,  // ✅ CAMBIADO: usa statusId
-    idBarcode: detail.idBarcode,
-    reasonName: detail.reasonName || '',
-    isDefective: isDefective,
-    description: isOther ? detail.descripcionMotivo || '' : '',
-    estado: statusName,
-    metodo: detail.metodo || ''
-  });
-}
 
     console.log('📦 [createReturnUseCase] Detalles preparados:', details.length);
 
-    // ============================================================
-    // 7. CALCULAR ESTADO GENERAL DE LA DEVOLUCIÓN
-    // ============================================================
     const productStatuses = details.map(d => ({
       estado: d.estado || 'En Proceso',
       metodo: d.metodo || ''
@@ -176,9 +178,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
 
     console.log('📦 [createReturnUseCase] Estado general calculado:', generalStatus, 'ID:', generalStatusId);
 
-    // ============================================================
-    // 8. CREAR LA DEVOLUCIÓN
-    // ============================================================
     const created = await ReturnRepository.create({
       idSale: returnData.idSale,
       returnNumber,
@@ -194,9 +193,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
 
     console.log('📦 [createReturnUseCase] Devolución creada:', created.id_sales_return);
 
-    // ============================================================
-    // 9. CREAR PRODUCTOS NO CONFORMES AUTOMÁTICAMENTE
-    // ============================================================
     if (nonConformingToCreate.length > 0) {
       const defaultStatus = await ReturnRepository.getDefaultNonConformingStatus();
       const statusId = defaultStatus?.id_status || 1;

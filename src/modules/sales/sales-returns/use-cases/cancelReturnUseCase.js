@@ -1,10 +1,7 @@
 // src/modules/sales/sales-returns/use-cases/cancelReturnUseCase.js
 
 import { ReturnRepository } from '../repositories/returnRepository.js';
-import { 
-  RETURN_STATUS, 
-  shouldRestoreStockOnCancel 
-} from '../helpers/returnHelpers.js';
+import { RETURN_STATUS } from '../helpers/returnHelpers.js';
 
 const CANCELLED_STATUS_NAME = RETURN_STATUS.CANCELLED;
 
@@ -57,16 +54,11 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason) => {
     }
 
     // 5. Determinar qué detalles deben restaurar stock
-    const detailsToRestore = currentReturn.sale_return_details?.filter(
-      shouldRestoreStockOnCancel
-    ) || [];
-
     // 6. Anular la devolución
     const cancelled = await ReturnRepository.cancelReturn({
       idReturn,
       idReturnStatus: cancelledStatus.id_return_status,
-      cancellationReason: cancellationReason.trim(),
-      detailsToRestore,
+      cancellationReason: cancellationReason.trim()
     });
 
     return {
@@ -84,6 +76,15 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason) => {
 
   } catch (error) {
     console.error('[cancelReturnUseCase]', error);
+
+    if (error.message?.includes('ya utilizó parte del saldo a favor')) {
+      return {
+        success: false,
+        data: null,
+        error: error.message,
+        errorCode: 'CREDIT_BALANCE_ALREADY_USED',
+      };
+    }
 
     return {
       success: false,
