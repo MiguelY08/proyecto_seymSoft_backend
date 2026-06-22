@@ -1,6 +1,7 @@
 import { updateUserStatusUseCase } from "../use-cases/index.js";
 import { validateUpdateUserStatus } from "../validators/index.js";
 import { UserMapper } from "../mappers/usersMapper.js";
+import { isSelfUserAction } from "../helpers/selfUserAction.js";
 
 export const UpdateUserStatusController = async (req, res) => {
   try {
@@ -14,6 +15,14 @@ export const UpdateUserStatusController = async (req, res) => {
     }
 
     const idUser = Number(id);
+
+    if (isSelfUserAction({ authUser: req.user, targetUserId: idUser })) {
+      return res.status(403).json({
+        success: false,
+        message: "No puedes activar o desactivar tu propio usuario.",
+        errorCode: "SELF_USER_STATUS_UPDATE_NOT_ALLOWED",
+      });
+    }
 
     // Validar idStatus con Zod
     const validation = validateUpdateUserStatus(req.body);
