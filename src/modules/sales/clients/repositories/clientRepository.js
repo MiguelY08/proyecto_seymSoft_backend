@@ -124,4 +124,39 @@ export class ClientRepository {
     const client = await prisma.clients.findUnique({ where: { id_user: userId } });
     return !!client;
   }
+
+  static async findCreditBalanceEvents({ clientId = null, limit = 50 } = {}) {
+    const returns = await prisma.sales_returns.findMany({
+      where: clientId
+        ? {
+            returnable_sale_data: {
+              path: ['clientId'],
+              equals: Number(clientId)
+            }
+          }
+        : undefined,
+      select: {
+        id_sales_return: true,
+        return_number: true,
+        returnable_sale_data: true
+      },
+      orderBy: { updated_at: 'desc' },
+      take: 200
+    });
+
+    const events = returns.flatMap((saleReturn) => {
+      const data = saleReturn.returnable_sale_data || {};
+      const returnEvents = Array.isArray(data.creditEvents) ? data.creditEvents : [];
+      return returnEvents.map((event) => ({
+        ...event,
+        returnId: event.returnId || saleReturn.id_sales_return,
+        returnNumber: event.returnNumber || saleReturn.return_number,
+        clientName: data.clientName || 'Cliente'
+      }));
+    });
+
+    return events
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, Math.max(1, Math.min(Number(limit) || 50, 100)));
+  }
 }
