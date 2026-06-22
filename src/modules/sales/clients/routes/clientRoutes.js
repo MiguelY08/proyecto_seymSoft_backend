@@ -7,11 +7,13 @@ import { deleteClientController } from '../controllers/deleteClientController.js
 import { toggleClientStatusController } from '../controllers/toggleClientStatusController.js';
 import { getClientPurchasesController } from '../controllers/getClientPurchasesController.js';
 import { getClientFinancialSummaryController } from '../controllers/getClientFinancialSummaryController.js';
+import { getCreditBalanceEventsController } from '../controllers/getCreditBalanceEventsController.js';
 
 const router = Router();
 
 router.post('/', createClientController);
 router.get('/', getAllClientsController);
+router.get('/credit-balance-events', getCreditBalanceEventsController);
 router.get('/:id/purchases', getClientPurchasesController);
 router.get('/:id/financial-summary', getClientFinancialSummaryController);
 router.get('/:id', getClientByIdController);

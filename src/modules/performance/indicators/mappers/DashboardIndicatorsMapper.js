@@ -5,11 +5,19 @@ export class DashboardIndicatorsMapper {
     monthlySales,
     stock,
     topProducts,
+    commercialTrends,
+    categoryDemand,
+    topClients,
+    activeClients,
   }) {
     return new DashboardIndicatorsDto({
       monthlySales,
       stock,
       topProducts,
+      commercialTrends,
+      categoryDemand,
+      topClients,
+      activeClients,
     });
   }
 }
