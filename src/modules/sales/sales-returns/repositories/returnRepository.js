@@ -4,6 +4,7 @@ import { prisma } from '../../../../config/prisma.js';
 import { ReturnMapper } from '../mappers/returnMapper.js';
 import { processAndSaveImage, deleteImage } from '../../../../shared/utils/imageProcessor.js';
 import { calculateReturnStockDelta } from '../helpers/returnHelpers.js';
+import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
 
 const BUCKET_NAME = process.env.SUPABASE_BUCKET_SALES_RETURNS || 'sales_returns';
 
@@ -300,6 +301,11 @@ static async findAll(filters = {}) {
                 status_date: true
               }
             },
+            order_statuses: {
+              select: {
+                name_status: true
+              }
+            },
             order_details: {
               include: {
                 products: {
@@ -352,15 +358,9 @@ static async findAll(filters = {}) {
       orderBy: { sale_date: 'desc' }
     });
 
-    return sales.filter((sale) => {
-      const statusName = sale.sale_statuses?.name_status?.trim().toLowerCase();
-      const deliveredAt = sale.sales_orders?.hev?.status_date;
-      if (statusName !== 'entregado' || !deliveredAt) return false;
-      const elapsedDays = Math.floor(
-        (Date.now() - new Date(deliveredAt).getTime()) / (24 * 60 * 60 * 1000)
-      );
-      return elapsedDays >= 0 && elapsedDays <= 30;
-    }).map(sale => {
+    return sales.filter(
+      (sale) => evaluateSaleReturnEligibility(sale).canReturn
+    ).map(sale => {
       const order = sale.sales_orders;
       const details = [];
       
@@ -756,6 +756,11 @@ static async findAll(filters = {}) {
             hev: {
               select: {
                 status_date: true
+              }
+            },
+            order_statuses: {
+              select: {
+                name_status: true
               }
             },
             order_details: {

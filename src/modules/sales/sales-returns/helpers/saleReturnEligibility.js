@@ -1,4 +1,5 @@
 export const MAX_SALE_RETURN_DAYS = 30;
+const DELIVERED_ORDER_STATUS_ID = 3;
 
 const normalize = (value) =>
   String(value || '')
@@ -15,18 +16,26 @@ const startOfDay = (value) => {
 };
 
 export const evaluateSaleReturnEligibility = (sale) => {
-  const statusName = sale?.sale_statuses?.name_status || '';
-  if (normalize(statusName) !== 'entregado') {
+  const order = sale?.sales_orders;
+  const orderStatusName = order?.order_statuses?.name_status || '';
+  const isDelivered =
+    Number(order?.id_order_status) === DELIVERED_ORDER_STATUS_ID ||
+    normalize(orderStatusName) === 'entregado';
+
+  if (!isDelivered) {
     return {
       canReturn: false,
-      reason: 'Solo se permiten devoluciones de ventas en estado Entregado',
+      reason: 'La factura todavía no tiene el pedido en estado Entregado',
       deliveredAt: null,
       daysSinceDelivery: null,
       remainingDays: null,
     };
   }
 
-  const deliveredAt = startOfDay(sale?.sales_orders?.hev?.status_date);
+  // HEV es el único registro de fecha de cambio disponible actualmente.
+  // Las ventas directas pueden nacer entregadas sin HEV, por eso sale_date
+  // funciona como respaldo en ese caso.
+  const deliveredAt = startOfDay(order?.hev?.status_date || sale?.sale_date);
   if (!deliveredAt) {
     return {
       canReturn: false,
