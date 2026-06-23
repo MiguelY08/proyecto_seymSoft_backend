@@ -5,17 +5,17 @@ import { MonthlySalesIndicatorController } from "../controllers/MonthlySalesIndi
 import { StockIndicatorController } from "../controllers/StockIndicatorController.js";
 import { TopProductsIndicatorController } from "../controllers/TopProductsIndicatorController.js";
 import { DashboardIndicatorsController } from "../controllers/DashboardIndicatorsController.js";
+import { authMiddleware } from "../../../../shared/middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 router.get(
-  "/monthly-sales",
-  MonthlySalesIndicatorController.getMonthlySales
+  "/monthly-sales",authMiddleware ,MonthlySalesIndicatorController.getMonthlySales
 );
 
 router.get(
   "/stock",
-  StockIndicatorController.getStock
+  authMiddleware,StockIndicatorController.getStock
 );
 
 // cantidad o precio 
@@ -23,13 +23,12 @@ router.get(
 // mode=quantity "por cantidad"
 // mode=price "por precio"
 router.get(
-  "/top-products",
-  TopProductsIndicatorController.getTopProducts
+  "/top-products",authMiddleware, TopProductsIndicatorController.getTopProducts
 );
 
 router.get(
   "/dashboard",
-  DashboardIndicatorsController.getDashboard
+  authMiddleware ,DashboardIndicatorsController.getDashboard
 );
 
 export default router;
