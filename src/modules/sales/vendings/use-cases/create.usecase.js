@@ -30,6 +30,7 @@ const EMPLOYEE_REQUIRED_TYPES = [
 const SYSTEM_EMPLOYEE_ID = 7;
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 const DIRECT_VENDING_TYPE = "direct";
+const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 
 const roundMoney = (value) => {
@@ -187,6 +188,24 @@ const getPaidAmount = (paymentMethods = []) =>
       0
     )
   );
+
+const toMoneyCents = (value) =>
+  Math.round(roundMoney(value) * 100);
+
+const buildPaymentTotalMismatch = ({ paidAmount, totals }) => {
+  const serverTotal =
+    roundMoney(totals?.total);
+  const paid =
+    roundMoney(paidAmount);
+
+  return {
+    serverTotal,
+    paidAmount:
+      paid,
+    difference:
+      roundMoney(serverTotal - paid),
+  };
+};
 
 const getCreditAmount = (paymentMethods = []) =>
   roundMoney(
@@ -457,12 +476,18 @@ export const createVendingUseCase = async (params) => {
 
     if (data.order) {
       try {
+        const orderDataForPreparation = {
+          ...data.order,
+          idEmployee: data.order.idEmployee ?? resolvedEmployeeId,
+          idUser: data.order.idUser ?? idUser,
+          ...(directSaleOrderStatus && {
+            idOrderStatus:
+              READY_ORDER_STATUS_ID,
+          }),
+        };
+
         preparedOrder =
-          await prepareOrder({
-            ...data.order,
-            idEmployee: data.order.idEmployee ?? resolvedEmployeeId,
-            idUser: data.order.idUser ?? idUser,
-          });
+          await prepareOrder(orderDataForPreparation);
 
         totals = {
           subtotal:
@@ -633,12 +658,22 @@ export const createVendingUseCase = async (params) => {
     const paidAmount =
       getPaidAmount(paymentMethods);
 
-    if (paidAmount !== totals.total) {
+    if (toMoneyCents(paidAmount) !== toMoneyCents(totals.total)) {
+      const mismatch =
+        buildPaymentTotalMismatch({
+          paidAmount,
+          totals,
+        });
+
       return {
         success: false,
         data: null,
-        error: "La suma de los metodos de pago debe ser igual al total de la venta",
+        error:
+          `La suma de los metodos de pago debe ser igual al total calculado por el servidor. ` +
+          `Total servidor: ${mismatch.serverTotal}. Total pagado: ${mismatch.paidAmount}.`,
         errorCode: "PAYMENT_AMOUNT_MUST_MATCH_TOTAL",
+        details:
+          mismatch,
       };
     }
 
