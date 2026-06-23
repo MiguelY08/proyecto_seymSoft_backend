@@ -8,6 +8,7 @@ import {
   isDefectiveReason,
   calculateGeneralStatus
 } from '../helpers/returnHelpers.js';
+import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
 
 export const createReturnUseCase = async (returnData, evidenceFiles = [], evidenceDescription = '') => {
   console.log('🔥🔥🔥 createReturnUseCase EJECUTADO 🔥🔥🔥');
@@ -28,6 +29,16 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
     }
 
     console.log('📦 [createReturnUseCase] Venta encontrada:', sale.id_sale);
+
+    const eligibility = evaluateSaleReturnEligibility(sale);
+    if (!eligibility.canReturn) {
+      return {
+        success: false,
+        data: null,
+        error: eligibility.reason,
+        errorCode: 'SALE_NOT_RETURNABLE'
+      };
+    }
 
     const existingReturn = await prisma.sales_returns.findFirst({
       where: { id_sale: returnData.idSale }

@@ -6,6 +6,7 @@ import { validateCreateReturn } from '../validators/createReturnValidator.js';
 const statusCodeByError = {
   VALIDATION_ERROR: 400,
   SALE_NOT_FOUND: 404,
+  SALE_NOT_RETURNABLE: 400,
   RETURN_ALREADY_EXISTS: 409,
   STATUS_NOT_FOUND: 404,
   DATABASE_ERROR: 500,
