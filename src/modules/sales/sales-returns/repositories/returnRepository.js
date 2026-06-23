@@ -291,13 +291,15 @@ static async findAll(filters = {}) {
         sales_orders: {
           id_customer: Number(clientId)
         },
-        sale_date: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        }
       },
       include: {
         sales_orders: {
           include: {
+            hev: {
+              select: {
+                status_date: true
+              }
+            },
             order_details: {
               include: {
                 products: {
@@ -340,12 +342,25 @@ static async findAll(filters = {}) {
               }
             }
           }
+        },
+        sale_statuses: {
+          select: {
+            name_status: true
+          }
         }
       },
       orderBy: { sale_date: 'desc' }
     });
 
-    return sales.map(sale => {
+    return sales.filter((sale) => {
+      const statusName = sale.sale_statuses?.name_status?.trim().toLowerCase();
+      const deliveredAt = sale.sales_orders?.hev?.status_date;
+      if (statusName !== 'entregado' || !deliveredAt) return false;
+      const elapsedDays = Math.floor(
+        (Date.now() - new Date(deliveredAt).getTime()) / (24 * 60 * 60 * 1000)
+      );
+      return elapsedDays >= 0 && elapsedDays <= 30;
+    }).map(sale => {
       const order = sale.sales_orders;
       const details = [];
       
@@ -738,6 +753,11 @@ static async findAll(filters = {}) {
       include: {
         sales_orders: {
           include: {
+            hev: {
+              select: {
+                status_date: true
+              }
+            },
             order_details: {
               include: {
                 products: true
@@ -763,6 +783,11 @@ static async findAll(filters = {}) {
                 full_name: true
               }
             }
+          }
+        },
+        sale_statuses: {
+          select: {
+            name_status: true
           }
         }
       }
