@@ -19,16 +19,16 @@ const router = Router();
 
 router.get(
   "/customers",
-  getCreditCustomersController
+  authMiddleware,getCreditCustomersController
 );
 
 router.get(
-  "/customers/:idCustomer/invoices",
+  "/customers/:idCustomer/invoices",authMiddleware,
   getCustomerInvoicesController
 );
 
 router.get(
-  "/customers/:idCustomer/contact",
+  "/customers/:idCustomer/contact",authMiddleware,
   getCustomerContactController
 );
 
@@ -39,7 +39,7 @@ router.get(
  */
 
 router.get(
-  "/invoices/:idSale/installments",
+  "/invoices/:idSale/installments", authMiddleware,
   getInvoiceInstallmentsController
 );
 
@@ -50,7 +50,7 @@ router.get(
  */
 
 router.post(
-  "/installments",
+  "/installments", authMiddleware,
   createInstallmentController
 );
 
@@ -66,7 +66,7 @@ router.patch(
  */
 
 router.post(
-  "/interests",
+  "/interests", authMiddleware,
   generateInterestController
 );
 
