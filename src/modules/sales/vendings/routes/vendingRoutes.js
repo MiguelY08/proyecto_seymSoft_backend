@@ -11,35 +11,35 @@ import {
   GetWebVendingsController,
   UpdateVendingController,
 } from "../controllers/index.js";
-
+import { authMiddleware } from "../../../../shared/middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 // Obtener todas las ventas
-router.get("/", GetAllVendingsController);
+router.get("/", authMiddleware, GetAllVendingsController);
 
 // Obtener métricas de ventas
-router.get("/metrics", GetVendingMetricsController);
+router.get("/metrics", authMiddleware, GetVendingMetricsController);
 
 // Obtener ventas manuales
-router.get("/manual", GetManualVendingsController);
+router.get("/manual", authMiddleware, GetManualVendingsController);
 
 // Obtener ventas directas
-router.get("/direct", GetDirectVendingsController);
+router.get("/direct", authMiddleware, GetDirectVendingsController);
 
 // Obtener ventas web
-router.get("/web", GetWebVendingsController);
+router.get("/web", authMiddleware, GetWebVendingsController);
 
 // Obtener venta por ID
-router.get("/:id", GetVendingByIdController);
+router.get("/:id", authMiddleware, GetVendingByIdController);
 
 // Crear venta según tipo
-router.post("/:vendingType", CreateVendingController);
+router.post("/:vendingType", authMiddleware, CreateVendingController);
 
 // Anular venta
-router.post("/:id/annular", AnnularVendingController);
+router.post("/:id/annular", authMiddleware, AnnularVendingController);
 
 // Actualizar venta
-router.put("/:id", UpdateVendingController);
+router.put("/:id", authMiddleware, UpdateVendingController);
 
 export default router;
