@@ -4,6 +4,7 @@ import {
   validatePurchaseReturnPeriod,
   validateReturnQuantity,
 } from "../helpers/purchaseReturnHelper.js";
+import { validateReturnCatalogReferences } from "../helpers/validateReturnCatalogReferences.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
 const getNextPurchaseStatusOnCreate = (currentPurchaseStatusId) => {
@@ -29,6 +30,13 @@ const buildEnrichedDetails = async ({
   const requestedByBarcode = new Map();
 
   for (const detail of details) {
+    const catalogValidation =
+      await validateReturnCatalogReferences(detail);
+
+    if (!catalogValidation.success) {
+      return catalogValidation;
+    }
+
     const purchaseDetail =
       await PurchaseReturnRepository.findRawPurchaseDetailById(
         detail.idPurchaseDetail
@@ -50,22 +58,24 @@ const buildEnrichedDetails = async ({
       };
     }
 
-    const alreadyReturned =
-      await PurchaseReturnRepository.getReturnedQuantityByPurchaseDetail(
-        detail.idPurchaseDetail
-      );
-
     const requestedForDetail =
       requestedByPurchaseDetail.get(
         detail.idPurchaseDetail
       ) || 0;
 
+    const returnAvailability =
+      await PurchaseReturnRepository.getReturnAvailabilityByPurchaseDetail(
+        detail.idPurchaseDetail
+      );
+
     const quantityValidation =
       validateReturnQuantity({
         requestedQuantity: detail.quantity,
-        purchasedQuantity: purchaseDetail.quantity,
+        purchasedQuantity:
+          returnAvailability.purchasedQuantity,
         returnedQuantity:
-          alreadyReturned +
+          returnAvailability.reservedQuantity +
+          returnAvailability.finalReturnedQuantity +
           requestedForDetail,
       });
 

@@ -2,6 +2,7 @@ import { prisma } from "../../../../config/prisma.js";
 import {
   RETURN_DETAIL_STATUS_IDS,
   RETURN_LIFECYCLE,
+  calculatePurchaseDetailReturnAvailability,
   calculatePurchaseStatusFromReturns,
   calculateReturnLifecycle,
 } from "../helpers/purchaseReturnHelper.js";
@@ -217,16 +218,125 @@ export class PurchaseReturnRepository {
   }
 
   static async getReturnedQuantityByPurchaseDetail(idPurchaseDetail) {
-    const result = await prisma.prd.aggregate({
-      _sum: {
-        quantity: true,
-      },
-      where: {
-        id_purchase_detail: Number(idPurchaseDetail),
-      },
-    });
+    const availability =
+      await this.getReturnAvailabilityByPurchaseDetail(
+        idPurchaseDetail
+      );
 
-    return result._sum.quantity ?? 0;
+    return (
+      availability.reservedQuantity +
+      availability.finalReturnedQuantity
+    );
+  }
+
+  static async getReturnAvailabilityByPurchaseDetail(
+    idPurchaseDetail,
+    client = prisma
+  ) {
+    const purchaseDetail =
+      await client.purchase_details.findUnique({
+        where: {
+          id_purchase_detail: Number(idPurchaseDetail),
+        },
+        select: {
+          quantity: true,
+        },
+      });
+
+    if (!purchaseDetail) {
+      return {
+        purchasedQuantity: 0,
+        reservedQuantity: 0,
+        finalReturnedQuantity: 0,
+        availableQuantity: 0,
+      };
+    }
+
+    const returnDetails =
+      await client.prd.findMany({
+        where: {
+          id_purchase_detail: Number(idPurchaseDetail),
+        },
+        select: {
+          quantity: true,
+          id_return_method: true,
+          id_return_status: true,
+        },
+      });
+
+    return calculatePurchaseDetailReturnAvailability({
+      purchasedQuantity: purchaseDetail.quantity,
+      returnDetails,
+    });
+  }
+
+  static async getReturnAvailabilityByPurchaseDetails(
+    idPurchaseDetails,
+    client = prisma
+  ) {
+    const uniqueIds = [
+      ...new Set(
+        (idPurchaseDetails ?? [])
+          .map((id) => Number(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+
+    const [purchaseDetails, returnDetails] =
+      await Promise.all([
+        client.purchase_details.findMany({
+          where: {
+            id_purchase_detail: {
+              in: uniqueIds,
+            },
+          },
+          select: {
+            id_purchase_detail: true,
+            quantity: true,
+          },
+        }),
+        client.prd.findMany({
+          where: {
+            id_purchase_detail: {
+              in: uniqueIds,
+            },
+          },
+          select: {
+            id_purchase_detail: true,
+            quantity: true,
+            id_return_method: true,
+            id_return_status: true,
+          },
+        }),
+      ]);
+
+    const returnDetailsByPurchaseDetail =
+      returnDetails.reduce((grouped, detail) => {
+        const id = Number(detail.id_purchase_detail);
+        const details = grouped.get(id) ?? [];
+        details.push(detail);
+        grouped.set(id, details);
+        return grouped;
+      }, new Map());
+
+    return purchaseDetails.reduce((availabilityByDetail, detail) => {
+      const id = Number(detail.id_purchase_detail);
+
+      availabilityByDetail.set(
+        id,
+        calculatePurchaseDetailReturnAvailability({
+          purchasedQuantity: detail.quantity,
+          returnDetails:
+            returnDetailsByPurchaseDetail.get(id) ?? [],
+        })
+      );
+
+      return availabilityByDetail;
+    }, new Map());
   }
 
   static async create(data) {
@@ -387,25 +497,14 @@ export class PurchaseReturnRepository {
         );
       }
 
-      const returnedResult =
-        await tx.prd.aggregate({
-          _sum: {
-            quantity: true,
-          },
-          where: {
-            id_purchase_detail: idPurchaseDetail,
-          },
-        });
-
-      const returnedQuantity =
-        Number(returnedResult._sum.quantity || 0);
+      const returnAvailability =
+        await this.getReturnAvailabilityByPurchaseDetail(
+          idPurchaseDetail,
+          tx
+        );
 
       const availableQuantity =
-        Math.max(
-          Number(purchaseDetail.quantity || 0) -
-            returnedQuantity,
-          0
-        );
+        returnAvailability.availableQuantity;
 
       if (requestedQuantity > availableQuantity) {
         throw this.createDomainError(
