@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { authMiddleware} from "../../../../shared/middlewares/authMiddleware.js"
+import { authMiddleware } from '../../../../shared/middlewares/authMiddleware.js';
 
 import {
   createProduct,
@@ -17,15 +17,15 @@ const router = Router();
 // Configurar multer
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Ruta POST con multer
-router.post('/', upload.array('images', 10), createProduct);
-
 // Otras rutas
 router.get('/', getAllProducts);
 router.get('/unit-measures', getUnitMeasures);
 router.get('/:id', getProductById);
-router.put('/:id', upload.array('images', 10), updateProduct);
-router.patch('/:id/toggle', toggleProductStatus);
-router.delete('/:id', deleteProduct);
+
+// Rutas administrativas
+router.post('/', authMiddleware, upload.array('images', 10), createProduct);
+router.put('/:id', authMiddleware, upload.array('images', 10), updateProduct);
+router.patch('/:id/toggle', authMiddleware, toggleProductStatus);
+router.delete('/:id', authMiddleware, deleteProduct);
 
 export default router;

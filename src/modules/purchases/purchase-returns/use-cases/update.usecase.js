@@ -1,23 +1,28 @@
 import {
   RETURN_DETAIL_STATUS_IDS,
-  calculatePurchaseStatusFromReturns,
-  calculateReturnLifecycle,
   validateDetailIsEditable,
   validateDetailStatusTransition,
   validatePurchaseReturnPeriod,
   validateReturnQuantity,
   shouldRestoreStockOnReady,
-  RETURN_LIFECYCLE,
 } from "../helpers/purchaseReturnHelper.js";
+import { validateReturnCatalogReferences } from "../helpers/validateReturnCatalogReferences.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
-
-const getHeaderStatusFromLifecycle = (lifecycle) =>
-  lifecycle === RETURN_LIFECYCLE.COMPLETED
-    ? RETURN_DETAIL_STATUS_IDS.READY
-    : RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT;
 
 const getBarcodeStock = (purchaseDetail) =>
   Number(purchaseDetail?.barcodes?.stock || 0);
+
+const createEmptyChangeset = ({
+  idPurchaseReturn,
+  idPurchase,
+}) => ({
+  idPurchaseReturn,
+  idPurchase,
+  detailStatusUpdates: [],
+  detailsToAdd: [],
+  stockIncrements: [],
+  stockDecrements: [],
+});
 
 const buildDetailsToAdd = async ({
   idPurchase,
@@ -28,6 +33,13 @@ const buildDetailsToAdd = async ({
   const requestedByBarcode = new Map();
 
   for (const detail of details) {
+    const catalogValidation =
+      await validateReturnCatalogReferences(detail);
+
+    if (!catalogValidation.success) {
+      return catalogValidation;
+    }
+
     const purchaseDetail =
       await PurchaseReturnRepository.findRawPurchaseDetailById(
         detail.idPurchaseDetail
@@ -49,22 +61,24 @@ const buildDetailsToAdd = async ({
       };
     }
 
-    const alreadyReturned =
-      await PurchaseReturnRepository.getReturnedQuantityByPurchaseDetail(
-        detail.idPurchaseDetail
-      );
-
     const requestedForDetail =
       requestedByPurchaseDetail.get(
         detail.idPurchaseDetail
       ) || 0;
 
+    const returnAvailability =
+      await PurchaseReturnRepository.getReturnAvailabilityByPurchaseDetail(
+        detail.idPurchaseDetail
+      );
+
     const quantityValidation =
       validateReturnQuantity({
         requestedQuantity: detail.quantity,
-        purchasedQuantity: purchaseDetail.quantity,
+        purchasedQuantity:
+          returnAvailability.purchasedQuantity,
         returnedQuantity:
-          alreadyReturned +
+          returnAvailability.reservedQuantity +
+          returnAvailability.finalReturnedQuantity +
           requestedForDetail,
       });
 
@@ -114,7 +128,7 @@ const buildDetailsToAdd = async ({
       requestedForBarcode + detail.quantity
     );
 
-    enrichedDetails.push({
+    const enrichedDetail = {
       idPurchaseDetail:
         detail.idPurchaseDetail,
       idBarcode,
@@ -132,7 +146,9 @@ const buildDetailsToAdd = async ({
         RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT,
       idProduct:
         purchaseDetail.barcodes.id_product,
-    });
+    };
+
+    enrichedDetails.push(enrichedDetail);
   }
 
   return {
@@ -143,10 +159,12 @@ const buildDetailsToAdd = async ({
   };
 };
 
-const updateDetailStatuses = async ({
+const buildDetailsToUpdate = async ({
   idPurchaseReturn,
   detailsToUpdate,
 }) => {
+  const validatedDetails = [];
+
   for (const detail of detailsToUpdate) {
     const currentDetail =
       await PurchaseReturnRepository.findRawReturnDetailById(
@@ -193,7 +211,7 @@ const updateDetailStatuses = async ({
       return transitionValidation;
     }
 
-    if (
+    const shouldRestoreStock =
       shouldRestoreStockOnReady({
         idReturnMethod:
           currentDetail.id_return_method,
@@ -201,61 +219,31 @@ const updateDetailStatuses = async ({
           currentDetail.id_return_status,
         nextStatusId:
           detail.idReturnStatus,
-      })
-    ) {
-      await PurchaseReturnRepository.incrementBarcodeStock(
-        currentDetail.purchase_details.id_barcode,
-        currentDetail.quantity
-      );
-    }
+      });
 
-    await PurchaseReturnRepository.updateDetailStatus(
-      detail.idPurchaseReturnDetail,
-      detail.idReturnStatus
-    );
+    validatedDetails.push({
+      idPurchaseReturnDetail:
+        detail.idPurchaseReturnDetail,
+      idReturnStatus:
+        detail.idReturnStatus,
+      currentDetail,
+      stockIncrement: shouldRestoreStock
+        ? {
+            idBarcode:
+              currentDetail.purchase_details.id_barcode,
+            quantity:
+              currentDetail.quantity,
+          }
+        : null,
+    });
   }
 
   return {
     success: true,
+    data: validatedDetails,
     error: null,
     errorCode: null,
   };
-};
-
-const recalculateStatuses = async (idPurchaseReturn) => {
-  const updatedRawReturn =
-    await PurchaseReturnRepository.findRawById(
-      idPurchaseReturn
-    );
-
-  const lifecycle =
-    calculateReturnLifecycle({
-      details: updatedRawReturn.prd,
-    });
-
-  await PurchaseReturnRepository.updateReturnStatus(
-    idPurchaseReturn,
-    getHeaderStatusFromLifecycle(lifecycle)
-  );
-
-  const purchaseReturns =
-    await PurchaseReturnRepository.findRawByPurchaseId(
-      updatedRawReturn.id_purchase
-    );
-
-  const nextPurchaseStatus =
-    calculatePurchaseStatusFromReturns(
-      purchaseReturns
-    );
-
-  await PurchaseReturnRepository.updatePurchaseStatus(
-    updatedRawReturn.id_purchase,
-    nextPurchaseStatus
-  );
-
-  return PurchaseReturnRepository.findById(
-    idPurchaseReturn
-  );
 };
 
 export const updatePurchaseReturnUseCase = async ({
@@ -307,9 +295,15 @@ export const updatePurchaseReturnUseCase = async ({
       }
     }
 
+    const changeset =
+      createEmptyChangeset({
+        idPurchaseReturn,
+        idPurchase: currentReturn.id_purchase,
+      });
+
     if (detailsToUpdate.length > 0) {
       const updateResult =
-        await updateDetailStatuses({
+        await buildDetailsToUpdate({
           idPurchaseReturn,
           detailsToUpdate,
         });
@@ -328,6 +322,14 @@ export const updatePurchaseReturnUseCase = async ({
           }),
         };
       }
+
+      changeset.detailStatusUpdates =
+        updateResult.data;
+
+      changeset.stockIncrements =
+        updateResult.data
+          .map((detail) => detail.stockIncrement)
+          .filter(Boolean);
     }
 
     if (detailsToAdd.length > 0) {
@@ -347,15 +349,19 @@ export const updatePurchaseReturnUseCase = async ({
         };
       }
 
-      await PurchaseReturnRepository.addDetails(
-        idPurchaseReturn,
-        addResult.data
-      );
+      changeset.detailsToAdd =
+        addResult.data;
+
+      changeset.stockDecrements =
+        addResult.data.map((detail) => ({
+          idBarcode: detail.idBarcode,
+          quantity: detail.quantity,
+        }));
     }
 
     const updatedReturn =
-      await recalculateStatuses(
-        idPurchaseReturn
+      await PurchaseReturnRepository.applyUpdateChangeset(
+        changeset
       );
 
     return {
@@ -370,6 +376,18 @@ export const updatePurchaseReturnUseCase = async ({
       "[UpdatePurchaseReturnUseCase]",
       error
     );
+
+    if (error.errorCode) {
+      return {
+        success: false,
+        data: null,
+        error: error.message,
+        errorCode: error.errorCode,
+        ...(error.meta && {
+          meta: error.meta,
+        }),
+      };
+    }
 
     return {
       success: false,

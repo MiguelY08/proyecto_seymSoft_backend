@@ -78,7 +78,7 @@ app.use("/api/auth", authRoutes);
 /**
  * Rutas de usuarios
  */
-app.use("/api/users", userRoutes);
+app.use("/api/users", authMiddleware, userRoutes);
 
 /**
  * Rutas de categorias y productos

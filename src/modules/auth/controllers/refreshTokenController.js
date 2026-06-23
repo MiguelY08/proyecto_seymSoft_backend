@@ -1,5 +1,8 @@
 import { RefreshTokenUseCase } from "../use-cases/refresh-tokenUseCase.js";
-import { refreshTokenSchema } from "../validators/authValidators.js";
+import {
+  getZodIssues,
+  refreshTokenSchema,
+} from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/index.js";
 
 export class RefreshTokenController {
@@ -8,7 +11,10 @@ export class RefreshTokenController {
       // Validar input
       const validation = refreshTokenSchema.safeParse(req.body);
       if (!validation.success) {
-        throw new ValidationError("Validation failed", validation.error.errors);
+        throw new ValidationError(
+          "Validation failed",
+          getZodIssues(validation.error),
+        );
       }
 
       // Ejecutar caso de uso

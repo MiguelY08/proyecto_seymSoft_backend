@@ -7,30 +7,29 @@ import { GetUserByIdController } from "../controllers/getUserByIdController.js"
 import { UpdateUserController } from "../controllers/updateUserController.js";
 import { UpdateUserStatusController } from "../controllers/updateUserStatusController.js";
 import { DeleteUserController } from "../controllers/deleteUserController.js";
-
+import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js"
 
 const router = express.Router();
 
 // Crear usuario
-router.post("/", CreateUserController);
+router.post("/", authMiddleware, CreateUserController);
 
 // Obtener todos los usuarios
-router.get("/", GetUsersController);
+router.get("/", authMiddleware, GetUsersController);
 
 // Obtener métricas de usuarios
-router.get("/metrics", GetUserMetricsController);
+router.get("/metrics", authMiddleware, GetUserMetricsController);
 
 // Obtener usuario por ID
-router.get("/:id", GetUserByIdController);
+router.get("/:id", authMiddleware, GetUserByIdController);
 
 // Actualizar usuario
-router.put("/:id", UpdateUserController);
+router.put("/:id", authMiddleware, UpdateUserController);
 
 // Actualizar estado
-router.patch("/:id/status", UpdateUserStatusController);
+router.patch("/:id/status", authMiddleware, UpdateUserStatusController);
 
 // Eliminar usuario
-router.delete("/:id", DeleteUserController);
-
+router.delete("/:id", authMiddleware, DeleteUserController);
 
 export default router;
