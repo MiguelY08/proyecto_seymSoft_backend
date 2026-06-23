@@ -1,6 +1,7 @@
 // src/modules/sales/sales-returns/controllers/getAvailableInvoicesController.js
 
 import { prisma } from '../../../../config/prisma.js';
+import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
 
 export const getAvailableInvoicesController = async (req, res) => {
   try {
@@ -48,6 +49,11 @@ export const getAvailableInvoicesController = async (req, res) => {
         subtotal: true,
         sale_date: true,
         id_sale_status: true,
+        sale_statuses: {
+          select: {
+            name_status: true
+          }
+        },
         employees: {
           select: {
             users: {
@@ -61,6 +67,11 @@ export const getAvailableInvoicesController = async (req, res) => {
           select: {
             id_customer: true,
             total: true,
+            hev: {
+              select: {
+                status_date: true
+              }
+            },
             clients: {
               select: {
                 id_client: true,
@@ -103,6 +114,7 @@ export const getAvailableInvoicesController = async (req, res) => {
         
         // ✅ DETECTAR SI ESTÁ ANULADA
         const isAnnulled = sale.id_sale_status === 4;
+        const eligibility = evaluateSaleReturnEligibility(sale);
 
         return {
           idSale: sale.id_sale,
@@ -117,7 +129,13 @@ export const getAvailableInvoicesController = async (req, res) => {
           total: Number(order?.total || sale.subtotal || 0),
           hasReturn: hasReturn,      // ✅ PARA DESHABILITAR EN FRONTEND
           isAnnulled: isAnnulled,    // ✅ PARA DESHABILITAR EN FRONTEND
-          statusId: sale.id_sale_status
+          statusId: sale.id_sale_status,
+          statusName: sale.sale_statuses?.name_status || '',
+          canReturn: eligibility.canReturn && !hasReturn && !isAnnulled,
+          returnBlockReason: eligibility.reason,
+          deliveredAt: eligibility.deliveredAt,
+          daysSinceDelivery: eligibility.daysSinceDelivery,
+          remainingReturnDays: eligibility.remainingDays
         };
       } catch (mapError) {
         console.error('📦 [getAvailableInvoices] Error mapeando venta:', sale.id_sale, mapError);

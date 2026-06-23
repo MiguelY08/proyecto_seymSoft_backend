@@ -8,10 +8,13 @@ import { toggleClientStatusController } from '../controllers/toggleClientStatusC
 import { getClientPurchasesController } from '../controllers/getClientPurchasesController.js';
 import { getClientFinancialSummaryController } from '../controllers/getClientFinancialSummaryController.js';
 import { getCreditBalanceEventsController } from '../controllers/getCreditBalanceEventsController.js';
+import { createOwnClientProfileController } from '../controllers/createOwnClientProfileController.js';
+import { authMiddleware } from '../../../../shared/middlewares/authMiddleware.js';
 
 const router = Router();
 
 router.post('/', createClientController);
+router.post('/me/profile', authMiddleware, createOwnClientProfileController);
 router.get('/', getAllClientsController);
 router.get('/credit-balance-events', getCreditBalanceEventsController);
 router.get('/:id/purchases', getClientPurchasesController);
