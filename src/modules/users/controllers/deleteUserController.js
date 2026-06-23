@@ -1,9 +1,18 @@
 import { deleteUserUseCase } from "../use-cases/index.js";
+import { isSelfUserAction } from "../helpers/selfUserAction.js";
 
 export const DeleteUserController = async (req, res) => {
   try {
     // Obtener el id del usuario desde los parametros de la ruta
     const { id } = req.params;
+
+    if (isSelfUserAction({ authUser: req.user, targetUserId: id })) {
+      return res.status(403).json({
+        success: false,
+        message: "No puedes eliminar tu propio usuario.",
+        errorCode: "SELF_USER_DELETE_NOT_ALLOWED",
+      });
+    }
 
     // Ejecutar el caso de uso encargado de validar y eliminar el usuario
     const result = await deleteUserUseCase(id);

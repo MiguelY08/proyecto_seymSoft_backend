@@ -60,6 +60,7 @@ const toOptionalDate = (fieldName) =>
  * - idPaymentMethod: Filtro por ventas que incluyan este método de pago (opcional)
  * - idEmployee: Filtro por vendedor/empleado (opcional)
  * - idOrder: Filtro por pedido asociado (opcional)
+ * - search: Busqueda global por factura, cliente, vendedor, metodo, estado o tipo (opcional)
  * - dateFrom: Fecha inicial de venta en formato YYYY-MM-DD (opcional)
  * - dateTo: Fecha final de venta en formato YYYY-MM-DD (opcional)
  * - sortBy: Campo para ordenar [date, subtotal, id] (default: date)
@@ -110,6 +111,15 @@ export const getAllVendingsSchema = z.object({
     toOptionalPositiveInt(
       "idOrder"
     ),
+
+  search: z
+    .string()
+    .trim()
+    .max(80, {
+      message: "search no puede superar 80 caracteres",
+    })
+    .optional()
+    .transform((val) => val || undefined),
 
   dateFrom:
     toOptionalDate(

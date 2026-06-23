@@ -116,6 +116,7 @@ export const ROLE_PERMISSION_RULES = {
   ],
 
   Devoluciones_en_compras: [
+    "CREATE",
     "READ",
     "READ_DETAIL",
     "UPDATE",

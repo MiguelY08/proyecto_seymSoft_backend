@@ -1,5 +1,6 @@
 // backend/src/modules/supplier-purchases/repositories/supplierPurchaseRepository.js
 import { prisma } from '../../../../config/prisma.js';
+import { calculatePurchaseDetailsReturnAvailability } from '../../purchase-returns/helpers/purchaseReturnHelper.js';
 
 // ─── Reusable includes ────────────────────────────────────────────────────────
 
@@ -72,10 +73,56 @@ export class SupplierPurchaseRepository {
   }
 
   async findById(id) {
-    return prisma.purchases.findUnique({
+    const purchase = await prisma.purchases.findUnique({
       where:   { id_purchase: parseInt(id) },
       include: purchaseWithDetailsInclude,
     });
+
+    if (!purchase) {
+      return null;
+    }
+
+    const purchaseDetailIds =
+      purchase.purchase_details.map((detail) =>
+        detail.id_purchase_detail
+      );
+
+    const returnDetails =
+      purchaseDetailIds.length > 0
+        ? await prisma.prd.findMany({
+            where: {
+              id_purchase_detail: {
+                in: purchaseDetailIds,
+              },
+            },
+            select: {
+              id_purchase_detail: true,
+              quantity: true,
+              id_return_method: true,
+              id_return_status: true,
+            },
+          })
+        : [];
+
+    const availabilityByDetail =
+      calculatePurchaseDetailsReturnAvailability({
+        purchaseDetails: purchase.purchase_details,
+        returnDetails,
+      });
+
+    return {
+      ...purchase,
+      purchase_details: purchase.purchase_details.map((detail) => ({
+        ...detail,
+        returnAvailability:
+          availabilityByDetail.get(detail.id_purchase_detail) ?? {
+            purchasedQuantity: detail.quantity,
+            reservedQuantity: 0,
+            finalReturnedQuantity: 0,
+            availableQuantity: detail.quantity,
+          },
+      })),
+    };
   }
 
   async findByInvoiceNumber(invoiceNumber, excludeId = null) {

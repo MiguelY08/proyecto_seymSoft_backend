@@ -3,6 +3,7 @@ import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
+import { normalizeDeliveryType } from '../../shared/deliveryTypes.js';
 
 const getPaymentStatusById = (id) =>
   PAYMENT_STATUSES[Number(id)] || PAYMENT_STATUSES[1];
@@ -22,6 +23,14 @@ const resolvePaymentStatus = (data = {}) => {
   }
 
   return PAYMENT_STATUSES[1];
+};
+
+const normalizeDeliveryTypeFilter = (value) => {
+  try {
+    return normalizeDeliveryType(value);
+  } catch {
+    return null;
+  }
 };
 
 const orderInclude = {
@@ -61,6 +70,18 @@ const orderInclude = {
         id_sale_type: true,
         subtotal: true,
         sale_date: true,
+      },
+    },
+    employees: {
+      select: {
+        id_employee: true,
+        users: {
+          select: {
+            id_user: true,
+            full_name: true,
+            email: true,
+          },
+        },
       },
     },
     order_details: {
@@ -117,8 +138,21 @@ const orderSummarySelect = {
   payment_expired_at: true,
   payment_expiration_reason: true,
   id_payment_status: true,
+  assigned_employee: true,
   cancellation_reason: true,
   cancelled_at: true,
+  employees: {
+    select: {
+      id_employee: true,
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
+        },
+      },
+    },
+  },
   clients: {
     select: {
       id_client: true,
@@ -228,8 +262,21 @@ const orderListSelect = {
   payment_expired_at: true,
   payment_expiration_reason: true,
   id_payment_status: true,
+  assigned_employee: true,
   cancellation_reason: true,
   cancelled_at: true,
+  employees: {
+    select: {
+      id_employee: true,
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
+        },
+      },
+    },
+  },
   clients: {
     select: {
       id_client: true,
@@ -346,7 +393,11 @@ export class OrderRepository {
     }
 
     if (filters.deliveryType && filters.deliveryType !== 'Todos') {
-      where.delivery_type = filters.deliveryType;
+      const deliveryType = normalizeDeliveryTypeFilter(filters.deliveryType);
+
+      if (deliveryType) {
+        where.delivery_type = deliveryType;
+      }
     }
 
     if (filters.startDate || filters.endDate) {
@@ -505,6 +556,13 @@ export class OrderRepository {
             },
           },
           payment_deadline: data.paymentDeadline || data.payment_deadline || null,
+          ...(data.idEmployee && {
+            employees: {
+              connect: {
+                id_employee: Number(data.idEmployee),
+              },
+            },
+          }),
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
           total: data.total,
@@ -543,6 +601,36 @@ export class OrderRepository {
     });
 
     return this.findSummaryById(idOrder);
+  }
+
+  async deleteCreatedOrder(idOrder) {
+    const orderId = Number(idOrder);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.order_payments.deleteMany({
+        where: {
+          id_order: orderId,
+        },
+      });
+
+      await tx.order_payment_receipts.deleteMany({
+        where: {
+          id_order: orderId,
+        },
+      });
+
+      await tx.order_details.deleteMany({
+        where: {
+          id_order: orderId,
+        },
+      });
+
+      await tx.sales_orders.delete({
+        where: {
+          id_order: orderId,
+        },
+      });
+    });
   }
 
   async update(id, data) {
@@ -821,6 +909,22 @@ export class OrderRepository {
     return prisma.sales.findUnique({
       where: {
         id_order: Number(idOrder),
+      },
+    });
+  }
+
+  async findEmployeeById(idEmployee) {
+    return prisma.employees.findUnique({
+      where: {
+        id_employee: Number(idEmployee),
+      },
+    });
+  }
+
+  async findEmployeeByUserId(idUser) {
+    return prisma.employees.findUnique({
+      where: {
+        id_user: Number(idUser),
       },
     });
   }

@@ -458,7 +458,11 @@ export const createVendingUseCase = async (params) => {
     if (data.order) {
       try {
         preparedOrder =
-          await prepareOrder(data.order);
+          await prepareOrder({
+            ...data.order,
+            idEmployee: data.order.idEmployee ?? resolvedEmployeeId,
+            idUser: data.order.idUser ?? idUser,
+          });
 
         totals = {
           subtotal:
@@ -810,6 +814,11 @@ export const createVendingUseCase = async (params) => {
         "DUPLICATE_SALE_ORDER";
     }
 
+    if (error.message?.includes("Stock insuficiente")) {
+      errorCode =
+        "INSUFFICIENT_STOCK";
+    }
+
     if (error.message?.includes("credito")) {
       errorCode =
         "CREDIT_ERROR";
@@ -819,8 +828,9 @@ export const createVendingUseCase = async (params) => {
       success: false,
       data: null,
       error:
-        "Error creando venta: " +
-        error.message,
+        errorCode === "INSUFFICIENT_STOCK"
+          ? error.message
+          : "Error creando venta: " + error.message,
       errorCode,
     };
   }

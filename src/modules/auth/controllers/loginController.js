@@ -1,6 +1,6 @@
 import { LoginUseCase } from "../use-cases/loginUseCase.js";
 import { LoginDto } from "../dtos/loginDto.js";
-import { loginSchema } from "../validators/authValidators.js";
+import { getZodIssues, loginSchema } from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/index.js";
 
 export class LoginController {
@@ -14,7 +14,7 @@ export class LoginController {
       if (!validation.success) {
         throw new ValidationError(
           "Validation failed",
-          validation.error.errors
+          getZodIssues(validation.error)
         );
       }
 

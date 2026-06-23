@@ -16,10 +16,10 @@ import {
 const router = Router();
 
 // Crear pedido
-router.post('/', createOrder);
+router.post('/', authMiddleware, createOrder);
 
 // Obtener todos los pedidos
-router.get('/', getAllOrders);
+router.get('/', authMiddleware, getAllOrders);
 
 // Registrar pago o abono de un pedido
 router.post('/:id/payments', authMiddleware, registerOrderPayment);
@@ -33,12 +33,12 @@ router.post(
 );
 
 // Obtener pedido por ID
-router.get('/:id', getOrderById);
+router.get('/:id', authMiddleware, getOrderById);
 
 // Actualizar pedido
-router.put('/:id', updateOrder);
+router.put('/:id', authMiddleware, updateOrder);
 
 // Cancelar pedido
-router.patch('/:id/cancel', cancelOrder);
+router.patch('/:id/cancel', authMiddleware, cancelOrder);
 
 export default router;

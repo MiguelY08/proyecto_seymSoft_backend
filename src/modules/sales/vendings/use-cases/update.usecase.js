@@ -1,9 +1,8 @@
 import { VendingRepository } from "../repositories/vendingRepository.js";
-
-const DELIVERY_TYPES = [
-  "pickup",
-  "delivery",
-];
+import {
+  DELIVERY_TYPES,
+  normalizeDeliveryType,
+} from "../../shared/deliveryTypes.js";
 
 const APPROVED_SALE_STATUS_ID = 1;
 const DELIVERED_ORDER_STATUS_ID = 3;
@@ -156,12 +155,14 @@ export const updateVendingUseCase = async (params) => {
     }
 
     if (updateData.deliveryType !== undefined) {
-      const deliveryType =
-        normalizeText(
-          updateData.deliveryType
-        );
+      let deliveryType;
 
-      if (!DELIVERY_TYPES.includes(deliveryType)) {
+      try {
+        deliveryType =
+          normalizeDeliveryType(
+            updateData.deliveryType
+          );
+      } catch {
         return {
           success: false,
           data: null,
@@ -172,7 +173,10 @@ export const updateVendingUseCase = async (params) => {
         };
       }
 
-      if (deliveryType === "delivery") {
+      updatePayload.deliveryType =
+        deliveryType;
+
+      if (deliveryType === DELIVERY_TYPES.DELIVERY) {
         const deliveryAddress =
           String(updateData.deliveryAddress || "")
             .trim();
@@ -192,7 +196,7 @@ export const updateVendingUseCase = async (params) => {
           deliveryAddress;
       }
 
-      if (deliveryType === "pickup") {
+      if (deliveryType === DELIVERY_TYPES.PICKUP) {
         updatePayload.deliveryAdress =
           null;
       }

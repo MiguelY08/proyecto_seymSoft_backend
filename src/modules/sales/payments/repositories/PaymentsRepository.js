@@ -1,4 +1,4 @@
-  import {prisma } from "../../../../config/prisma.js";
+import {prisma } from "../../../../config/prisma.js";
   import { CREDIT_STATUS } from "../constants/creditStatus.constants.js";
 
   export class PaymentsRepository {
