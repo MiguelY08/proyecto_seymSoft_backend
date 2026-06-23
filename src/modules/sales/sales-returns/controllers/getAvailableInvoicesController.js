@@ -66,7 +66,13 @@ export const getAvailableInvoicesController = async (req, res) => {
         sales_orders: {
           select: {
             id_customer: true,
+            id_order_status: true,
             total: true,
+            order_statuses: {
+              select: {
+                name_status: true
+              }
+            },
             hev: {
               select: {
                 status_date: true
