@@ -121,7 +121,7 @@ async getInstallmentsByCredit(id_credit) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: {
+      users: {
         select: {
           id_user: true,
           full_name: true,
@@ -147,7 +147,7 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: {
+      users: {
         select: {
           id_user: true,
           full_name: true,
@@ -292,7 +292,7 @@ async getCreditBySaleId(id_sale) {
         include: {
           payment_methods: true,
 
-          cancelled_by_user: {
+          users: {
             select: {
               id_user: true,
               full_name: true,
@@ -320,7 +320,7 @@ async getInstallmentById(id_installment) {
     include: {
       payment_methods: true,
 
-      cancelled_by_user: true,  // ← Changed from: users: true
+      users: true,
 
       credits: {
         include: {
