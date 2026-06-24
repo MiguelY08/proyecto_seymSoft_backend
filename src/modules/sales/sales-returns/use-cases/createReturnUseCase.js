@@ -122,7 +122,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
 
     console.log('📦 [createReturnUseCase] Productos a procesar:', returnData.details.length);
 
-    const nonConformingToCreate = [];
     const details = [];
 
     for (const detail of returnData.details) {
@@ -132,26 +131,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       totalUnits += quantity;
 
       const isDefective = isDefectiveReason(detail.reasonName || '');
-
-      if (isDefective && detail.idBarcode) {
-        try {
-          const purchaseInfo = await ReturnRepository.getPurchaseReturnInfo(detail.idBarcode);
-          if (!purchaseInfo.canReturn) {
-            nonConformingToCreate.push({
-              idBarcode: detail.idBarcode,
-              quantity: quantity,
-              reason: `Producto defectuoso detectado en devolución venta #${returnNumber} - ${detail.reasonName || 'Sin motivo'}`
-            });
-          }
-        } catch (error) {
-          console.error('[createReturnUseCase] Error verificando compra:', error);
-          nonConformingToCreate.push({
-            idBarcode: detail.idBarcode,
-            quantity: quantity,
-            reason: `Producto defectuoso (error verificación) en devolución #${returnNumber}`
-          });
-        }
-      }
 
       // ✅ OBTENER ESTADO SELECCIONADO - SOLUCIÓN ERROR #1
       const statusName = detail.status || 'Pend. envio';
@@ -204,32 +183,13 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
 
     console.log('📦 [createReturnUseCase] Devolución creada:', created.id_sales_return);
 
-    if (nonConformingToCreate.length > 0) {
-      const defaultStatus = await ReturnRepository.getDefaultNonConformingStatus();
-      const statusId = defaultStatus?.id_status || 1;
-
-      for (const ncp of nonConformingToCreate) {
-        try {
-          await ReturnRepository.createNonConformingProduct({
-            idBarcode: ncp.idBarcode,
-            quantity: ncp.quantity,
-            reason: ncp.reason,
-            idStatus: statusId
-          });
-          console.log(`[createReturnUseCase] Producto no conforme creado para barcode: ${ncp.idBarcode}`);
-        } catch (error) {
-          console.error('[createReturnUseCase] Error creando producto no conforme:', error);
-        }
-      }
-    }
-
     return {
       success: true,
       data: {
         id: created.id_sales_return,
         returnNumber: created.return_number,
         status: generalStatus,
-        nonConformingCreated: nonConformingToCreate.length
+        nonConformingCreated: 0
       },
       error: null,
       errorCode: null
