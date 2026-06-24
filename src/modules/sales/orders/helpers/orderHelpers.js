@@ -7,10 +7,28 @@ const normalizeClientType = (clientType) =>
     .trim()
     .toLowerCase();
 
+export const normalizeClientTypeForPricing = (clientType) => {
+  const normalizedType = normalizeClientType(clientType);
+
+  if (normalizedType.includes('mayor')) {
+    return CLIENT_TYPES.WHOLESALE;
+  }
+
+  if (normalizedType.includes('colega') || normalizedType.includes('partner')) {
+    return CLIENT_TYPES.PARTNER;
+  }
+
+  if (normalizedType.includes('paca') || normalizedType.includes('bulk')) {
+    return CLIENT_TYPES.BULK;
+  }
+
+  return CLIENT_TYPES.RETAIL;
+};
+
 // Seleccionar el precio final del producto segun el tipo de cliente.
 // Los precios registrados en productos ya incluyen IVA.
 export const getPriceByClientType = (product, clientType) => {
-  const normalizedType = normalizeClientType(clientType);
+  const normalizedType = normalizeClientTypeForPricing(clientType);
 
   switch (normalizedType) {
     case CLIENT_TYPES.WHOLESALE:
