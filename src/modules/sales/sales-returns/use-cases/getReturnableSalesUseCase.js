@@ -4,12 +4,9 @@ import { ReturnRepository } from '../repositories/returnRepository.js';
 
 export const getReturnableSalesUseCase = async (clientId) => {
   try {
-    console.log('📦 [getReturnableSalesUseCase] Buscando ventas para cliente:', clientId);
-    
+
     const sales = await ReturnRepository.getReturnableSales(clientId);
-    
-    console.log('📦 [getReturnableSalesUseCase] Ventas encontradas:', sales.length);
-    
+
     return {
       success: true,
       data: sales,
@@ -18,7 +15,7 @@ export const getReturnableSalesUseCase = async (clientId) => {
     };
 
   } catch (error) {
-    console.error('[getReturnableSalesUseCase]', error);
+
     return {
       success: false,
       data: null,
