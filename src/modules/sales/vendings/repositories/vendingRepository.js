@@ -319,8 +319,11 @@ const buildCreditData = ({ data, idCustomer, creditAmount }) => {
     throw new Error("El estado inicial del credito es obligatorio");
   }
 
+  const dueDate = new Date();
+  dueDate.setMonth(dueDate.getMonth() + 2);
+
   return {
-    due_date: creditData.dueDate || data.creditDueDate,
+    due_date: dueDate,
     id_credit_status: Number(creditData.idCreditStatus || data.idCreditStatus),
     id_customer: Number(idCustomer),
     credit_amount: creditAmount,
