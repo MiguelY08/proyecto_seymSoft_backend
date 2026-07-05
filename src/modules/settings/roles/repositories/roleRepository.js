@@ -11,14 +11,44 @@ export class RoleRepository {
   static async findRoleById(id_role) {
     return await prisma.roles.findUnique({
       where: { id_role },
-      include: {
+      select: {
+        id_role: true,
+        name_role: true,
+        description: true,
+        date_creation: true,
+        id_status: true,
+
         assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
+          select: {
+            id_permission: true,
+            id_role: true,
+            id_module: true,
+            id_privilege: true,
+
+            modules: {
+              select: {
+                id_module: true,
+                name_module: true,
+                description: true,
+              },
+            },
+
+            privileges: {
+              select: {
+                id_privilege: true,
+                name_privilege: true,
+                description: true,
+              },
+            },
           },
         },
-        general_statuses: true,
+
+        general_statuses: {
+          select: {
+            id_status: true,
+            name_status: true,
+          },
+        },
       },
     });
   }
@@ -29,14 +59,9 @@ export class RoleRepository {
   static async findRoleByName(name_role) {
     return await prisma.roles.findUnique({
       where: { name_role },
-      include: {
-        assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
-          },
-        },
-        general_statuses: true,
+      select: {
+        id_role: true,
+        name_role: true,
       },
     });
   }
@@ -55,15 +80,18 @@ export class RoleRepository {
 
     return await prisma.roles.findMany({
       where,
-      include: {
+      select: {
+        id_role: true,
+        name_role: true,
+        description: true,
+        date_creation: true,
+        id_status: true,
+
         assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
+          select: {
+            id_permission: true,
           },
         },
-        general_statuses: true
-
       },
       orderBy: {
         date_creation: "desc",
@@ -82,14 +110,8 @@ export class RoleRepository {
         id_status: 1, // Activo por defecto
         date_creation: new Date(),
       },
-      include: {
-        assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
-          },
-        },
-        general_statuses: true,
+      select: {
+        id_role: true,
       },
     });
   }
@@ -104,14 +126,44 @@ export class RoleRepository {
         name_role: roleData.name_role,
         description: roleData.description || null,
       },
-      include: {
+      select: {
+        id_role: true,
+        name_role: true,
+        description: true,
+        date_creation: true,
+        id_status: true,
+
         assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
+          select: {
+            id_permission: true,
+            id_role: true,
+            id_module: true,
+            id_privilege: true,
+
+            modules: {
+              select: {
+                id_module: true,
+                name_module: true,
+                description: true,
+              },
+            },
+
+            privileges: {
+              select: {
+                id_privilege: true,
+                name_privilege: true,
+                description: true,
+              },
+            },
           },
         },
-        general_statuses: true,
+
+        general_statuses: {
+          select: {
+            id_status: true,
+            name_status: true,
+          },
+        },
       },
     });
   }
@@ -129,14 +181,17 @@ export class RoleRepository {
    * Verificar si un rol tiene empleados asociados
    */
   static async hasAssociatedEmployees(id_role) {
-    const count = await prisma.employee_roles.count({
+    const employeeRole = await prisma.employee_roles.findFirst({
       where: {
         assigned_permissions: {
           id_role,
         },
       },
+      select: {
+        id_employee_role: true,
+      },
     });
-    return count > 0;
+    return Boolean(employeeRole);
   }
 
   /**
@@ -144,6 +199,11 @@ export class RoleRepository {
    */
   static async findAllModules() {
     return await prisma.modules.findMany({
+      select: {
+        id_module: true,
+        name_module: true,
+        description: true,
+      },
       orderBy: {
         name_module: "asc",
       },
@@ -155,6 +215,11 @@ export class RoleRepository {
    */
   static async findAllPrivileges() {
     return await prisma.privileges.findMany({
+      select: {
+        id_privilege: true,
+        name_privilege: true,
+        description: true,
+      },
       orderBy: {
         name_privilege: "asc",
       },
@@ -171,6 +236,11 @@ static async findModulesByIds(ids) {
         in: ids,
       },
     },
+    select: {
+      id_module: true,
+      name_module: true,
+      description: true,
+    },
   });
 }
 
@@ -183,6 +253,11 @@ static async findPrivilegesByIds(ids) {
       id_privilege: {
         in: ids,
       },
+    },
+    select: {
+      id_privilege: true,
+      name_privilege: true,
+      description: true,
     },
   });
 }
@@ -207,9 +282,27 @@ static async createManyAssignedPermissions(permissions) {
         id_module: permissionData.id_module,
         id_privilege: permissionData.id_privilege,
       },
-      include: {
-        modules: true,
-        privileges: true,
+      select: {
+        id_permission: true,
+        id_role: true,
+        id_module: true,
+        id_privilege: true,
+
+        modules: {
+          select: {
+            id_module: true,
+            name_module: true,
+            description: true,
+          },
+        },
+
+        privileges: {
+          select: {
+            id_privilege: true,
+            name_privilege: true,
+            description: true,
+          },
+        },
       },
     });
   }
@@ -220,9 +313,27 @@ static async createManyAssignedPermissions(permissions) {
   static async findAssignedPermissionsByRole(id_role) {
     return await prisma.assigned_permissions.findMany({
       where: { id_role },
-      include: {
-        modules: true,
-        privileges: true,
+      select: {
+        id_permission: true,
+        id_role: true,
+        id_module: true,
+        id_privilege: true,
+
+        modules: {
+          select: {
+            id_module: true,
+            name_module: true,
+            description: true,
+          },
+        },
+
+        privileges: {
+          select: {
+            id_privilege: true,
+            name_privilege: true,
+            description: true,
+          },
+        },
       },
     });
   }
@@ -267,11 +378,35 @@ static async createManyAssignedPermissions(permissions) {
     return await prisma.roles.update({
       where: { id_role },
       data: { id_status },
-      include: {
+      select: {
+        id_role: true,
+        name_role: true,
+        description: true,
+        date_creation: true,
+        id_status: true,
+
         assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
+          select: {
+            id_permission: true,
+            id_role: true,
+            id_module: true,
+            id_privilege: true,
+
+            modules: {
+              select: {
+                id_module: true,
+                name_module: true,
+                description: true,
+              },
+            },
+
+            privileges: {
+              select: {
+                id_privilege: true,
+                name_privilege: true,
+                description: true,
+              },
+            },
           },
         },
       },
@@ -338,14 +473,44 @@ static async updateRolePermissionsTransaction(
     // Obtener rol actualizado
     return await tx.roles.findUnique({
       where: { id_role },
-      include: {
+      select: {
+        id_role: true,
+        name_role: true,
+        description: true,
+        date_creation: true,
+        id_status: true,
+
         assigned_permissions: {
-          include: {
-            modules: true,
-            privileges: true,
+          select: {
+            id_permission: true,
+            id_role: true,
+            id_module: true,
+            id_privilege: true,
+
+            modules: {
+              select: {
+                id_module: true,
+                name_module: true,
+                description: true,
+              },
+            },
+
+            privileges: {
+              select: {
+                id_privilege: true,
+                name_privilege: true,
+                description: true,
+              },
+            },
           },
         },
-        general_statuses: true,
+
+        general_statuses: {
+          select: {
+            id_status: true,
+            name_status: true,
+          },
+        },
       },
     });
 
