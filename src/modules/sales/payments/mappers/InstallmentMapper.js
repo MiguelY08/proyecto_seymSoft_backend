@@ -1,7 +1,17 @@
 import InstallmentDto from "../dtos/InstallmentDto.js";
+import { PAYMENT_BUSINESS_RULES } from "../constants/paymentBusinessRules.constants.js";
+import calculateCanCancelInstallment from "../helpers/calculateCanCancelInstallment.js";
 
 export default class InstallmentMapper {
   static toDto(data) {
+    const createdAt =
+      data.created_at ??
+      data.installment_date ??
+      null;
+
+    const isCancelled =
+      Boolean(data.is_cancelled);
+
     return new InstallmentDto({
       idInstallment: data.id_installment,
 
@@ -11,11 +21,22 @@ export default class InstallmentMapper {
 
       interestPaid: Number(data.interest_paid ?? 0),
 
+      createdAt,
+
       installmentDate: data.installment_date,
 
       observations: data.observations,
 
-      isCancelled: data.is_cancelled,
+      isCancelled,
+
+      canCancel:
+        !isCancelled &&
+        calculateCanCancelInstallment({
+          createdAt,
+        }),
+
+      cancellationLimitHours:
+        PAYMENT_BUSINESS_RULES.INSTALLMENT_CANCELLATION_HOURS,
 
       cancelledAt: data.cancelled_at,
 

@@ -11,6 +11,10 @@ export default function calculateCanCancelInstallment({
 }) {
   const createdDate = new Date(createdAt);
 
+  if (Number.isNaN(createdDate.getTime())) {
+    return false;
+  }
+
   const hoursDifference =
     (Date.now() - createdDate.getTime()) /
     (1000 * 60 * 60);
