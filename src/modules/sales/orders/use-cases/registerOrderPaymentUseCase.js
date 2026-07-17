@@ -95,7 +95,7 @@ const validateSaleFromPaidOrder = async ({
   }
 };
 
-const notifyPaymentRegistered = async ({
+export const notifyPaymentRegistered = async ({
   order,
   paymentMethod,
   amount,
@@ -104,7 +104,15 @@ const notifyPaymentRegistered = async ({
   isPaid,
   reference,
 }) => {
-  const mappedOrder = mapOrder(order);
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder) {
+    return;
+  }
+
   const customer = mappedOrder.customer;
 
   if (!customer?.email) {
@@ -124,7 +132,7 @@ const notifyPaymentRegistered = async ({
       reference,
     });
   } catch (error) {
-    console.error('[RegisterOrderPaymentUseCase] Email error:', error.message);
+    console.error('[NotifyPaymentRegistered] Email error:', error.message);
   }
 };
 
@@ -155,7 +163,9 @@ export class RegisterOrderPaymentUseCase {
           order.id_order,
           options
         );
-        const finalOrder = await this.repo.findSummaryById(order.id_order);
+        const finalOrder = await this.repo.findPaymentResultById(
+          order.id_order
+        );
 
         return {
           order: mapOrder(finalOrder),
@@ -221,7 +231,9 @@ export class RegisterOrderPaymentUseCase {
           PAYMENT_STATUSES[2].id
         );
 
-        const finalOrder = await this.repo.findSummaryById(order.id_order);
+        const finalOrder = await this.repo.findPaymentResultById(
+          order.id_order
+        );
 
         return {
           order: mapOrder(finalOrder),
@@ -294,20 +306,14 @@ export class RegisterOrderPaymentUseCase {
         : PAYMENT_STATUSES[1].id
     );
 
-    const finalOrder = await this.repo.findSummaryById(order.id_order);
+    const finalOrder = await this.repo.findPaymentResultById(
+      order.id_order
+    );
 
-    void notifyPaymentRegistered({
-      order: finalOrder,
-      paymentMethod,
-      amount,
-      paidAmount: paidAfter,
-      pendingAmount: Math.max(pendingAfter, 0),
-      isPaid,
-      reference: data.reference,
-    });
+    const mappedOrder = mapOrder(finalOrder);
 
     return {
-      order: mapOrder(finalOrder),
+      order: mappedOrder,
       paymentSummary: {
         orderTotal,
         paidBefore,
@@ -317,6 +323,15 @@ export class RegisterOrderPaymentUseCase {
         isPaid,
       },
       generatedSale,
+      paymentNotification: {
+        order: mappedOrder,
+        paymentMethod,
+        amount,
+        paidAmount: paidAfter,
+        pendingAmount: Math.max(pendingAfter, 0),
+        isPaid,
+        reference: data.reference,
+      },
     };
   }
 }

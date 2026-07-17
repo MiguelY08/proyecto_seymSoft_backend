@@ -134,24 +134,10 @@ const saleListSelect = {
       },
     },
   },
-  credits: {
-    select: {
-      id_credit: true,
-      id_sale: true,
-      id_customer: true,
-      due_date: true,
-      id_credit_status: true,
-      credit_amount: true,
-      remaining_balance: true,
-    },
-  },
   sale_payment_methods: {
     select: {
-      id_sale_payment_method: true,
-      id_sale: true,
       id_payment_method: true,
       amount: true,
-      creation_date: true,
       payment_methods: {
         select: {
           id_payment_method: true,
@@ -160,8 +146,18 @@ const saleListSelect = {
       },
     },
   },
-  sale_statuses: true,
-  sale_types: true,
+  sale_statuses: {
+    select: {
+      id_sale_status: true,
+      name_status: true,
+    },
+  },
+  sale_types: {
+    select: {
+      id_sale_type: true,
+      sale_type_name: true,
+    },
+  },
   sales_orders: {
     select: {
       id_order: true,
@@ -171,22 +167,13 @@ const saleListSelect = {
       delivery_adress: true,
       delivery_type: true,
       payment_status: true,
-      payment_deadline: true,
-      payment_reminder_6h_sent: true,
-      payment_reminder_1h_sent: true,
-      payment_expired_at: true,
-      payment_expiration_reason: true,
-      cancellation_reason: true,
-      cancelled_at: true,
       subtotal: true,
       iva_amount: true,
       total: true,
       clients: {
         select: {
           id_client: true,
-          person_type: true,
           client_type: true,
-          credit: true,
           users: {
             select: {
               id_user: true,
@@ -197,8 +184,18 @@ const saleListSelect = {
           },
         },
       },
-      order_statuses: true,
-      payment_statuses: true,
+      order_statuses: {
+        select: {
+          id_order_status: true,
+          name_status: true,
+        },
+      },
+      payment_statuses: {
+        select: {
+          id_payment_status: true,
+          name_payment_status: true,
+        },
+      },
     },
   },
 };
@@ -1202,7 +1199,7 @@ export class VendingRepository {
           }),
           ...(dateTo && {
             lte:
-              new Date(`${dateTo}T00:00:00.000Z`),
+              new Date(`${dateTo}T23:59:59.999Z`),
           }),
         },
       }),
@@ -1248,7 +1245,7 @@ export class VendingRepository {
 
     return {
       sales:
-        VendingMapper.toDomainList(sales),
+        VendingMapper.toListDomainList(sales),
       total,
       page:
         parsedPage,

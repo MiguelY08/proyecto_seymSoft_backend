@@ -110,7 +110,7 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/storefront", storefrontRoutes);
 
 /* Rutas de ventas */
-app.use("/api/vendings", authMiddleware, vendingRoutes);
+app.use("/api/vendings", vendingRoutes);
 
 /* Rutas de pagos y abonos */
 app.use("/api/payments", paymentsRoutes);

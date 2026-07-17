@@ -2,12 +2,24 @@ import { httpCodes } from '../../../../shared/constants/httpCodes.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
-import { CreateOrderUseCase } from '../use-cases/createOrderUseCase.js';
-import { UpdateOrderUseCase } from '../use-cases/updateOrderUseCase.js';
+import {
+  CreateOrderUseCase,
+  notifyOrderCreated,
+} from '../use-cases/createOrderUseCase.js';
+import {
+  UpdateOrderUseCase,
+  notifyOrderStatusChanged,
+} from '../use-cases/updateOrderUseCase.js';
 import { GetAllOrdersUseCase } from '../use-cases/getAllOrdersUseCase.js';
 import { GetOrderByIdUseCase } from '../use-cases/getOrderByIdUseCase.js';
-import { CancelOrderUseCase } from '../use-cases/cancelOrderUseCase.js';
-import { RegisterOrderPaymentUseCase } from '../use-cases/registerOrderPaymentUseCase.js';
+import {
+  CancelOrderUseCase,
+  notifyOrderCancelled,
+} from '../use-cases/cancelOrderUseCase.js';
+import {
+  RegisterOrderPaymentUseCase,
+  notifyPaymentRegistered,
+} from '../use-cases/registerOrderPaymentUseCase.js';
 import { UploadOrderPaymentReceiptUseCase } from '../use-cases/uploadOrderPaymentReceiptUseCase.js';
 import {
   validateOrderIdParams,
@@ -26,6 +38,12 @@ export const createOrder = async (req, res, next) => {
     const message = data.hasSale
       ? 'Pedido registrado exitosamente. Venta directa generada.'
       : 'Pedido registrado exitosamente.';
+
+    res.once('finish', () => {
+      setImmediate(() => {
+        void notifyOrderCreated(data);
+      });
+    });
 
     res.status(httpCodes.CREATED).json({
       success: true,
@@ -80,7 +98,16 @@ export const updateOrder = async (req, res, next) => {
   try {
     // Normalizar y validar datos modificables del pedido.
     const dto = new UpdateOrderDto(req.body);
-    const data = await new UpdateOrderUseCase(repo).execute(req.params.id, dto);
+    const result = await new UpdateOrderUseCase(repo).execute(req.params.id, dto);
+    const data = result.order;
+
+    if (result.statusNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyOrderStatusChanged(result.statusNotification);
+        });
+      });
+    }
 
     res.status(httpCodes.OK).json({
       success: true,
@@ -104,6 +131,17 @@ export const cancelOrder = async (req, res, next) => {
       req.params.id,
       cancellationReason
     );
+
+    res.once('finish', () => {
+      setImmediate(() => {
+        void notifyOrderCancelled({
+          order:
+            data,
+          reason:
+            data.cancellationReason || cancellationReason,
+        });
+      });
+    });
 
     res.status(httpCodes.OK).json({
       success: true,
@@ -138,13 +176,25 @@ export const registerOrderPayment = async (req, res, next) => {
       });
     }
 
-    const data = await new RegisterOrderPaymentUseCase(repo).execute(
+    const result = await new RegisterOrderPaymentUseCase(repo).execute(
       paramsValidation.data.id,
       bodyValidation.data,
       {
         idUser: req.user?.id_user || req.user?.idUser || null,
       }
     );
+    const {
+      paymentNotification,
+      ...data
+    } = result;
+
+    if (paymentNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyPaymentRegistered(paymentNotification);
+        });
+      });
+    }
 
     const message = data.paymentSummary?.isPaid
       ? 'Pago registrado exitosamente. El pedido quedo pagado y la venta fue generada.'

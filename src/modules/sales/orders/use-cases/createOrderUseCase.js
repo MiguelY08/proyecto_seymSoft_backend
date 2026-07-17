@@ -43,6 +43,64 @@ const buildPaymentDeadline = () => {
   );
 };
 
+const buildProductBarcodeKey = (item) =>
+  `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
+
+const getEnrichedOrderItems = async ({ repo, items, client }) => {
+  const barcodeRecords =
+    await repo.findBarcodesByProducts(items);
+  const barcodeRecordByItem = new Map(
+    barcodeRecords.map((barcodeRecord) => [
+      buildProductBarcodeKey({
+        idProduct: barcodeRecord.id_product,
+        barcode: barcodeRecord.barcode,
+      }),
+      barcodeRecord,
+    ])
+  );
+
+  return items.map((item) => {
+    const barcodeRecord =
+      barcodeRecordByItem.get(
+        buildProductBarcodeKey(item)
+      );
+
+    if (!barcodeRecord) {
+      throw new AppError(
+        `El codigo de barras "${item.barcode}" no pertenece al producto seleccionado.`,
+        400
+      );
+    }
+
+    if ((barcodeRecord.stock || 0) < item.quantity) {
+      throw new AppError(
+        `Stock insuficiente para el producto "${barcodeRecord.products.name}". Stock disponible: ${barcodeRecord.stock}.`,
+        400
+      );
+    }
+
+    const unitPrice = getPriceByClientType(
+      barcodeRecord.products,
+      client.client_type
+    );
+
+    if (!unitPrice || Number(unitPrice) <= 0) {
+      throw new AppError(
+        `El producto "${barcodeRecord.products.name}" no tiene precio configurado para el tipo de cliente "${client.client_type || 'Detal'}".`,
+        400
+      );
+    }
+
+    return {
+      ...item,
+      unitPrice: Number(unitPrice),
+      ivaPercentage: Number(
+        barcodeRecord.products.iva_percentage || 0
+      ),
+    };
+  });
+};
+
 const resolveAssignedEmployeeId = async (repo, dto) => {
   const receivedEmployeeId = Number(dto.idEmployee);
 
@@ -64,8 +122,16 @@ const resolveAssignedEmployeeId = async (repo, dto) => {
   return null;
 };
 
-const notifyOrderCreated = async (order) => {
-  const mappedOrder = mapOrder(order);
+export const notifyOrderCreated = async (order) => {
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder) {
+    return;
+  }
+
   const customer = mappedOrder.customer;
 
   if (!customer?.email) {
@@ -103,49 +169,14 @@ export class CreateOrderUseCase {
       throw new AppError('Cliente no encontrado.', 404);
     }
 
-    // Validar productos, codigos de barras y stock en paralelo antes de crear el pedido.
-    const enrichedItems = await Promise.all(
-      dto.items.map(async (item) => {
-        const barcodeRecord = await this.repo.findBarcodeByProduct(
-          item.idProduct,
-          item.barcode
-        );
-
-        if (!barcodeRecord) {
-          throw new AppError(
-            `El codigo de barras "${item.barcode}" no pertenece al producto seleccionado.`,
-            400
-          );
-        }
-
-        if ((barcodeRecord.stock || 0) < item.quantity) {
-          throw new AppError(
-            `Stock insuficiente para el producto "${barcodeRecord.products.name}". Stock disponible: ${barcodeRecord.stock}.`,
-            400
-          );
-        }
-
-        const unitPrice = getPriceByClientType(
-          barcodeRecord.products,
-          client.client_type
-        );
-
-        if (!unitPrice || Number(unitPrice) <= 0) {
-          throw new AppError(
-            `El producto "${barcodeRecord.products.name}" no tiene precio configurado para el tipo de cliente "${client.client_type || 'Detal'}".`,
-            400
-          );
-        }
-
-        return {
-          ...item,
-          unitPrice: Number(unitPrice),
-          ivaPercentage: Number(
-            barcodeRecord.products.iva_percentage || 0
-          ),
-        };
-      })
-    );
+    const enrichedItems =
+      await getEnrichedOrderItems({
+        repo:
+          this.repo,
+        items:
+          dto.items,
+        client,
+      });
 
     const calculated = calculateOrderTotals(enrichedItems);
     const initialPayments = dto.initialPayments || [];
@@ -226,8 +257,6 @@ export class CreateOrderUseCase {
   async createPrepared(orderData) {
     const order = await this.repo.create(orderData);
 
-    void notifyOrderCreated(order);
-
     return mapOrder(order);
   }
 
@@ -288,8 +317,6 @@ export class CreateOrderUseCase {
     }
 
     const orderWithSale = await this.repo.findSummaryById(order.id_order);
-
-    void notifyOrderCreated(orderWithSale);
 
     return mapOrder(orderWithSale);
   }
