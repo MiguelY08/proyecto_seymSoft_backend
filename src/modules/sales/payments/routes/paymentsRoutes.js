@@ -1,12 +1,12 @@
 import { Router } from "express";
 
-import { getCreditCustomersController } from "../controllers/getCreditCustomersController.js";
-import { getCustomerInvoicesController } from "../controllers/getCustomerInvoicesController.js";
-import { getInvoiceInstallmentsController } from "../controllers/getInvoiceInstallmentsController.js";
-import { getCustomerContactController } from "../controllers/getCustomerContactController.js";
-import { createInstallmentController } from "../controllers/createInstallmentController.js";
-import { cancelInstallmentController } from "../controllers/cancelInstallmentController.js";
-import { generateInterestController } from "../controllers/generateInterestController.js";
+import { getCreditCustomersController } from "../controllers/GetCreditCustomersController.js";
+import { getCustomerInvoicesController } from "../controllers/GetCustomerInvoicesController.js";
+import { getInvoiceInstallmentsController } from "../controllers/GetInvoiceInstallmentsController.js";
+import { getCustomerContactController } from "../controllers/GetCustomerContactController.js";
+import { createInstallmentController } from "../controllers/CreateInstallmentController.js";
+import { cancelInstallmentController } from "../controllers/CancelInstallmentController.js";
+import { generateInterestController } from "../controllers/GenerateInterestController.js";
 import {authMiddleware} from "../../../../shared/middlewares/authMiddleware.js";
 
 const router = Router();

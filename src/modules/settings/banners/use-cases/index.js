@@ -7,9 +7,9 @@
  */
 
 export { createBannerUseCase } from "./create.useCase.js";
-export { deleteBannerUseCase } from "./delete.useCase.js";
+export { deleteBannerUseCase } from "./delete.usecase.js";
 export { getActiveBannersUseCase } from "./getActive.useCase.js";
-export { getAllBannersUseCase } from "./getAll.useCase.js";
-export { getBannerByIdUseCase } from "./getById.useCase.js";
+export { getAllBannersUseCase } from "./getAll.usecase.js";
+export { getBannerByIdUseCase } from "./getById.usecase.js";
 export { reorderActiveBannersUseCase } from "./reorderActive.useCase.js";
 export { toggleBannerStatusUseCase } from "./toggleStatus.useCase.js";
