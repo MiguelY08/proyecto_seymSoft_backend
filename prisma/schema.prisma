@@ -238,19 +238,6 @@ model order_details {
   products        products     @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_producto")
 }
 
-model order_payment_receipts {
-  id_order_payment_receipt Int          @id @default(autoincrement())
-  id_order                 Int
-  image_url                String       @db.VarChar(500)
-  file_name                String?      @db.VarChar(255)
-  observations             String?      @db.VarChar(255)
-  verification_status      String       @default("Pendiente") @db.VarChar(20)
-  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
-  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
-
-  @@index([id_order], map: "idx_order_payment_receipts_id_order")
-}
-
 model order_payments {
   id_order_payment  Int             @id @default(autoincrement())
   id_order          Int
@@ -671,22 +658,6 @@ model sales_returns {
   sales                sales                  @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_venta_fkey")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model shopping_cart_items {
-  id_cart_item Int      @id @default(autoincrement())
-  id_client    Int
-  id_product   Int
-  quantity     Int
-  created_at   DateTime @default(now()) @db.Timestamp(6)
-  updated_at   DateTime @default(now()) @db.Timestamp(6)
-  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
-  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
-
-  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
-  @@index([id_client], map: "idx_shopping_cart_items_client")
-  @@index([id_product], map: "idx_shopping_cart_items_product")
-}
-
 model subcategories {
   id_subcategory        Int                     @id(map: "subcategorias_pkey") @default(autoincrement())
   name_subcategory      String                  @db.VarChar(100)
@@ -734,19 +705,6 @@ model order_payment_receipts {
   sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
 
   @@index([id_order], map: "idx_order_payment_receipts_id_order")
-}
-
-model client_favorites {
-  id_favorite Int      @id @default(autoincrement())
-  id_client   Int
-  id_product  Int
-  created_at  DateTime @default(now()) @db.Timestamp(6)
-  clients     clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_client")
-  products    products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_product")
-
-  @@unique([id_client, id_product], map: "uq_client_favorites_client_product")
-  @@index([id_client], map: "idx_client_favorites_client")
-  @@index([id_product], map: "idx_client_favorites_product")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
