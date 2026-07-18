@@ -189,22 +189,24 @@ model hsp {
 }
 
 model installments {
-  id_installment      Int             @id(map: "abonos_pkey") @default(autoincrement())
-  installment_amount  Decimal
-  installment_date    DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_payment_method   Int
-  observations        String?         @db.VarChar(255)
-  id_credit           Int
-  cancelled_at        DateTime?
-  capital_paid        Decimal         @default(0)
-  interest_paid       Decimal         @default(0)
-  is_cancelled        Boolean         @default(false)
-  created_at          DateTime        @default(now())
-  cancellation_reason String?         @db.VarChar(255)
-  cancelled_by        Int?
-  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
-  credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-  users               users?          @relation(fields: [cancelled_by], references: [id_user])
+  id_installment                          Int             @id(map: "abonos_pkey") @default(autoincrement())
+  installment_amount                      Decimal
+  installment_date                        DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_payment_method                       Int
+  observations                            String?         @db.VarChar(255)
+  id_credit                               Int
+  cancelled_at                            DateTime?
+  capital_paid                            Decimal         @default(0)
+  interest_paid                           Decimal         @default(0)
+  is_cancelled                            Boolean         @default(false)
+  created_at                              DateTime        @default(now())
+  cancellation_reason                     String?         @db.VarChar(255)
+  cancelled_by                            Int?
+  registered_by                           Int?
+  payment_methods                         payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
+  users_installments_cancelled_byTousers  users?          @relation("installments_cancelled_byTousers", fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_cancelled_by")
+  credits                                 credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
+  users_installments_registered_byTousers users?          @relation("installments_registered_byTousers", fields: [registered_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_registered_by")
 }
 
 model modules {
@@ -246,9 +248,14 @@ model order_payment_receipts {
   observations             String?      @db.VarChar(255)
   verification_status      String       @default("Pendiente") @db.VarChar(20)
   uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
+  review_observations      String?      @db.VarChar(255)
+  reviewed_at              DateTime?    @db.Timestamp(6)
+  reviewed_by              Int?
   sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
+  users                    users?       @relation(fields: [reviewed_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payment_receipts_reviewed_by")
 
   @@index([id_order], map: "idx_order_payment_receipts_id_order")
+  @@index([verification_status, reviewed_at], map: "idx_order_payment_receipts_review_status")
 }
 
 model order_payments {
@@ -640,6 +647,7 @@ model sales_orders {
   id_payment_status         Int
   cancellation_reason       String?                  @db.VarChar(255)
   cancelled_at              DateTime?                @db.Timestamp(6)
+  sale_type                 String                   @default("manual") @db.VarChar(20)
   hev                       hev?
   order_details             order_details[]
   order_payment_receipts    order_payment_receipts[]
@@ -707,60 +715,20 @@ model unit_measures {
 }
 
 model users {
-  id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  full_name        String            @db.VarChar(255)
-  email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
-  pass_word        String            @db.VarChar(255)
-  creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  phone            BigInt?
-  id_status        Int?
-  token_version    Int               @default(0)
-  id_google        String?
-  access           access[]
-  clients          clients?
-  employees        employees?
-  installments     installments[]
-  general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model order_payment_receipts {
-  id_order_payment_receipt Int          @id @default(autoincrement())
-  id_order                 Int
-  image_url                String       @db.VarChar(500)
-  file_name                String?      @db.VarChar(255)
-  observations             String?      @db.VarChar(255)
-  verification_status      String       @default("Pendiente") @db.VarChar(20)
-  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
-  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
-
-  @@index([id_order], map: "idx_order_payment_receipts_id_order")
-}
-
-model client_favorites {
-  id_favorite Int      @id @default(autoincrement())
-  id_client   Int
-  id_product  Int
-  created_at  DateTime @default(now()) @db.Timestamp(6)
-  clients     clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_client")
-  products    products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_client_favorites_product")
-
-  @@unique([id_client, id_product], map: "uq_client_favorites_client_product")
-  @@index([id_client], map: "idx_client_favorites_client")
-  @@index([id_product], map: "idx_client_favorites_product")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model shopping_cart_items {
-  id_cart_item Int      @id @default(autoincrement())
-  id_client    Int
-  id_product   Int
-  quantity     Int
-  created_at   DateTime @default(now()) @db.Timestamp(6)
-  updated_at   DateTime @default(now()) @db.Timestamp(6)
-  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
-  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
-
-  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
-  @@index([id_client], map: "idx_shopping_cart_items_client")
-  @@index([id_product], map: "idx_shopping_cart_items_product")
+  id_user                                        Int                      @id(map: "usuarios_pkey") @default(autoincrement())
+  full_name                                      String                   @db.VarChar(255)
+  email                                          String                   @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
+  pass_word                                      String                   @db.VarChar(255)
+  creation_date                                  DateTime?                @default(dbgenerated("CURRENT_DATE")) @db.Date
+  phone                                          BigInt?
+  id_status                                      Int?
+  token_version                                  Int                      @default(0)
+  id_google                                      String?
+  access                                         access[]
+  clients                                        clients?
+  employees                                      employees?
+  installments_installments_cancelled_byTousers  installments[]           @relation("installments_cancelled_byTousers")
+  installments_installments_registered_byTousers installments[]           @relation("installments_registered_byTousers")
+  order_payment_receipts                         order_payment_receipts[]
+  general_statuses                               general_statuses?        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }
