@@ -139,10 +139,15 @@ const generateUniqueFilename = (prefix = "image") => {
  *
  * @param {string} bucketName
  */
-const validateBucketName = (bucketName) => {
-  if (!bucketName) {
+const normalizeBucketName = (bucketName) => {
+  const normalizedBucketName =
+    String(bucketName || "").trim();
+
+  if (!normalizedBucketName) {
     throw new Error("El nombre del bucket de Supabase es obligatorio");
   }
+
+  return normalizedBucketName;
 };
 
 /**
@@ -299,7 +304,8 @@ export const processAndSaveImage = async (
   { bucketName, config = {} } = {}
 ) => {
   try {
-    validateBucketName(bucketName);
+    const normalizedBucketName =
+      normalizeBucketName(bucketName);
 
     const finalConfig = {
       ...DEFAULT_CONFIG,
@@ -320,7 +326,7 @@ export const processAndSaveImage = async (
 
     const filename = generateUniqueFilename(finalConfig.prefix);
 
-    console.log(`[imageProcessor] Bucket destino: ${bucketName}`);
+    console.log(`[imageProcessor] Bucket destino: ${normalizedBucketName}`);
     console.log(`[imageProcessor] Nombre generado: ${filename}`);
     console.log(
       `[imageProcessor] Procesando imagen (${finalConfig.outputWidth}x${finalConfig.outputHeight}, WebP quality ${finalConfig.webpQuality})`
@@ -336,7 +342,7 @@ export const processAndSaveImage = async (
     );
 
     const { error: uploadError } = await supabase.storage
-      .from(bucketName)
+      .from(normalizedBucketName)
       .upload(filename, processedBuffer, {
         contentType: "image/webp",
         cacheControl: "3600",
@@ -348,7 +354,7 @@ export const processAndSaveImage = async (
     }
 
     const { data: publicUrlData } = supabase.storage
-      .from(bucketName)
+      .from(normalizedBucketName)
       .getPublicUrl(filename);
 
     const publicUrl = publicUrlData.publicUrl;
@@ -373,15 +379,16 @@ export const processAndSaveImage = async (
  */
 export const deleteImage = async (imgUrl, { bucketName } = {}) => {
   try {
-    validateBucketName(bucketName);
+    const normalizedBucketName =
+      normalizeBucketName(bucketName);
 
     const filename = extractFilenameFromUrl(imgUrl);
 
-    console.log(`[imageProcessor] Bucket origen: ${bucketName}`);
+    console.log(`[imageProcessor] Bucket origen: ${normalizedBucketName}`);
     console.log(`[imageProcessor] Eliminando imagen del bucket: ${filename}`);
 
     const { error } = await supabase.storage
-      .from(bucketName)
+      .from(normalizedBucketName)
       .remove([filename]);
 
     if (error) {

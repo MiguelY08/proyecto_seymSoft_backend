@@ -2,6 +2,7 @@ import calculateInstallmentDistribution from "../helpers/calculateInstallmentDis
 import calculatePendingInterest from "../helpers/calculatePendingInterest.js";
 import calculateTotalDebt from "../helpers/calculateTotalDebt.js";
 import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
+import InstallmentMapper from "../mappers/InstallmentMapper.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 
 export class CreateInstallmentUseCase {
@@ -15,6 +16,7 @@ export class CreateInstallmentUseCase {
     id_payment_method,
     installment_amount,
     observations,
+    userId,
   }) {
     const credit =
       await this.paymentsRepository.getCreditById(
@@ -140,6 +142,8 @@ const installment =
         capital_paid: capitalPaid,
         interest_paid: interestPaid,
         observations,
+        registered_by:
+          userId,
       },
 
       id_credit,
@@ -161,7 +165,10 @@ const installment =
       message:
         PAYMENT_MESSAGES.INSTALLMENT_CREATED,
 
-      installment,
+      installment:
+        InstallmentMapper.toDto(
+          installment
+        ),
 
       capitalPaid,
 

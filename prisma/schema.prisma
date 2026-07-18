@@ -204,7 +204,7 @@ model installments {
   cancelled_by                            Int?
   registered_by                           Int?
   payment_methods                         payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
-  users                                   users?          @relation(fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_cancelled_by")
+  users_installments_cancelled_byTousers  users?          @relation("installments_cancelled_byTousers", fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_cancelled_by")
   credits                                 credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
   users_installments_registered_byTousers users?          @relation("installments_registered_byTousers", fields: [registered_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_registered_by")
 }
@@ -727,7 +727,7 @@ model users {
   access                                         access[]
   clients                                        clients?
   employees                                      employees?
-  installments                                   installments[]
+  installments_installments_cancelled_byTousers  installments[]           @relation("installments_cancelled_byTousers")
   installments_installments_registered_byTousers installments[]           @relation("installments_registered_byTousers")
   order_payment_receipts                         order_payment_receipts[]
   general_statuses                               general_statuses?        @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")

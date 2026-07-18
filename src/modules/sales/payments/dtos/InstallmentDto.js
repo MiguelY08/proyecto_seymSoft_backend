@@ -11,6 +11,7 @@ export default class InstallmentDto {
     isCancelled,
     canCancel,
     cancellationLimitHours,
+    registeredBy,
     cancelledAt,
     cancellationReason,
     cancelledBy,
@@ -46,6 +47,9 @@ export default class InstallmentDto {
 
     this.cancellationLimitHours =
       Number(cancellationLimitHours ?? 0);
+
+    this.registeredBy =
+      registeredBy ?? null;
 
     this.cancelledAt =
       cancelledAt ?? null;
