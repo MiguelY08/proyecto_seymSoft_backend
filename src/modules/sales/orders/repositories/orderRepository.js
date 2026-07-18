@@ -125,6 +125,7 @@ const orderSummarySelect = {
   total: true,
   payment_status: true,
   delivery_type: true,
+  sale_type: true,
   payment_deadline: true,
   payment_reminder_6h_sent: true,
   payment_reminder_1h_sent: true,
@@ -249,6 +250,7 @@ const orderPaymentResultSelect = {
   total: true,
   payment_status: true,
   delivery_type: true,
+  sale_type: true,
   payment_deadline: true,
   payment_reminder_6h_sent: true,
   payment_reminder_1h_sent: true,
@@ -325,6 +327,7 @@ const orderListSelect = {
   total: true,
   payment_status: true,
   delivery_type: true,
+  sale_type: true,
   id_payment_status: true,
   assigned_employee: true,
   employees: {
@@ -589,6 +592,7 @@ export class OrderRepository {
         id_order: true,
         id_order_status: true,
         id_payment_status: true,
+        sale_type: true,
         total: true,
         sales: {
           select: {
@@ -639,6 +643,7 @@ export class OrderRepository {
           },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
+          sale_type: data.saleType || 'manual',
           payment_status: paymentStatus.name,
           payment_statuses: {
             connect: {

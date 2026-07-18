@@ -320,7 +320,8 @@ export class PurchaseReturnMapper {
     if (!purchaseReturn) return null;
 
     const details = purchaseReturn.prd ?? [];
-    const progress = this.getProgress(details);
+    const progress =
+      purchaseReturn.progress ?? this.getProgress(details);
 
     return {
       id: purchaseReturn.id_purchase_return,

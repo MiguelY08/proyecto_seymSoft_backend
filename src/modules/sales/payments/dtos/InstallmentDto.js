@@ -4,10 +4,13 @@ export default class InstallmentDto {
     installmentAmount,
     capitalPaid,
     interestPaid,
+    createdAt,
     installmentDate,
     observations,
 
     isCancelled,
+    canCancel,
+    cancellationLimitHours,
     cancelledAt,
     cancellationReason,
     cancelledBy,
@@ -26,6 +29,9 @@ export default class InstallmentDto {
     this.interestPaid =
       Number(interestPaid ?? 0);
 
+    this.createdAt =
+      createdAt ?? null;
+
     this.installmentDate =
       installmentDate ?? null;
 
@@ -34,6 +40,12 @@ export default class InstallmentDto {
 
     this.isCancelled =
       Boolean(isCancelled);
+
+    this.canCancel =
+      Boolean(canCancel);
+
+    this.cancellationLimitHours =
+      Number(cancellationLimitHours ?? 0);
 
     this.cancelledAt =
       cancelledAt ?? null;

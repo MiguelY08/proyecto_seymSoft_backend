@@ -1,4 +1,4 @@
-import { AppError } from "../../../../shared/errors/AppError.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 
 export class GetProductByIdUseCase {

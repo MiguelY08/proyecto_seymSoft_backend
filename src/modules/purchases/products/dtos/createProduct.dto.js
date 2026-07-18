@@ -1,4 +1,4 @@
-import { AppError } from "../../../../shared/errors/AppError.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");

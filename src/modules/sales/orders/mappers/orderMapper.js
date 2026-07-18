@@ -143,6 +143,7 @@ export const mapOrder = (order) => {
       : null,
     deliveryAddress: order.delivery_adress || null,
     deliveryType: order.delivery_type || null,
+    saleType: order.sale_type || 'manual',
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
     paymentDeadline: order.payment_deadline || null,
@@ -244,6 +245,7 @@ export const mapOrderSummary = (order) => {
         }
       : null,
     deliveryType: order.delivery_type || null,
+    saleType: order.sale_type || 'manual',
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
     subtotal: Number(subtotal),

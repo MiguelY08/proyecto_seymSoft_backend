@@ -6,7 +6,6 @@ import {
   validateReturnQuantity,
   shouldRestoreStockOnReady,
 } from "../helpers/purchaseReturnHelper.js";
-import { validateReturnCatalogReferences } from "../helpers/validateReturnCatalogReferences.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
 const getBarcodeStock = (purchaseDetail) =>
@@ -31,18 +30,78 @@ const buildDetailsToAdd = async ({
   const enrichedDetails = [];
   const requestedByPurchaseDetail = new Map();
   const requestedByBarcode = new Map();
+  const idPurchaseDetails =
+    details.map((detail) => detail.idPurchaseDetail);
+  const idReturnReasons =
+    details.map((detail) => detail.idReturnReason);
+  const idReturnMethods =
+    details.map((detail) => detail.idReturnMethod);
+
+  const [
+    returnReasons,
+    returnMethods,
+    purchaseDetails,
+    availabilityByPurchaseDetail,
+  ] = await Promise.all([
+    PurchaseReturnRepository.findReturnReasonsByIds(
+      idReturnReasons
+    ),
+    PurchaseReturnRepository.findReturnMethodsByIds(
+      idReturnMethods
+    ),
+    PurchaseReturnRepository.findRawPurchaseDetailsByIds(
+      idPurchaseDetails
+    ),
+    PurchaseReturnRepository.getReturnAvailabilityByPurchaseDetails(
+      idPurchaseDetails
+    ),
+  ]);
+
+  const returnReasonIds = new Set(
+    returnReasons.map((reason) =>
+      Number(reason.id_return_reason)
+    )
+  );
+  const returnMethodIds = new Set(
+    returnMethods.map((method) =>
+      Number(method.id_return_method)
+    )
+  );
+  const purchaseDetailsById =
+    purchaseDetails.reduce((indexed, purchaseDetail) => {
+      indexed.set(
+        Number(purchaseDetail.id_purchase_detail),
+        purchaseDetail
+      );
+      return indexed;
+    }, new Map());
 
   for (const detail of details) {
-    const catalogValidation =
-      await validateReturnCatalogReferences(detail);
+    if (!returnReasonIds.has(Number(detail.idReturnReason))) {
+      return {
+        success: false,
+        error: `El motivo de devolucion ${detail.idReturnReason} no existe.`,
+        errorCode: "RETURN_REASON_NOT_FOUND",
+        meta: {
+          idReturnReason: detail.idReturnReason,
+        },
+      };
+    }
 
-    if (!catalogValidation.success) {
-      return catalogValidation;
+    if (!returnMethodIds.has(Number(detail.idReturnMethod))) {
+      return {
+        success: false,
+        error: `El metodo de devolucion ${detail.idReturnMethod} no existe.`,
+        errorCode: "RETURN_METHOD_NOT_FOUND",
+        meta: {
+          idReturnMethod: detail.idReturnMethod,
+        },
+      };
     }
 
     const purchaseDetail =
-      await PurchaseReturnRepository.findRawPurchaseDetailById(
-        detail.idPurchaseDetail
+      purchaseDetailsById.get(
+        Number(detail.idPurchaseDetail)
       );
 
     if (!purchaseDetail) {
@@ -67,9 +126,14 @@ const buildDetailsToAdd = async ({
       ) || 0;
 
     const returnAvailability =
-      await PurchaseReturnRepository.getReturnAvailabilityByPurchaseDetail(
-        detail.idPurchaseDetail
-      );
+      availabilityByPurchaseDetail.get(
+        Number(detail.idPurchaseDetail)
+      ) ?? {
+        purchasedQuantity: 0,
+        reservedQuantity: 0,
+        finalReturnedQuantity: 0,
+        availableQuantity: 0,
+      };
 
     const quantityValidation =
       validateReturnQuantity({
@@ -164,11 +228,27 @@ const buildDetailsToUpdate = async ({
   detailsToUpdate,
 }) => {
   const validatedDetails = [];
+  const idPurchaseReturnDetails =
+    detailsToUpdate.map(
+      (detail) => detail.idPurchaseReturnDetail
+    );
+  const currentDetails =
+    await PurchaseReturnRepository.findRawReturnDetailsByIds(
+      idPurchaseReturnDetails
+    );
+  const currentDetailsById =
+    currentDetails.reduce((indexed, currentDetail) => {
+      indexed.set(
+        Number(currentDetail.id_purchase_return_details),
+        currentDetail
+      );
+      return indexed;
+    }, new Map());
 
   for (const detail of detailsToUpdate) {
     const currentDetail =
-      await PurchaseReturnRepository.findRawReturnDetailById(
-        detail.idPurchaseReturnDetail
+      currentDetailsById.get(
+        Number(detail.idPurchaseReturnDetail)
       );
 
     if (!currentDetail) {

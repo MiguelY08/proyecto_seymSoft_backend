@@ -22,6 +22,7 @@ const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
 const APPROVED_SALE_STATUS_ID = SALE_STATUSES[1].id;
 const DIRECT_SALE_TYPE_NAME = 'DIRECTA';
+const WEB_SALE_TYPE_NAME = 'WEB';
 const PAID_ORDER_ALLOWED_STATUS_IDS = [
   READY_ORDER_STATUS_ID,
   DELIVERED_ORDER_STATUS_ID,
@@ -242,6 +243,7 @@ export class CreateOrderUseCase {
       idEmployee,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
+      saleType: dto.saleType,
       idOrderStatus,
       idPaymentStatus: paymentStatus.id,
       paymentStatus: paymentStatus.name,
@@ -268,12 +270,15 @@ export class CreateOrderUseCase {
       );
     }
 
-    const saleType = await VendingRepository.findSaleTypeByName(
-      DIRECT_SALE_TYPE_NAME
-    );
+    const saleTypeName =
+      orderData.saleType === 'web'
+        ? WEB_SALE_TYPE_NAME
+        : DIRECT_SALE_TYPE_NAME;
+
+    const saleType = await VendingRepository.findSaleTypeByName(saleTypeName);
 
     if (!saleType) {
-      throw new AppError('El tipo de venta DIRECTA no existe.', 404);
+      throw new AppError(`El tipo de venta ${saleTypeName} no existe.`, 404);
     }
 
     const order = await this.repo.create(orderData);

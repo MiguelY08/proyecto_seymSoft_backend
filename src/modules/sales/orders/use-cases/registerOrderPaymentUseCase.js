@@ -15,6 +15,11 @@ const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
 
+const getVendingTypeFromOrder = (order = {}) =>
+  String(order.sale_type || DEFAULT_VENDING_TYPE)
+    .trim()
+    .toLowerCase();
+
 const getPaidAmountFromOrderPayments = (payments = []) =>
   roundMoney(
     payments.reduce(
@@ -50,7 +55,7 @@ const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
   );
 
   const saleResult = await createVendingUseCase({
-    vendingType: DEFAULT_VENDING_TYPE,
+    vendingType: getVendingTypeFromOrder(orderWithPayments),
     idUser: options.idUser,
     idEmployee: options.idEmployee,
     data: {
@@ -73,10 +78,11 @@ const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
 const validateSaleFromPaidOrder = async ({
   idOrder,
   paymentMethods,
+  saleType,
   options = {},
 }) => {
   const saleResult = await createVendingUseCase({
-    vendingType: DEFAULT_VENDING_TYPE,
+    vendingType: saleType || DEFAULT_VENDING_TYPE,
     idUser: options.idUser,
     idEmployee: options.idEmployee,
     dryRun: true,
@@ -272,6 +278,7 @@ export class RegisterOrderPaymentUseCase {
     if (isPaid && !order.sales) {
       await validateSaleFromPaidOrder({
         idOrder: order.id_order,
+        saleType: getVendingTypeFromOrder(order),
         paymentMethods: getPaymentMethodsFromOrder([
           ...order.order_payments,
           {
