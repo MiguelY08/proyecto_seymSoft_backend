@@ -201,10 +201,12 @@ model installments {
   is_cancelled        Boolean         @default(false)
   created_at          DateTime        @default(now())
   cancellation_reason String?         @db.VarChar(255)
+  registered_by       Int?
   cancelled_by        Int?
   payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
   credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-  users               users?          @relation(fields: [cancelled_by], references: [id_user])
+  registered_by_user  users?          @relation("installments_registered_by", fields: [registered_by], references: [id_user], map: "fk_abonos_registered_by")
+  cancelled_by_user   users?          @relation("installments_cancelled_by", fields: [cancelled_by], references: [id_user], map: "fk_abonos_cancelled_by")
 }
 
 model modules {
@@ -719,6 +721,7 @@ model users {
   access           access[]
   clients          clients?
   employees        employees?
-  installments     installments[]
+  registered_installments installments[] @relation("installments_registered_by")
+  cancelled_installments  installments[] @relation("installments_cancelled_by")
   general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
 }

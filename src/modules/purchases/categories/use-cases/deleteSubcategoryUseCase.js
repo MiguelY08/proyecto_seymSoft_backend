@@ -1,4 +1,4 @@
-import { AppError } from "../../../../shared/errors/AppError.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 
 export class DeleteSubcategoryUseCase {
   constructor(repo) { this.repo = repo; }

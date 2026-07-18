@@ -1,5 +1,6 @@
 import { RoleRepository } from "../repositories/roleRepository.js";
 import { NotFoundError, BadRequestError } from "../../../../shared/errors/index.js";
+import { GENERAL_STATUSES } from "../../../../shared/constants/generalStatuses.js";
 
 /**
  * DELETE ROLE USE CASE
@@ -26,6 +27,12 @@ export class DeleteRoleUseCase {
       if (role.name_role.toLowerCase() === "administrator") {
         throw new BadRequestError(
           "No se puede eliminar el rol 'Administrator'"
+        );
+      }
+
+      if (role.id_status !== GENERAL_STATUSES[2].id) {
+        throw new BadRequestError(
+          "Solo se pueden eliminar roles inactivos. Primero desactiva el rol."
         );
       }
 
