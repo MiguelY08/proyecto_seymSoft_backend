@@ -22,8 +22,14 @@ import {
 } from '../use-cases/registerOrderPaymentUseCase.js';
 import { UploadOrderPaymentReceiptUseCase } from '../use-cases/uploadOrderPaymentReceiptUseCase.js';
 import {
+  ReviewOrderPaymentReceiptUseCase,
+  notifyPaymentReceiptReviewed,
+} from '../use-cases/reviewOrderPaymentReceiptUseCase.js';
+import {
   validateOrderIdParams,
+  validateOrderPaymentReceiptParams,
   validateRegisterOrderPayment,
+  validateReviewOrderPaymentReceipt,
 } from '../validators/orderValidator.js';
 
 const repo = new OrderRepository();
@@ -249,6 +255,63 @@ export const uploadOrderPaymentReceipt = async (req, res, next) => {
       data: {
         paymentReceipt: data,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Revisar un comprobante pendiente: aprobarlo o rechazarlo con motivo.
+export const reviewOrderPaymentReceipt = async (req, res, next) => {
+  try {
+    const paramsValidation = validateOrderPaymentReceiptParams(req.params);
+
+    if (!paramsValidation.success) {
+      return res.status(httpCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Errores de validacion en parametros.',
+        errors: paramsValidation.errors,
+      });
+    }
+
+    const bodyValidation = validateReviewOrderPaymentReceipt(req.body);
+
+    if (!bodyValidation.success) {
+      return res.status(httpCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Errores de validacion.',
+        errors: bodyValidation.errors,
+      });
+    }
+
+    const data = await new ReviewOrderPaymentReceiptUseCase(repo).execute(
+      paramsValidation.data.id,
+      paramsValidation.data.receiptId,
+      bodyValidation.data,
+      {
+        idUser: req.user?.id_user || req.user?.idUser || null,
+      }
+    );
+
+    const {
+      receiptNotification,
+      ...responseData
+    } = data;
+
+    if (receiptNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyPaymentReceiptReviewed(receiptNotification);
+        });
+      });
+    }
+
+    return res.status(httpCodes.OK).json({
+      success: true,
+      message: responseData.paymentResult
+        ? 'Comprobante aprobado y abono registrado exitosamente.'
+        : 'Comprobante revisado exitosamente.',
+      data: responseData,
     });
   } catch (err) {
     next(err);

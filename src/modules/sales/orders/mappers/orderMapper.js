@@ -42,6 +42,9 @@ const mapPaymentReceipts = (receipts = []) =>
     observations: receipt.observations || null,
     status: receipt.verification_status || 'Pendiente',
     uploadedAt: receipt.uploaded_at || null,
+    reviewObservations: receipt.review_observations || null,
+    reviewedAt: receipt.reviewed_at || null,
+    reviewedBy: receipt.reviewed_by || null,
   }));
 
 const mapSale = (sale) => {
@@ -209,6 +212,10 @@ export const mapOrderSummary = (order) => {
       Number(order._paymentReceiptSummary?.totalReceipts || 0),
     pendingReceipts:
       Number(order._paymentReceiptSummary?.pendingReceipts || 0),
+    approvedReceipts:
+      Number(order._paymentReceiptSummary?.approvedReceipts || 0),
+    rejectedReceipts:
+      Number(order._paymentReceiptSummary?.rejectedReceipts || 0),
   };
 
   return {
@@ -259,6 +266,10 @@ export const mapOrderSummary = (order) => {
       ...paymentReceiptSummary,
       hasPendingReceipt:
         paymentReceiptSummary.pendingReceipts > 0,
+      hasApprovedReceipt:
+        paymentReceiptSummary.approvedReceipts > 0,
+      hasRejectedReceipt:
+        paymentReceiptSummary.rejectedReceipts > 0,
     },
   };
 };

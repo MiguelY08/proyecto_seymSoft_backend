@@ -1,6 +1,7 @@
 ﻿import { prisma } from '../../../../config/prisma.js';
 import {
   ORDER_STATUSES,
+  PAYMENT_RECEIPT_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { normalizeDeliveryType } from '../../shared/deliveryTypes.js';
@@ -198,6 +199,9 @@ const orderSummarySelect = {
       observations: true,
       verification_status: true,
       uploaded_at: true,
+      review_observations: true,
+      reviewed_at: true,
+      reviewed_by: true,
     },
     orderBy: {
       id_order_payment_receipt: 'desc',
@@ -378,6 +382,20 @@ const orderListSelect = {
     },
   },
 };
+
+const paymentReceiptSelect = {
+  id_order_payment_receipt: true,
+  id_order: true,
+  image_url: true,
+  file_name: true,
+  observations: true,
+  verification_status: true,
+  uploaded_at: true,
+  review_observations: true,
+  reviewed_at: true,
+  reviewed_by: true,
+};
+
 export class OrderRepository {
   async findAll(filters = {}) {
     const where = {};
@@ -481,6 +499,8 @@ export class OrderRepository {
         receiptSummaryByOrder.get(receiptTotal.id_order) || {
           totalReceipts: 0,
           pendingReceipts: 0,
+          approvedReceipts: 0,
+          rejectedReceipts: 0,
         };
       const count =
         receiptTotal._count.id_order_payment_receipt || 0;
@@ -489,8 +509,12 @@ export class OrderRepository {
 
       currentSummary.totalReceipts += count;
 
-      if (status === 'pendiente') {
+      if (status === PAYMENT_RECEIPT_STATUSES.PENDING.toLowerCase()) {
         currentSummary.pendingReceipts += count;
+      } else if (status === PAYMENT_RECEIPT_STATUSES.APPROVED.toLowerCase()) {
+        currentSummary.approvedReceipts += count;
+      } else if (status === PAYMENT_RECEIPT_STATUSES.REJECTED.toLowerCase()) {
+        currentSummary.rejectedReceipts += count;
       }
 
       receiptSummaryByOrder.set(
@@ -507,6 +531,8 @@ export class OrderRepository {
         receiptSummaryByOrder.get(order.id_order) || {
           totalReceipts: 0,
           pendingReceipts: 0,
+          approvedReceipts: 0,
+          rejectedReceipts: 0,
         },
     }));
 
@@ -845,8 +871,42 @@ export class OrderRepository {
         image_url: data.imageUrl,
         file_name: data.fileName || null,
         observations: data.observations || null,
-        verification_status: 'Pendiente',
+        verification_status: PAYMENT_RECEIPT_STATUSES.PENDING,
       },
+    });
+  }
+
+  async findPaymentReceiptById(receiptId) {
+    return prisma.order_payment_receipts.findUnique({
+      where: {
+        id_order_payment_receipt: Number(receiptId),
+      },
+      select: paymentReceiptSelect,
+    });
+  }
+
+  async findPaymentReceiptByOrderId(idOrder, receiptId) {
+    return prisma.order_payment_receipts.findFirst({
+      where: {
+        id_order: Number(idOrder),
+        id_order_payment_receipt: Number(receiptId),
+      },
+      select: paymentReceiptSelect,
+    });
+  }
+
+  async updatePaymentReceiptReview(receiptId, data) {
+    return prisma.order_payment_receipts.update({
+      where: {
+        id_order_payment_receipt: Number(receiptId),
+      },
+      data: {
+        verification_status: data.status,
+        review_observations: data.reviewObservations || null,
+        reviewed_at: data.reviewedAt || new Date(),
+        reviewed_by: data.reviewedBy ? Number(data.reviewedBy) : null,
+      },
+      select: paymentReceiptSelect,
     });
   }
 
