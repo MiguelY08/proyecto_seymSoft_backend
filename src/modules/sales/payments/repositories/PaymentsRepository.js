@@ -165,7 +165,14 @@ export class PaymentsRepository {
           },
         },
 
-        users: {
+        registered_by_user: {
+          select: {
+            id_user: true,
+            full_name: true,
+          },
+        },
+
+        cancelled_by_user: {
           select: {
             id_user: true,
             full_name: true,
@@ -311,7 +318,14 @@ export class PaymentsRepository {
               },
             },
 
-            users: {
+            registered_by_user: {
+              select: {
+                id_user: true,
+                full_name: true,
+              },
+            },
+
+            cancelled_by_user: {
               select: {
                 id_user: true,
                 full_name: true,
@@ -385,6 +399,21 @@ export class PaymentsRepository {
     return this.prisma.$transaction(async (tx) => {
       const installment = await tx.installments.create({
         data: installmentData,
+        include: {
+          payment_methods: true,
+          registered_by_user: {
+            select: {
+              id_user: true,
+              full_name: true,
+            },
+          },
+          cancelled_by_user: {
+            select: {
+              id_user: true,
+              full_name: true,
+            },
+          },
+        },
       });
 
       await tx.credits.update({

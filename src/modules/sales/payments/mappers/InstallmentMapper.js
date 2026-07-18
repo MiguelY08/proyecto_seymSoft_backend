@@ -38,14 +38,21 @@ export default class InstallmentMapper {
       cancellationLimitHours:
         PAYMENT_BUSINESS_RULES.INSTALLMENT_CANCELLATION_HOURS,
 
+      registeredBy: data.registered_by_user
+      ? {
+          id: data.registered_by_user.id_user,
+          nombre: data.registered_by_user.full_name,
+        }
+      : null,
+
       cancelledAt: data.cancelled_at,
 
       cancellationReason: data.cancellation_reason,
 
-      cancelledBy: data.users
+      cancelledBy: data.cancelled_by_user
       ? {
-          id: data.users.id_user,
-          nombre: data.users.full_name,
+          id: data.cancelled_by_user.id_user,
+          nombre: data.cancelled_by_user.full_name,
         }
       : null,
 
