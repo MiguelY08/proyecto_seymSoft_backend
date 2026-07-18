@@ -443,8 +443,11 @@ export const calculatePurchaseStatusFromReturns = (returns = []) => {
         [],
       isAnnulled:
         purchaseReturn.isAnnulled ||
-        purchaseReturn.status?.name === "Anulada" ||
-        purchaseReturn.return_statuses?.name_status === "Anulada",
+        isAnnulledStatus(
+          purchaseReturn.id_return_status ??
+          purchaseReturn.returnStatusId ??
+          purchaseReturn.statusId
+        ),
     })
   );
 

@@ -347,8 +347,8 @@ export const updatePurchaseReturnUseCase = async ({
     }
 
     if (
-      currentReturn.return_statuses?.name_status ===
-      "Anulada"
+      Number(currentReturn.id_return_status) ===
+      RETURN_DETAIL_STATUS_IDS.ANNULLED
     ) {
       return {
         success: false,

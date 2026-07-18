@@ -42,6 +42,16 @@ export class PurchaseReturnMapper {
     };
   }
 
+  static toUserSummary(user) {
+    if (!user) return null;
+
+    return {
+      id: user.id_user,
+      name: user.full_name,
+      email: user.email,
+    };
+  }
+
   static toBarcode(barcode) {
     if (!barcode) return null;
 
@@ -180,6 +190,25 @@ export class PurchaseReturnMapper {
     };
   }
 
+  static toAuditLog(auditLog) {
+    if (!auditLog) return null;
+
+    return {
+      id: auditLog.id_purchase_return_audit_log,
+      purchaseReturnId: auditLog.id_purchase_return,
+      userId: auditLog.id_user,
+      action: auditLog.action,
+      previousReturnStatus:
+        auditLog.previous_return_status,
+      newReturnStatus:
+        auditLog.new_return_status,
+      reason: auditLog.reason ?? null,
+      metadata: auditLog.metadata ?? null,
+      createdAt: auditLog.created_at,
+      user: this.toUserSummary(auditLog.users),
+    };
+  }
+
   static toReturnStatusSummary(status) {
     if (!status) return null;
 
@@ -279,6 +308,14 @@ export class PurchaseReturnMapper {
       purchaseId: purchaseReturn.id_purchase,
       creationDate: purchaseReturn.creation_date,
       returnStatusId: purchaseReturn.id_return_status,
+      cancellationReason:
+        purchaseReturn.cancellation_reason ?? null,
+      cancelledAt:
+        purchaseReturn.cancelled_at ?? null,
+      cancelledBy:
+        purchaseReturn.cancelled_by ?? null,
+      cancelledByUser:
+        this.toUserSummary(purchaseReturn.users),
       status: this.toReturnStatus(purchaseReturn.return_statuses),
       progress,
       purchase: this.toPurchase(purchaseReturn.purchases),
@@ -286,6 +323,10 @@ export class PurchaseReturnMapper {
       statusHistory: purchaseReturn.hsp?.map((history) =>
         this.toPurchaseReturnStatusHistory(history)
       ) ?? [],
+      auditLogs:
+        purchaseReturn.purchase_return_audit_logs?.map((auditLog) =>
+          this.toAuditLog(auditLog)
+        ) ?? [],
     };
   }
 
@@ -300,6 +341,14 @@ export class PurchaseReturnMapper {
       purchaseId: purchaseReturn.id_purchase,
       creationDate: purchaseReturn.creation_date,
       returnStatusId: purchaseReturn.id_return_status,
+      cancellationReason:
+        purchaseReturn.cancellation_reason ?? null,
+      cancelledAt:
+        purchaseReturn.cancelled_at ?? null,
+      cancelledBy:
+        purchaseReturn.cancelled_by ?? null,
+      cancelledByUser:
+        this.toUserSummary(purchaseReturn.users),
       status: this.toReturnStatusSummary(
         purchaseReturn.return_statuses
       ),
@@ -313,6 +362,10 @@ export class PurchaseReturnMapper {
       statusHistory: purchaseReturn.hsp?.map((history) =>
         this.toPurchaseReturnStatusHistory(history)
       ) ?? [],
+      auditLogs:
+        purchaseReturn.purchase_return_audit_logs?.map((auditLog) =>
+          this.toAuditLog(auditLog)
+        ) ?? [],
     };
   }
 
@@ -328,6 +381,8 @@ export class PurchaseReturnMapper {
       purchaseId: purchaseReturn.id_purchase,
       invoiceNumber: purchaseReturn.purchases?.invoice_number ?? null,
       creationDate: purchaseReturn.creation_date,
+      cancelledAt:
+        purchaseReturn.cancelled_at ?? null,
       statusId: purchaseReturn.id_return_status,
       status: purchaseReturn.return_statuses?.name_status ?? null,
       progress,

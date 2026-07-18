@@ -251,6 +251,7 @@ export const mapOrderSummary = (order) => {
           name: order.order_statuses.name_status,
         }
       : null,
+    deliveryAddress: order.delivery_adress || null,
     deliveryType: order.delivery_type || null,
     saleType: order.sale_type || 'manual',
     paymentStatus: paymentStatus.name,

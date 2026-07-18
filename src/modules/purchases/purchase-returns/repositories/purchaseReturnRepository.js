@@ -981,10 +981,13 @@ export class PurchaseReturnRepository {
     idPurchaseReturn,
     idReturnStatus,
     cancellationReason,
+    cancelledBy = null,
+    auditLog = null,
     idPurchaseStatus,
     detailsToRestore = null,
   }) {
     const cancelled = await prisma.$transaction(async (tx) => {
+      const cancelledAt = new Date();
       const stockDetails =
         detailsToRestore ??
         (await tx.prd.findMany({
@@ -1032,6 +1035,10 @@ export class PurchaseReturnRepository {
         },
         data: {
           id_return_status: idReturnStatus,
+          cancellation_reason:
+            cancellationReason,
+          cancelled_at: cancelledAt,
+          cancelled_by: cancelledBy,
         },
       });
 
@@ -1042,6 +1049,29 @@ export class PurchaseReturnRepository {
           },
           data: {
             id_purchase_status: idPurchaseStatus,
+          },
+        });
+      }
+
+      if (auditLog) {
+        await tx.purchase_return_audit_logs.create({
+          data: {
+            id_purchase_return:
+              updatedReturn.id_purchase_return,
+            id_user:
+              auditLog.idUser,
+            action:
+              auditLog.action,
+            previous_return_status:
+              auditLog.previousReturnStatus,
+            new_return_status:
+              auditLog.newReturnStatus,
+            reason:
+              auditLog.reason,
+            metadata:
+              auditLog.metadata,
+            created_at:
+              cancelledAt,
           },
         });
       }
@@ -1268,10 +1298,20 @@ export class PurchaseReturnRepository {
       id_purchase: true,
       creation_date: true,
       id_return_status: true,
+      cancellation_reason: true,
+      cancelled_at: true,
+      cancelled_by: true,
       return_statuses: {
         select: {
           id_return_status: true,
           name_status: true,
+        },
+      },
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
         },
       },
       purchases: {
@@ -1356,6 +1396,29 @@ export class PurchaseReturnRepository {
           id_purchase_status: true,
           id_purchase_detail: true,
           status_date: true,
+        },
+      },
+      purchase_return_audit_logs: {
+        orderBy: {
+          created_at: "desc",
+        },
+        select: {
+          id_purchase_return_audit_log: true,
+          id_purchase_return: true,
+          id_user: true,
+          action: true,
+          previous_return_status: true,
+          new_return_status: true,
+          reason: true,
+          metadata: true,
+          created_at: true,
+          users: {
+            select: {
+              id_user: true,
+              full_name: true,
+              email: true,
+            },
+          },
         },
       },
     };

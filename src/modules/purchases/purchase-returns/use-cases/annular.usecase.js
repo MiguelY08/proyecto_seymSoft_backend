@@ -7,8 +7,6 @@ import {
 } from "../helpers/purchaseReturnHelper.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
-const ANNULLED_RETURN_STATUS_NAME = "Anulada";
-
 const shouldRestoreStockOnAnnul = (detail) => {
   const isReplacementReady =
     Number(detail.id_return_method) ===
@@ -43,9 +41,58 @@ const calculateNextPurchaseStatus = ({
   );
 };
 
+const normalizeUserId = (idUser) => {
+  const parsedId = Number(idUser);
+  return Number.isInteger(parsedId) && parsedId > 0
+    ? parsedId
+    : null;
+};
+
+const toAuditDetail = (detail) => ({
+  idPurchaseReturnDetail:
+    detail.id_purchase_return_details,
+  idPurchaseDetail:
+    detail.id_purchase_detail,
+  idBarcode:
+    detail.purchase_details?.id_barcode ?? null,
+  quantity:
+    detail.quantity,
+  returnMethodId:
+    detail.id_return_method,
+  previousReturnStatus:
+    detail.id_return_status,
+});
+
+const buildAnnulmentAuditLog = ({
+  currentReturn,
+  cancellationReason,
+  cancelledBy,
+  nextPurchaseStatus,
+  detailsToRestore,
+}) => ({
+  idUser: cancelledBy,
+  action: "ANNUL_PURCHASE_RETURN",
+  previousReturnStatus:
+    currentReturn.id_return_status,
+  newReturnStatus:
+    RETURN_DETAIL_STATUS_IDS.ANNULLED,
+  reason:
+    cancellationReason,
+  metadata: {
+    idPurchase:
+      currentReturn.id_purchase,
+    nextPurchaseStatus,
+    details:
+      currentReturn.prd.map(toAuditDetail),
+    detailsToRestoreStock:
+      detailsToRestore.map(toAuditDetail),
+  },
+});
+
 export const annularPurchaseReturnUseCase = async ({
   idPurchaseReturn,
   cancellationReason,
+  cancelledBy,
 }) => {
   try {
     if (!cancellationReason?.trim()) {
@@ -72,28 +119,14 @@ export const annularPurchaseReturnUseCase = async ({
     }
 
     if (
-      currentReturn.return_statuses?.name_status ===
-      ANNULLED_RETURN_STATUS_NAME
+      Number(currentReturn.id_return_status) ===
+      RETURN_DETAIL_STATUS_IDS.ANNULLED
     ) {
       return {
         success: false,
         data: null,
         error: "La devolucion de compra ya se encuentra anulada.",
         errorCode: "PURCHASE_RETURN_ALREADY_ANNULLED",
-      };
-    }
-
-    const annulledStatus =
-      await PurchaseReturnRepository.findReturnStatusByName(
-        ANNULLED_RETURN_STATUS_NAME
-      );
-
-    if (!annulledStatus) {
-      return {
-        success: false,
-        data: null,
-        error: "No existe el estado Anulada para devoluciones.",
-        errorCode: "RETURN_STATUS_NOT_FOUND",
       };
     }
 
@@ -113,12 +146,28 @@ export const annularPurchaseReturnUseCase = async ({
         shouldRestoreStockOnAnnul
       );
 
+    const normalizedCancelledBy =
+      normalizeUserId(cancelledBy);
+
+    const auditLog =
+      buildAnnulmentAuditLog({
+        currentReturn,
+        cancellationReason,
+        cancelledBy: normalizedCancelledBy,
+        nextPurchaseStatus:
+          nextPurchaseStatus ||
+          PURCHASE_STATUS_IDS.COMPLETED_WITH_ANNULLED_RETURNS,
+        detailsToRestore,
+      });
+
     const cancelled =
       await PurchaseReturnRepository.cancelPurchaseReturn({
         idPurchaseReturn,
         idReturnStatus:
-          annulledStatus.id_return_status,
+          RETURN_DETAIL_STATUS_IDS.ANNULLED,
         cancellationReason,
+        cancelledBy: normalizedCancelledBy,
+        auditLog,
         idPurchaseStatus:
           nextPurchaseStatus ||
           PURCHASE_STATUS_IDS.COMPLETED_WITH_ANNULLED_RETURNS,
