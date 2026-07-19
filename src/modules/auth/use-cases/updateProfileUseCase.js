@@ -3,6 +3,7 @@ import {
   NotFoundError,
   ConflictError,
   UnauthorizedError,
+  BadRequestError,
 } from "../../../shared/errors/index.js";
 import {
   comparePassword,
@@ -11,6 +12,29 @@ import {
 import { prisma } from "../../../config/prisma.js";
 import { AuthRepository } from "../repositories/authRepository.js";
 import { EmailService } from "../../../shared/services/emailService.js";
+
+const sameText = (currentValue, nextValue) =>
+  String(currentValue ?? "").trim() === String(nextValue ?? "").trim();
+
+const samePhone = (currentValue, nextValue) =>
+  String(currentValue ?? "") === String(nextValue ?? "");
+
+const unchangedMessages = {
+  email: "El correo enviado es igual al correo actual",
+  full_name: "El nombre enviado es igual al nombre actual",
+  phone: "El telefono enviado es igual al telefono actual",
+  address: "La direccion enviada es igual a la direccion actual",
+};
+
+const buildNoChangesMessage = (unchangedFields) => {
+  const fields = Object.values(unchangedFields);
+
+  if (fields.length === 1) {
+    return fields[0];
+  }
+
+  return "Los datos enviados son iguales a los datos actuales";
+};
 
 export class UpdateProfileUseCase {
   static async execute(idUser, updateData) {
@@ -24,6 +48,7 @@ export class UpdateProfileUseCase {
     }
 
     const dataToUpdate = {};
+    const unchangedFields = {};
     let invalidateSession = false;
     let emailChanged = false;  // ← AGREGAR ESTO
     let oldEmail = null;       // ← AGREGAR ESTO
@@ -41,10 +66,19 @@ export class UpdateProfileUseCase {
       if (updateData.email !== existingUser.email) {
         oldEmail = existingUser.email;
         emailChanged = true;
+        dataToUpdate.email = updateData.email;
+        invalidateSession = true;
+      } else {
+        unchangedFields.email = unchangedMessages.email;
       }
-      
-      dataToUpdate.email = updateData.email;
-      invalidateSession = true;
+    }
+
+    if (updateData.full_name) {
+      if (sameText(existingUser.full_name, updateData.full_name)) {
+        unchangedFields.full_name = unchangedMessages.full_name;
+      } else {
+        dataToUpdate.full_name = updateData.full_name;
+      }
     }
 
     // Cambiar contraseña si se proporciona
@@ -64,6 +98,17 @@ export class UpdateProfileUseCase {
         throw new UnauthorizedError("Current password is incorrect");
       }
 
+      const isSamePassword = await comparePassword(
+        updateData.pass_word,
+        existingUser.pass_word,
+      );
+
+      if (isSamePassword) {
+        throw new BadRequestError(
+          "La nueva contrasena debe ser diferente a la actual",
+        );
+      }
+
       const hashedPassword = await hashPassword(updateData.pass_word);
       dataToUpdate.pass_word = hashedPassword;
       invalidateSession = true;
@@ -71,7 +116,57 @@ export class UpdateProfileUseCase {
 
     // Actualizar teléfono si se proporciona
     if (updateData.phone !== undefined && updateData.phone !== null) {
-      dataToUpdate.phone = updateData.phone;
+      if (samePhone(existingUser.phone, updateData.phone)) {
+        unchangedFields.phone = unchangedMessages.phone;
+      } else {
+        dataToUpdate.phone = updateData.phone;
+      }
+    }
+
+    let clientAddressUpdate = null;
+
+    if (updateData.address !== undefined) {
+      const client = await prisma.clients.findUnique({
+        where: { id_user: idUser },
+        select: {
+          id_client: true,
+          address: true,
+        },
+      });
+
+      if (!client) {
+        throw new BadRequestError(
+          "Solo los usuarios clientes pueden actualizar la direccion",
+        );
+      }
+
+      const registeredPurchases = await prisma.sales_orders.count({
+        where: {
+          id_customer: client.id_client,
+        },
+      });
+
+      if (registeredPurchases < 1) {
+        throw new BadRequestError(
+          "Para actualizar la direccion debes tener al menos una compra registrada",
+        );
+      }
+
+      if (sameText(client.address, updateData.address)) {
+        unchangedFields.address = unchangedMessages.address;
+      } else {
+        clientAddressUpdate = {
+          idClient: client.id_client,
+          address: updateData.address,
+        };
+      }
+    }
+
+    const hasUserChanges = Object.keys(dataToUpdate).length > 0;
+    const hasClientChanges = Boolean(clientAddressUpdate);
+
+    if (!hasUserChanges && !hasClientChanges) {
+      throw new BadRequestError(buildNoChangesMessage(unchangedFields));
     }
 
     if (invalidateSession) {
@@ -79,9 +174,27 @@ export class UpdateProfileUseCase {
     }
 
     // Actualizar usuario
-    const updatedUser = await prisma.users.update({
-      where: { id_user: idUser },
-      data: dataToUpdate,
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user =
+        Object.keys(dataToUpdate).length > 0
+          ? await tx.users.update({
+              where: { id_user: idUser },
+              data: dataToUpdate,
+            })
+          : existingUser;
+
+      if (clientAddressUpdate) {
+        await tx.clients.update({
+          where: {
+            id_client: clientAddressUpdate.idClient,
+          },
+          data: {
+            address: clientAddressUpdate.address,
+          },
+        });
+      }
+
+      return user;
     });
 
     //  Enviar email si cambió
@@ -106,6 +219,7 @@ export class UpdateProfileUseCase {
     return {
       user: UserMapper.toCleanUser(updatedUser),
       requiresReLogin: invalidateSession,
+      unchangedFields,
     };
   }
 }

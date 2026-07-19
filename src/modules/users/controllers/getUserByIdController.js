@@ -48,6 +48,8 @@ export const GetUserByIdController = async (req, res) => {
         user: result.user,
         role: result.role,
         permissions: result.permissions,
+        client: result.client,
+        requiresPasswordSetup: result.requiresPasswordSetup,
       },
     });
 
