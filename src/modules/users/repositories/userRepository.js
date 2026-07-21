@@ -500,7 +500,13 @@ export class UserRepository {
         clients: {
           select: {
             id_client: true,
-            client_type: true
+            client_type: true,
+            address: true,
+            _count: {
+              select: {
+                sales_orders: true,
+              },
+            },
           }
         }
       }
@@ -523,6 +529,32 @@ const client =
   Array.isArray(user.clients)
     ? user.clients[0] || null
     : user.clients || null;
+
+const clientHasPurchases =
+  Number(client?._count?.sales_orders || 0) > 0;
+
+const clientPayload =
+  client
+    ? {
+        idClient:
+          client.id_client,
+
+        clientType:
+          client.client_type,
+
+        address:
+          client.address || null,
+
+        purchasesCount:
+          Number(client._count?.sales_orders || 0),
+
+        hasPurchases:
+          clientHasPurchases,
+
+        canEditAddress:
+          clientHasPurchases
+      }
+    : null;
 
 const employee =
   await prisma.employees.findUnique({
@@ -554,15 +586,7 @@ if (!employee || !employee.employee_roles) {
     permissions: [],
 
     client:
-      client
-        ? {
-            idClient:
-              client.id_client,
-
-            clientType:
-              client.client_type
-          }
-        : null,
+      clientPayload,
 
     requiresPasswordSetup
 
@@ -585,7 +609,8 @@ if (!assignedPermission) {
 
     permissions: [],
 
-    client: null,
+    client:
+      clientPayload,
 
     requiresPasswordSetup
 
@@ -660,15 +685,7 @@ return {
     ),
 
   client:
-    client
-      ? {
-          idClient:
-            client.id_client,
-
-          clientType:
-            client.client_type
-        }
-      : null,
+    clientPayload,
 
   requiresPasswordSetup
 
