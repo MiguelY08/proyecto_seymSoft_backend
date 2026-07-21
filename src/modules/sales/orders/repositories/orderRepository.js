@@ -1,6 +1,7 @@
 ﻿import { prisma } from '../../../../config/prisma.js';
 import {
   ORDER_STATUSES,
+  PAYMENT_RECEIPT_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { normalizeDeliveryType } from '../../shared/deliveryTypes.js';
@@ -88,14 +89,7 @@ const orderInclude = {
       include: {
         products: {
           select: {
-            id_product: true,
             name: true,
-            reference: true,
-            iva_percentage: true,
-            retail_price: true,
-            wholesale_price: true,
-            partner_price: true,
-            bulk_price: true,
             product_images: {
               select: {
                 id_image: true,
@@ -132,6 +126,7 @@ const orderSummarySelect = {
   total: true,
   payment_status: true,
   delivery_type: true,
+  sale_type: true,
   payment_deadline: true,
   payment_reminder_6h_sent: true,
   payment_reminder_1h_sent: true,
@@ -204,6 +199,9 @@ const orderSummarySelect = {
       observations: true,
       verification_status: true,
       uploaded_at: true,
+      review_observations: true,
+      reviewed_at: true,
+      reviewed_by: true,
     },
     orderBy: {
       id_order_payment_receipt: 'desc',
@@ -245,7 +243,7 @@ const orderSummarySelect = {
   },
 };
 
-const orderListSelect = {
+const orderPaymentResultSelect = {
   id_order: true,
   id_customer: true,
   order_date: true,
@@ -256,6 +254,7 @@ const orderListSelect = {
   total: true,
   payment_status: true,
   delivery_type: true,
+  sale_type: true,
   payment_deadline: true,
   payment_reminder_6h_sent: true,
   payment_reminder_1h_sent: true,
@@ -311,68 +310,92 @@ const orderListSelect = {
       amount: true,
       payment_date: true,
       observations: true,
-      reference: true,  
+      reference: true,
       created_at: true,
-      payment_methods: {
-        select: {
-          id_payment_method: true,
-          name_payment_method: true,
-        },
-      },
+      payment_methods: true,
     },
     orderBy: {
       id_order_payment: 'asc',
     },
   },
-  order_payment_receipts: {
+};
+
+const orderListSelect = {
+  id_order: true,
+  id_customer: true,
+  order_date: true,
+  id_order_status: true,
+  delivery_adress: true,
+  subtotal: true,
+  iva_amount: true,
+  total: true,
+  payment_status: true,
+  delivery_type: true,
+  sale_type: true,
+  id_payment_status: true,
+  assigned_employee: true,
+  employees: {
     select: {
-      id_order_payment_receipt: true,
-      id_order: true,
-      image_url: true,
-      file_name: true,
-      observations: true,
-      verification_status: true,
-      uploaded_at: true,
-    },
-    orderBy: {
-      id_order_payment_receipt: 'desc',
-    },
-  },
-  order_details: {
-    select: {
-      id_order_detail: true,
-      id_product: true,
-      barcode: true,
-      quantity: true,
-      unit_price: true,
-      subtotal: true,
-      iva_amount: true,
-      products: {
+      id_employee: true,
+      users: {
         select: {
-          name: true,
-          product_images: {
-            select: {
-              id_image: true,
-              image_url: true,
-              is_primary: true,
-            },
-            orderBy: [
-              {
-                is_primary: 'desc',
-              },
-              {
-                id_image: 'asc',
-              },
-            ],
-          },
+          id_user: true,
+          full_name: true,
+          email: true,
         },
       },
     },
-    orderBy: {
-      id_order_detail: 'asc',
+  },
+  clients: {
+    select: {
+      id_client: true,
+      client_type: true,
+      users: {
+        select: {
+          full_name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  },
+  order_statuses: {
+    select: {
+      id_order_status: true,
+      name_status: true,
+    },
+  },
+  payment_statuses: {
+    select: {
+      id_payment_status: true,
+      name_payment_status: true,
+    },
+  },
+  sales: {
+    select: {
+      id_sale: true,
+      id_order: true,
+      id_sale_status: true,
+      id_sale_type: true,
+      subtotal: true,
+      sale_date: true,
     },
   },
 };
+
+const paymentReceiptSelect = {
+  id_order_payment_receipt: true,
+  id_order: true,
+  image_url: true,
+  file_name: true,
+  observations: true,
+  verification_status: true,
+  uploaded_at: true,
+  review_observations: true,
+  reviewed_at: true,
+  reviewed_by: true,
+};
+
 export class OrderRepository {
   async findAll(filters = {}) {
     const where = {};
@@ -428,10 +451,96 @@ export class OrderRepository {
       }),
     ]);
 
+    const orderIds = orders.map((order) => order.id_order);
+    const paymentTotals =
+      orderIds.length > 0
+        ? await prisma.order_payments.groupBy({
+            by: ['id_order'],
+            where: {
+              id_order: {
+                in: orderIds,
+              },
+            },
+            _sum: {
+              amount: true,
+            },
+          })
+        : [];
+
+    const paymentTotalByOrder = new Map(
+      paymentTotals.map((paymentTotal) => [
+        paymentTotal.id_order,
+        Number(paymentTotal._sum.amount || 0),
+      ])
+    );
+
+    const receiptTotals =
+      orderIds.length > 0
+        ? await prisma.order_payment_receipts.groupBy({
+            by: [
+              'id_order',
+              'verification_status',
+            ],
+            where: {
+              id_order: {
+                in: orderIds,
+              },
+            },
+            _count: {
+              id_order_payment_receipt: true,
+            },
+          })
+        : [];
+
+    const receiptSummaryByOrder = new Map();
+
+    for (const receiptTotal of receiptTotals) {
+      const currentSummary =
+        receiptSummaryByOrder.get(receiptTotal.id_order) || {
+          totalReceipts: 0,
+          pendingReceipts: 0,
+          approvedReceipts: 0,
+          rejectedReceipts: 0,
+        };
+      const count =
+        receiptTotal._count.id_order_payment_receipt || 0;
+      const status =
+        String(receiptTotal.verification_status || '').trim().toLowerCase();
+
+      currentSummary.totalReceipts += count;
+
+      if (status === PAYMENT_RECEIPT_STATUSES.PENDING.toLowerCase()) {
+        currentSummary.pendingReceipts += count;
+      } else if (status === PAYMENT_RECEIPT_STATUSES.APPROVED.toLowerCase()) {
+        currentSummary.approvedReceipts += count;
+      } else if (status === PAYMENT_RECEIPT_STATUSES.REJECTED.toLowerCase()) {
+        currentSummary.rejectedReceipts += count;
+      }
+
+      receiptSummaryByOrder.set(
+        receiptTotal.id_order,
+        currentSummary
+      );
+    }
+
+    const ordersWithPaidAmount = orders.map((order) => ({
+      ...order,
+      _paidAmount:
+        paymentTotalByOrder.get(order.id_order) || 0,
+      _paymentReceiptSummary:
+        receiptSummaryByOrder.get(order.id_order) || {
+          totalReceipts: 0,
+          pendingReceipts: 0,
+          approvedReceipts: 0,
+          rejectedReceipts: 0,
+        },
+    }));
+
     const totalPages = Math.ceil(total / limit);
 
     return {
-      orders,
+      orders:
+        ordersWithPaidAmount,
       total,
       page,
       limit,
@@ -457,6 +566,16 @@ export class OrderRepository {
       },
       select:
         orderSummarySelect,
+    });
+  }
+
+  async findPaymentResultById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select:
+        orderPaymentResultSelect,
     });
   }
 
@@ -499,6 +618,7 @@ export class OrderRepository {
         id_order: true,
         id_order_status: true,
         id_payment_status: true,
+        sale_type: true,
         total: true,
         sales: {
           select: {
@@ -549,6 +669,7 @@ export class OrderRepository {
           },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
+          sale_type: data.saleType || 'manual',
           payment_status: paymentStatus.name,
           payment_statuses: {
             connect: {
@@ -750,8 +871,42 @@ export class OrderRepository {
         image_url: data.imageUrl,
         file_name: data.fileName || null,
         observations: data.observations || null,
-        verification_status: 'Pendiente',
+        verification_status: PAYMENT_RECEIPT_STATUSES.PENDING,
       },
+    });
+  }
+
+  async findPaymentReceiptById(receiptId) {
+    return prisma.order_payment_receipts.findUnique({
+      where: {
+        id_order_payment_receipt: Number(receiptId),
+      },
+      select: paymentReceiptSelect,
+    });
+  }
+
+  async findPaymentReceiptByOrderId(idOrder, receiptId) {
+    return prisma.order_payment_receipts.findFirst({
+      where: {
+        id_order: Number(idOrder),
+        id_order_payment_receipt: Number(receiptId),
+      },
+      select: paymentReceiptSelect,
+    });
+  }
+
+  async updatePaymentReceiptReview(receiptId, data) {
+    return prisma.order_payment_receipts.update({
+      where: {
+        id_order_payment_receipt: Number(receiptId),
+      },
+      data: {
+        verification_status: data.status,
+        review_observations: data.reviewObservations || null,
+        reviewed_at: data.reviewedAt || new Date(),
+        reviewed_by: data.reviewedBy ? Number(data.reviewedBy) : null,
+      },
+      select: paymentReceiptSelect,
     });
   }
 
@@ -936,6 +1091,41 @@ export class OrderRepository {
       },
       include: {
         users: true,
+      },
+    });
+  }
+
+  async findBarcodesByProducts(items = []) {
+    const normalizedItems = items
+      .map((item) => ({
+        idProduct: Number(item.idProduct ?? item.id_product),
+        barcode: String(item.barcode || '').trim(),
+      }))
+      .filter((item) => item.idProduct && item.barcode);
+
+    if (!normalizedItems.length) {
+      return [];
+    }
+
+    return prisma.barcodes.findMany({
+      where: {
+        OR: normalizedItems.map((item) => ({
+          id_product: item.idProduct,
+          barcode: item.barcode,
+        })),
+      },
+      include: {
+        products: {
+          select: {
+            id_product: true,
+            name: true,
+            iva_percentage: true,
+            retail_price: true,
+            wholesale_price: true,
+            partner_price: true,
+            bulk_price: true,
+          },
+        },
       },
     });
   }

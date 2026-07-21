@@ -189,24 +189,24 @@ model hsp {
 }
 
 model installments {
-  id_installment      Int             @id(map: "abonos_pkey") @default(autoincrement())
-  installment_amount  Decimal
-  installment_date    DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_payment_method   Int
-  observations        String?         @db.VarChar(255)
-  id_credit           Int
-  cancelled_at        DateTime?
-  capital_paid        Decimal         @default(0)
-  interest_paid       Decimal         @default(0)
-  is_cancelled        Boolean         @default(false)
-  created_at          DateTime        @default(now())
-  cancellation_reason String?         @db.VarChar(255)
-  registered_by       Int?
-  cancelled_by        Int?
-  payment_methods     payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
-  credits             credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
-  registered_by_user  users?          @relation("installments_registered_by", fields: [registered_by], references: [id_user], map: "fk_abonos_registered_by")
-  cancelled_by_user   users?          @relation("installments_cancelled_by", fields: [cancelled_by], references: [id_user], map: "fk_abonos_cancelled_by")
+  id_installment                          Int             @id(map: "abonos_pkey") @default(autoincrement())
+  installment_amount                      Decimal
+  installment_date                        DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_payment_method                       Int
+  observations                            String?         @db.VarChar(255)
+  id_credit                               Int
+  cancelled_at                            DateTime?
+  capital_paid                            Decimal         @default(0)
+  interest_paid                           Decimal         @default(0)
+  is_cancelled                            Boolean         @default(false)
+  created_at                              DateTime        @default(now())
+  cancellation_reason                     String?         @db.VarChar(255)
+  cancelled_by                            Int?
+  registered_by                           Int?
+  payment_methods                         payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
+  users_installments_cancelled_byTousers  users?          @relation("installments_cancelled_byTousers", fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_cancelled_by")
+  credits                                 credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
+  users_installments_registered_byTousers users?          @relation("installments_registered_byTousers", fields: [registered_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_registered_by")
 }
 
 model modules {
@@ -248,9 +248,14 @@ model order_payment_receipts {
   observations             String?      @db.VarChar(255)
   verification_status      String       @default("Pendiente") @db.VarChar(20)
   uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
+  review_observations      String?      @db.VarChar(255)
+  reviewed_at              DateTime?    @db.Timestamp(6)
+  reviewed_by              Int?
   sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
+  users                    users?       @relation(fields: [reviewed_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payment_receipts_reviewed_by")
 
   @@index([id_order], map: "idx_order_payment_receipts_id_order")
+  @@index([verification_status, reviewed_at], map: "idx_order_payment_receipts_review_status")
 }
 
 model order_payments {
@@ -499,14 +504,22 @@ model purchases {
 }
 
 model purchases_returns {
-  id_purchase_return Int             @id(map: "devoluciones_compras_pkey") @default(autoincrement())
-  id_purchase        Int
-  creation_date      DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  id_return_status   Int
-  hsp                hsp[]
-  prd                prd[]
-  purchases          purchases       @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_compra_fkey")
-  return_statuses    return_statuses @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_estado_devolucion_fkey")
+  id_purchase_return         Int                          @id(map: "devoluciones_compras_pkey") @default(autoincrement())
+  id_purchase                Int
+  creation_date              DateTime?                    @default(dbgenerated("CURRENT_DATE")) @db.Date
+  id_return_status           Int
+  cancellation_reason        String?                      @db.VarChar(250)
+  cancelled_at               DateTime?                    @db.Timestamp(6)
+  cancelled_by               Int?
+  hsp                        hsp[]
+  prd                        prd[]
+  purchase_return_audit_logs purchase_return_audit_logs[]
+  purchases                  purchases                    @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_compra_fkey")
+  return_statuses            return_statuses              @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_compras_id_estado_devolucion_fkey")
+  users                      users?                       @relation(fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchases_returns_cancelled_by")
+
+  @@index([cancelled_at], map: "idx_purchase_returns_cancelled_at")
+  @@index([cancelled_by], map: "idx_purchase_returns_cancelled_by")
 }
 
 model refresh_tokens {
@@ -642,6 +655,7 @@ model sales_orders {
   id_payment_status         Int
   cancellation_reason       String?                  @db.VarChar(255)
   cancelled_at              DateTime?                @db.Timestamp(6)
+  sale_type                 String                   @default("manual") @db.VarChar(20)
   hev                       hev?
   order_details             order_details[]
   order_payment_receipts    order_payment_receipts[]
@@ -709,19 +723,40 @@ model unit_measures {
 }
 
 model users {
-  id_user          Int               @id(map: "usuarios_pkey") @default(autoincrement())
-  full_name        String            @db.VarChar(255)
-  email            String            @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
-  pass_word        String            @db.VarChar(255)
-  creation_date    DateTime?         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  phone            BigInt?
-  id_status        Int?
-  token_version    Int               @default(0)
-  id_google        String?
-  access           access[]
-  clients          clients?
-  employees        employees?
-  registered_installments installments[] @relation("installments_registered_by")
-  cancelled_installments  installments[] @relation("installments_cancelled_by")
-  general_statuses general_statuses? @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+  id_user                                        Int                          @id(map: "usuarios_pkey") @default(autoincrement())
+  full_name                                      String                       @db.VarChar(255)
+  email                                          String                       @unique(map: "usuarios_correo_electronico_key") @db.VarChar(255)
+  pass_word                                      String                       @db.VarChar(255)
+  creation_date                                  DateTime?                    @default(dbgenerated("CURRENT_DATE")) @db.Date
+  phone                                          BigInt?
+  id_status                                      Int?
+  token_version                                  Int                          @default(0)
+  id_google                                      String?
+  access                                         access[]
+  clients                                        clients?
+  employees                                      employees?
+  installments_installments_cancelled_byTousers  installments[]               @relation("installments_cancelled_byTousers")
+  installments_installments_registered_byTousers installments[]               @relation("installments_registered_byTousers")
+  order_payment_receipts                         order_payment_receipts[]
+  purchase_return_audit_logs                     purchase_return_audit_logs[]
+  purchases_returns                              purchases_returns[]
+  general_statuses                               general_statuses?            @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
+}
+
+model purchase_return_audit_logs {
+  id_purchase_return_audit_log Int               @id @default(autoincrement())
+  id_purchase_return           Int
+  id_user                      Int?
+  action                       String            @db.VarChar(50)
+  previous_return_status       Int?
+  new_return_status            Int?
+  reason                       String?           @db.VarChar(250)
+  metadata                     Json?
+  created_at                   DateTime          @default(now()) @db.Timestamp(6)
+  purchases_returns            purchases_returns @relation(fields: [id_purchase_return], references: [id_purchase_return], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_return")
+  users                        users?            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_user")
+
+  @@index([action], map: "idx_purchase_return_audit_logs_action")
+  @@index([created_at], map: "idx_purchase_return_audit_logs_created_at")
+  @@index([id_purchase_return], map: "idx_purchase_return_audit_logs_return")
 }

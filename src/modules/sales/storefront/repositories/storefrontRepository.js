@@ -71,6 +71,14 @@ const calculateStock = (product) => (
   ) ?? 0
 );
 
+const findCartByClient = (db, idClient) => (
+  db.shopping_cart_items.findMany({
+    where: { id_client: idClient },
+    include: cartInclude,
+    orderBy: { created_at: "asc" },
+  })
+);
+
 export const storefrontRepository = {
   async findAvailableProduct(productId, db = prisma) {
     return db.products.findFirst({
@@ -109,12 +117,8 @@ export const storefrontRepository = {
     });
   },
 
-  async getCart(idClient) {
-    return prisma.shopping_cart_items.findMany({
-      where: { id_client: idClient },
-      include: cartInclude,
-      orderBy: { created_at: "asc" },
-    });
+  async getCart(idClient, db = prisma) {
+    return findCartByClient(db, idClient);
   },
 
   async setCartItem(idClient, productId, quantity) {
@@ -183,11 +187,7 @@ export const storefrontRepository = {
         });
       }
 
-      return tx.shopping_cart_items.findMany({
-        where: { id_client: idClient },
-        include: cartInclude,
-        orderBy: { created_at: "asc" },
-      });
+      return findCartByClient(tx, idClient);
     });
   },
 };

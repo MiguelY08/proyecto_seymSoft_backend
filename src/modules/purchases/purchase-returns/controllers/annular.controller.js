@@ -31,7 +31,10 @@ export const AnnularPurchaseReturnController = async (
 
     const result =
       await annularPurchaseReturnUseCase(
-        validation.data
+        {
+          ...validation.data,
+          cancelledBy: req.user?.id_user,
+        }
       );
 
     if (!result.success) {

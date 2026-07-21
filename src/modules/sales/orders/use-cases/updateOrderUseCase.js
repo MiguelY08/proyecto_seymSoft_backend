@@ -56,8 +56,72 @@ const hasOrderContentChanges = (currentItems = [], nextItems = []) => {
 const getOrderStatusName = (order) =>
   order?.order_statuses?.name_status || null;
 
-const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
-  const mappedOrder = mapOrder(order);
+const buildProductBarcodeKey = (item) =>
+  `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
+
+const getEnrichedOrderItems = async ({ repo, items, client }) => {
+  const barcodeRecords = await repo.findBarcodesByProducts(items);
+  const barcodeRecordByItem = new Map(
+    barcodeRecords.map((barcodeRecord) => [
+      buildProductBarcodeKey({
+        idProduct: barcodeRecord.id_product,
+        barcode: barcodeRecord.barcode,
+      }),
+      barcodeRecord,
+    ])
+  );
+
+  return items.map((item) => {
+    const barcodeRecord = barcodeRecordByItem.get(
+      buildProductBarcodeKey(item)
+    );
+
+    if (!barcodeRecord) {
+      throw new AppError(
+        `El codigo de barras "${item.barcode}" no pertenece al producto seleccionado.`,
+        400
+      );
+    }
+
+    if ((barcodeRecord.stock || 0) < item.quantity) {
+      throw new AppError(
+        `Stock insuficiente para el producto "${barcodeRecord.products.name}". Stock disponible: ${barcodeRecord.stock}.`,
+        400
+      );
+    }
+
+    const unitPrice = getPriceByClientType(
+      barcodeRecord.products,
+      client.client_type
+    );
+
+    if (!unitPrice || Number(unitPrice) <= 0) {
+      throw new AppError(
+        `El producto "${barcodeRecord.products.name}" no tiene precio configurado para el tipo de cliente "${client.client_type || 'Detal'}".`,
+        400
+      );
+    }
+
+    return {
+      ...item,
+      unitPrice: Number(unitPrice),
+      ivaPercentage: Number(
+        barcodeRecord.products.iva_percentage || 0
+      ),
+    };
+  });
+};
+
+export const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder) {
+    return;
+  }
+
   const customer = mappedOrder.customer;
 
   if (!customer?.email) {
@@ -137,49 +201,11 @@ export class UpdateOrderUseCase {
       throw new AppError('Cliente no encontrado.', 404);
     }
 
-    // Validar productos, codigos de barras y stock en paralelo antes de crear el pedido.
-    const enrichedItems = await Promise.all(
-      dto.items.map(async (item) => {
-        const barcodeRecord = await this.repo.findBarcodeByProduct(
-          item.idProduct,
-          item.barcode
-        );
-
-        if (!barcodeRecord) {
-          throw new AppError(
-            `El codigo de barras "${item.barcode}" no pertenece al producto seleccionado.`,
-            400
-          );
-        }
-
-        if ((barcodeRecord.stock || 0) < item.quantity) {
-          throw new AppError(
-            `Stock insuficiente para el producto "${barcodeRecord.products.name}". Stock disponible: ${barcodeRecord.stock}.`,
-            400
-          );
-        }
-
-        const unitPrice = getPriceByClientType(
-          barcodeRecord.products,
-          client.client_type
-        );
-
-        if (!unitPrice || Number(unitPrice) <= 0) {
-          throw new AppError(
-            `El producto "${barcodeRecord.products.name}" no tiene precio configurado para el tipo de cliente "${client.client_type || 'Detal'}".`,
-            400
-          );
-        }
-
-        return {
-          ...item,
-          unitPrice: Number(unitPrice),
-          ivaPercentage: Number(
-            barcodeRecord.products.iva_percentage || 0
-          ),
-        };
-      })
-    );
+    const enrichedItems = await getEnrichedOrderItems({
+      repo: this.repo,
+      items: dto.items,
+      client,
+    });
     const calculated = calculateOrderTotals(enrichedItems);
 
 
@@ -202,14 +228,22 @@ export class UpdateOrderUseCase {
     };
 
     const updated = await this.repo.update(id, orderData);
+    const mappedOrder = mapOrder(updated);
+    const statusChanged =
+      order.id_order_status !== updated.id_order_status;
 
-    if (order.id_order_status !== updated.id_order_status) {
-      void notifyOrderStatusChanged({
-        order: updated,
-        previousStatus: getOrderStatusName(order),
-      });
-    }
-
-    return mapOrder(updated);
+    return {
+      order:
+        mappedOrder,
+      statusNotification:
+        statusChanged
+          ? {
+              order:
+                mappedOrder,
+              previousStatus:
+                getOrderStatusName(order),
+            }
+          : null,
+    };
   }
 }

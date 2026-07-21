@@ -6,8 +6,16 @@ import { mapOrder } from '../mappers/orderMapper.js';
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 
-const notifyOrderCancelled = async ({ order, reason }) => {
-  const mappedOrder = mapOrder(order);
+export const notifyOrderCancelled = async ({ order, reason }) => {
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder) {
+    return;
+  }
+
   const customer = mappedOrder.customer;
 
   if (!customer?.email) {
@@ -23,7 +31,7 @@ const notifyOrderCancelled = async ({ order, reason }) => {
       total: mappedOrder.total,
     });
   } catch (error) {
-    console.error('[CancelOrderUseCase] Email error:', error.message);
+    console.error('[NotifyOrderCancelled] Email error:', error.message);
   }
 };
 
@@ -59,11 +67,6 @@ export class CancelOrderUseCase {
     }
 
     const canceled = await this.repo.cancel(id, normalizedReason);
-
-    void notifyOrderCancelled({
-      order: canceled,
-      reason: normalizedReason,
-    });
 
     return mapOrder(canceled);
   }

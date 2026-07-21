@@ -7,6 +7,7 @@ import {
   cancelOrder,
   registerOrderPayment,
   uploadOrderPaymentReceipt,
+  reviewOrderPaymentReceipt,
 } from '../controllers/orderControllers.js';
 import { authMiddleware } from '../../../../shared/middlewares/authMiddleware.js';
 import {
@@ -30,6 +31,13 @@ router.post(
   authMiddleware,
   uploadReceiptImage,
   uploadOrderPaymentReceipt
+);
+
+// Revisar comprobante pendiente de verificacion
+router.patch(
+  '/:id/payment-receipts/:receiptId/review',
+  authMiddleware,
+  reviewOrderPaymentReceipt
 );
 
 // Obtener pedido por ID

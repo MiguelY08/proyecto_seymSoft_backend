@@ -33,7 +33,7 @@ const isAnnulledStatus = (status) => {
   return name.includes("anulad");
 };
 
-const notifySaleAnnulled = async ({ sale, reason }) => {
+export const notifySaleAnnulled = async ({ sale, reason }) => {
   const customer = sale?.order?.customer;
   const user = customer?.user;
 
@@ -53,7 +53,7 @@ const notifySaleAnnulled = async ({ sale, reason }) => {
     });
   } catch (error) {
     console.error(
-      "[AnnularVendingUseCase] Email error:",
+      "[NotifySaleAnnulled] Email error:",
       error.message
     );
   }
@@ -157,11 +157,6 @@ export const annularVendingUseCase = async (params) => {
           "SALE_NOT_FOUND",
       };
     }
-
-    void notifySaleAnnulled({
-      sale: updatedSale,
-      reason,
-    });
 
     return {
       success: true,

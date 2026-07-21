@@ -16,6 +16,7 @@ export {
 
 export {
   createVendingUseCase,
+  notifySaleCreated,
 } from "./create.usecase.js";
 
 export {
@@ -24,4 +25,5 @@ export {
 
 export {
   annularVendingUseCase,
+  notifySaleAnnulled,
 } from "./annular.usecase.js";

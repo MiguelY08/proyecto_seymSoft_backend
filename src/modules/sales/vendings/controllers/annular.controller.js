@@ -1,4 +1,7 @@
-import { annularVendingUseCase } from "../use-cases/index.js";
+import {
+  annularVendingUseCase,
+  notifySaleAnnulled,
+} from "../use-cases/index.js";
 import {
   validateAnnularVending,
   validateAnnularVendingParams,
@@ -71,6 +74,17 @@ export const AnnularVendingController = async (req, res) => {
           result.errorCode,
       });
     }
+
+    res.once("finish", () => {
+      setImmediate(() => {
+        void notifySaleAnnulled({
+          sale:
+            result.data?.sale,
+          reason:
+            result.data?.annulmentReason,
+        });
+      });
+    });
 
     return res.status(200).json({
       success: true,

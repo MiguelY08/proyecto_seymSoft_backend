@@ -923,6 +923,129 @@ export class EmailService {
     await sendMail({ to, subject, text, html });
   }
 
+  static async sendOrderPaymentReceiptApprovedEmail({
+    to,
+    fullName,
+    orderId,
+    amount,
+    paidAmount,
+    pendingAmount,
+    isPaid,
+    reviewObservations,
+    frontendUrl = getFrontendUrl(),
+  }) {
+    const name = getName(fullName);
+    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const subject = `Comprobante aprobado - Pedido #${orderId}`;
+
+    const text = `Hola ${name},\n\nTu comprobante del pedido #${orderId} fue aprobado.\n\nMonto registrado: ${formatMoney(amount)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nEstado: ${isPaid ? "Pagado" : "Pendiente"}\nObservaciones: ${reviewObservations || "No aplica"}\n\n${orderUrl}`;
+
+    const html = baseLayout({
+      title: `Comprobante aprobado - Pedido #${orderId}`,
+      badge: isPaid ? "Pedido pagado" : "Comprobante aprobado",
+      body: `
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Revisamos el comprobante que enviaste y fue aprobado. El abono ya
+          quedo registrado en tu pedido.
+        </p>
+
+        ${renderSummaryGrid([
+          {
+            label: "Monto registrado",
+            value: formatMoney(amount),
+            options: {
+              background: COLORS.successSoft,
+              borderColor: COLORS.successSoft,
+              valueColor: COLORS.success,
+            },
+          },
+          {
+            label: "Estado del pago",
+            value: isPaid ? "Pagado" : "Pendiente",
+            options: {
+              background: isPaid ? COLORS.successSoft : COLORS.warningSoft,
+              borderColor: isPaid ? COLORS.successSoft : COLORS.warningSoft,
+              valueColor: isPaid ? COLORS.success : COLORS.warning,
+            },
+          },
+          {
+            label: "Total abonado",
+            value: formatMoney(paidAmount),
+          },
+          {
+            label: "Saldo pendiente",
+            value: formatMoney(pendingAmount),
+            options: {
+              background: pendingAmount > 0 ? COLORS.warningSoft : COLORS.successSoft,
+              borderColor: pendingAmount > 0 ? COLORS.warningSoft : COLORS.successSoft,
+              valueColor: pendingAmount > 0 ? COLORS.warning : COLORS.success,
+            },
+          },
+        ])}
+
+        ${reviewObservations ? renderInfoCard(`
+          <p style="margin: 0 0 6px;">
+            <strong>Observaciones de revision:</strong>
+          </p>
+          <p style="margin: 0;">
+            ${reviewObservations}
+          </p>
+        `, {
+          background: COLORS.successSoft,
+          borderColor: COLORS.successSoft,
+          accentColor: COLORS.success,
+        }) : ""}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
+      `,
+    });
+
+    await sendMail({ to, subject, text, html });
+  }
+
+  static async sendOrderPaymentReceiptRejectedEmail({
+    to,
+    fullName,
+    orderId,
+    reason,
+    frontendUrl = getFrontendUrl(),
+  }) {
+    const name = getName(fullName);
+    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const subject = `Comprobante rechazado - Pedido #${orderId}`;
+
+    const text = `Hola ${name},\n\nTu comprobante del pedido #${orderId} fue rechazado.\n\nMotivo: ${reason || "No especificado"}\n\nPuedes revisar el pedido y enviar un nuevo comprobante si el saldo continua pendiente.\n\n${orderUrl}`;
+
+    const html = baseLayout({
+      title: `Comprobante rechazado - Pedido #${orderId}`,
+      badge: "Comprobante rechazado",
+      body: `
+        <p style="margin-top: 0;">Hola <strong>${name}</strong>,</p>
+
+        <p>
+          Revisamos el comprobante que enviaste y no fue posible aprobarlo.
+          Puedes revisar el motivo y enviar un nuevo comprobante si el pedido
+          aun tiene saldo pendiente.
+        </p>
+
+        ${renderAlertBox(`
+          <p style="margin: 0 0 8px;">
+            <strong>Motivo de rechazo:</strong>
+          </p>
+          <p style="margin: 0;">
+            ${reason || "No especificado"}
+          </p>
+        `, "danger")}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
+      `,
+    });
+
+    await sendMail({ to, subject, text, html });
+  }
+
   static async sendOrderStatusChangedEmail({
     to,
     fullName,
