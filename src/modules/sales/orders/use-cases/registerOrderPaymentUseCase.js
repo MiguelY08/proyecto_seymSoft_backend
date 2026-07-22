@@ -8,6 +8,7 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
+import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
 
 const DEFAULT_VENDING_TYPE = 'manual';
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
@@ -19,6 +20,21 @@ const getVendingTypeFromOrder = (order = {}) =>
   String(order.sale_type || DEFAULT_VENDING_TYPE)
     .trim()
     .toLowerCase();
+
+const validateShippingQuoteBeforePaid = (order = {}) => {
+  if (
+    requiresShippingQuote({
+      deliveryType: order.delivery_type,
+      saleType: order.sale_type,
+      shippingAmount: order.shipping_amount,
+    })
+  ) {
+    throw new AppError(
+      'Debe registrar el valor del envio antes de completar el pago de un pedido web a domicilio.',
+      400
+    );
+  }
+};
 
 const getPaidAmountFromOrderPayments = (payments = []) =>
   roundMoney(
@@ -164,6 +180,8 @@ export class RegisterOrderPaymentUseCase {
 
     if (order.id_payment_status === PAYMENT_STATUSES[2].id) {
       if (!order.sales) {
+        validateShippingQuoteBeforePaid(order);
+
         const generatedSale = await generateSaleFromPaidOrder(
           this.repo,
           order.id_order,
@@ -226,6 +244,8 @@ export class RegisterOrderPaymentUseCase {
 
     if (pendingBefore <= 0) {
       if (!order.sales) {
+        validateShippingQuoteBeforePaid(order);
+
         const generatedSale = await generateSaleFromPaidOrder(
           this.repo,
           order.id_order,
@@ -276,6 +296,8 @@ export class RegisterOrderPaymentUseCase {
     const isPaid = pendingAfter <= 0;
 
     if (isPaid && !order.sales) {
+      validateShippingQuoteBeforePaid(order);
+
       await validateSaleFromPaidOrder({
         idOrder: order.id_order,
         saleType: getVendingTypeFromOrder(order),

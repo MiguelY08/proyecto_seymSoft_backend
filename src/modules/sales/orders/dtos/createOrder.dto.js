@@ -3,12 +3,62 @@ import {
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import {
+  DELIVERY_TYPES,
   normalizeDeliveryAddress,
   normalizeDeliveryLocation,
   normalizeDeliveryType,
 } from '../../shared/deliveryTypes.js';
 
 const ORDER_SALE_TYPES = ['manual', 'direct', 'web'];
+const ADVISOR_ORDER_SALE_TYPES = ['manual', 'direct'];
+
+const getRawShippingAmount = (data = {}) =>
+  data.shippingAmount ??
+  data.shipping_amount ??
+  data.deliveryAmount ??
+  data.delivery_amount ??
+  data.envio;
+
+const isEmptyShippingAmount = (value) =>
+  value === undefined ||
+  value === null ||
+  String(value).trim() === '';
+
+const normalizeShippingAmount = ({
+  value,
+  deliveryType,
+  saleType,
+}) => {
+  if (deliveryType === DELIVERY_TYPES.PICKUP) {
+    return 0;
+  }
+
+  const isAdvisorOrder = ADVISOR_ORDER_SALE_TYPES.includes(saleType);
+
+  if (
+    deliveryType === DELIVERY_TYPES.DELIVERY &&
+    isAdvisorOrder &&
+    isEmptyShippingAmount(value)
+  ) {
+    throw new Error('El valor del envio es obligatorio para pedidos a domicilio registrados por asesor.');
+  }
+
+  const amount = Number(value ?? 0);
+
+  if (Number.isNaN(amount) || amount < 0) {
+    throw new Error('El valor del envio debe ser un numero mayor o igual a 0.');
+  }
+
+  if (
+    deliveryType === DELIVERY_TYPES.DELIVERY &&
+    isAdvisorOrder &&
+    amount <= 0
+  ) {
+    throw new Error('El valor del envio debe ser mayor a 0 para pedidos a domicilio registrados por asesor.');
+  }
+
+  return Math.round(amount * 100) / 100;
+};
 
 export class CreateOrderDto {
   constructor(data) {
@@ -83,6 +133,11 @@ export class CreateOrderDto {
     )
       .trim()
       .toLowerCase();
+
+    if (!ORDER_SALE_TYPES.includes(this.saleType)) {
+      throw new Error(`El tipo de pedido debe ser uno de: ${ORDER_SALE_TYPES.join(', ')}.`);
+    }
+
     this.deliveryType = deliveryType;
     this.deliveryAddress = deliveryAddress;
     this.deliveryDepartmentCode =
@@ -93,6 +148,11 @@ export class CreateOrderDto {
       deliveryLocation.deliveryCityCode;
     this.deliveryCityName =
       deliveryLocation.deliveryCityName;
+    this.shippingAmount = normalizeShippingAmount({
+      value: getRawShippingAmount(data),
+      deliveryType,
+      saleType: this.saleType,
+    });
 
     this.items = data.items ?? [];
     this.initialPayments =
@@ -103,10 +163,6 @@ export class CreateOrderDto {
 
     if (!this.idClient) {
       throw new Error('El cliente es obligatorio.');
-    }
-
-    if (!ORDER_SALE_TYPES.includes(this.saleType)) {
-      throw new Error(`El tipo de pedido debe ser uno de: ${ORDER_SALE_TYPES.join(', ')}.`);
     }
 
     if (!Array.isArray(this.items) || this.items.length === 0) {

@@ -146,16 +146,20 @@ const calculateOrderTotals = (order) => {
           )
         );
 
+  const shippingAmount =
+    roundMoney(order?.shipping_amount ?? order?.shippingAmount ?? 0);
+
   const total =
     order?.total !== undefined && order?.total !== null
       ? Number(order.total)
-      : roundMoney(subtotal + ivaAmount);
+      : roundMoney(subtotal + ivaAmount + shippingAmount);
 
   return {
     subtotal:
       roundMoney(subtotal),
     ivaAmount:
       roundMoney(ivaAmount),
+    shippingAmount,
     total:
       roundMoney(total),
   };
@@ -494,6 +498,8 @@ export const createVendingUseCase = async (params) => {
             roundMoney(preparedOrder.orderData.subtotal),
           ivaAmount:
             roundMoney(preparedOrder.orderData.ivaAmount),
+          shippingAmount:
+            roundMoney(preparedOrder.orderData.shippingAmount),
           total:
             roundMoney(preparedOrder.orderData.total),
         };

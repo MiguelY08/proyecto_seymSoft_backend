@@ -1,4 +1,8 @@
 import { PAYMENT_STATUSES } from '../../../../shared/constants/generalStatuses.js';
+import {
+  getShippingStatus,
+  requiresShippingQuote,
+} from '../helpers/orderShippingStatus.js';
 
 const mapPaymentStatus = (order) => {
   if (order.payment_statuses) {
@@ -97,9 +101,22 @@ export const mapOrder = (order) => {
     ) ??
     0;
 
+  const shippingAmount = order.shipping_amount ?? 0;
+  const deliveryType = order.delivery_type || null;
+  const saleType = order.sale_type || 'manual';
+  const shippingStatus = getShippingStatus({
+    deliveryType,
+    shippingAmount,
+  });
+  const needsShippingQuote = requiresShippingQuote({
+    deliveryType,
+    saleType,
+    shippingAmount,
+  });
+
   const total =
     order.total ??
-    Number(subtotal) + Number(ivaAmount);
+    Number(subtotal) + Number(ivaAmount) + Number(shippingAmount);
 
   const payments = mapPayments(order.order_payments || []);
   const paymentReceipts = mapPaymentReceipts(
@@ -156,7 +173,7 @@ export const mapOrder = (order) => {
         }
       : null,
     deliveryAddress: order.delivery_adress || null,
-    deliveryType: order.delivery_type || null,
+    deliveryType,
     deliveryDepartment: {
       code: order.delivery_department_code || null,
       name: order.delivery_department_name || null,
@@ -166,7 +183,7 @@ export const mapOrder = (order) => {
       name: order.delivery_city_name || null,
     },
     deliveryLocation: mapDeliveryLocation(order),
-    saleType: order.sale_type || 'manual',
+    saleType,
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
     paymentDeadline: order.payment_deadline || null,
@@ -178,6 +195,9 @@ export const mapOrder = (order) => {
     cancelledAt: order.cancelled_at || null,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
+    shippingAmount: Number(shippingAmount),
+    shippingStatus,
+    requiresShippingQuote: needsShippingQuote,
     total: Number(total),
     paidAmount,
     pendingAmount,
@@ -209,7 +229,21 @@ export const mapOrder = (order) => {
 export const mapOrderSummary = (order) => {
   const subtotal = order.subtotal ?? 0;
   const ivaAmount = order.iva_amount ?? 0;
-  const total = order.total ?? Number(subtotal) + Number(ivaAmount);
+  const shippingAmount = order.shipping_amount ?? 0;
+  const deliveryType = order.delivery_type || null;
+  const saleType = order.sale_type || 'manual';
+  const shippingStatus = getShippingStatus({
+    deliveryType,
+    shippingAmount,
+  });
+  const needsShippingQuote = requiresShippingQuote({
+    deliveryType,
+    saleType,
+    shippingAmount,
+  });
+  const total =
+    order.total ??
+    Number(subtotal) + Number(ivaAmount) + Number(shippingAmount);
   const paymentStatus = mapPaymentStatus(order);
   const sale = mapSale(order.sales);
   const isPaid =
@@ -272,7 +306,7 @@ export const mapOrderSummary = (order) => {
         }
       : null,
     deliveryAddress: order.delivery_adress || null,
-    deliveryType: order.delivery_type || null,
+    deliveryType,
     deliveryDepartment: {
       code: order.delivery_department_code || null,
       name: order.delivery_department_name || null,
@@ -282,11 +316,14 @@ export const mapOrderSummary = (order) => {
       name: order.delivery_city_name || null,
     },
     deliveryLocation: mapDeliveryLocation(order),
-    saleType: order.sale_type || 'manual',
+    saleType,
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
+    shippingAmount: Number(shippingAmount),
+    shippingStatus,
+    requiresShippingQuote: needsShippingQuote,
     total: Number(total),
     paidAmount,
     pendingAmount,

@@ -127,6 +127,7 @@ const orderSummarySelect = {
   delivery_city_name: true,
   subtotal: true,
   iva_amount: true,
+  shipping_amount: true,
   total: true,
   payment_status: true,
   delivery_type: true,
@@ -259,6 +260,7 @@ const orderPaymentResultSelect = {
   delivery_city_name: true,
   subtotal: true,
   iva_amount: true,
+  shipping_amount: true,
   total: true,
   payment_status: true,
   delivery_type: true,
@@ -340,6 +342,7 @@ const orderListSelect = {
   delivery_city_name: true,
   subtotal: true,
   iva_amount: true,
+  shipping_amount: true,
   total: true,
   payment_status: true,
   delivery_type: true,
@@ -600,6 +603,8 @@ export class OrderRepository {
         id_order: true,
         id_order_status: true,
         id_payment_status: true,
+        sale_type: true,
+        shipping_amount: true,
         order_statuses: {
           select: {
             name_status: true,
@@ -621,6 +626,29 @@ export class OrderRepository {
     });
   }
 
+  async findShippingUpdateStateById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        id_payment_status: true,
+        delivery_type: true,
+        subtotal: true,
+        iva_amount: true,
+        shipping_amount: true,
+        total: true,
+        sales: {
+          select: {
+            id_sale: true,
+          },
+        },
+      },
+    });
+  }
+
   async findPaymentStateById(id) {
     return prisma.sales_orders.findUnique({
       where: {
@@ -631,6 +659,8 @@ export class OrderRepository {
         id_order_status: true,
         id_payment_status: true,
         sale_type: true,
+        delivery_type: true,
+        shipping_amount: true,
         total: true,
         sales: {
           select: {
@@ -702,6 +732,7 @@ export class OrderRepository {
           }),
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
+          shipping_amount: data.shippingAmount,
           total: data.total,
         },
         select: {
@@ -805,6 +836,7 @@ export class OrderRepository {
           payment_deadline: data.paymentDeadline || data.payment_deadline || undefined,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
+          shipping_amount: data.shippingAmount,
           total: data.total,
         },
       });
@@ -829,6 +861,22 @@ export class OrderRepository {
     });
 
     return this.findSummaryById(idOrder);
+  }
+
+  async updateShippingAmount(idOrder, data) {
+    const orderId = Number(idOrder);
+
+    await prisma.sales_orders.update({
+      where: {
+        id_order: orderId,
+      },
+      data: {
+        shipping_amount: data.shippingAmount,
+        total: data.total,
+      },
+    });
+
+    return this.findSummaryById(orderId);
   }
 
   async cancel(id, reason = 'Pedido cancelado.') {

@@ -1,8 +1,26 @@
 import {
+  DELIVERY_TYPES,
   normalizeDeliveryAddress,
   normalizeDeliveryLocation,
   normalizeDeliveryType,
 } from '../../shared/deliveryTypes.js';
+
+const normalizeShippingAmount = ({
+  value,
+  deliveryType,
+}) => {
+  if (deliveryType === DELIVERY_TYPES.PICKUP) {
+    return 0;
+  }
+
+  const amount = Number(value ?? 0);
+
+  if (Number.isNaN(amount) || amount < 0) {
+    throw new Error('El valor del envio debe ser un numero mayor o igual a 0.');
+  }
+
+  return Math.round(amount * 100) / 100;
+};
 
 export class UpdateOrderDto {
   constructor(data) {
@@ -63,6 +81,15 @@ export class UpdateOrderDto {
       deliveryLocation.deliveryCityCode;
     this.deliveryCityName =
       deliveryLocation.deliveryCityName;
+    this.shippingAmount = normalizeShippingAmount({
+      value:
+        data.shippingAmount ??
+        data.shipping_amount ??
+        data.deliveryAmount ??
+        data.delivery_amount ??
+        data.envio,
+      deliveryType,
+    });
     this.items = data.items ?? [];
 
     if (!this.idClient) {

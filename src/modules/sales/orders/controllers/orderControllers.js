@@ -11,6 +11,7 @@ import {
   UpdateOrderUseCase,
   notifyOrderStatusChanged,
 } from '../use-cases/updateOrderUseCase.js';
+import { UpdateOrderShippingUseCase } from '../use-cases/updateOrderShippingUseCase.js';
 import { GetAllOrdersUseCase } from '../use-cases/getAllOrdersUseCase.js';
 import { GetOrderByIdUseCase } from '../use-cases/getOrderByIdUseCase.js';
 import {
@@ -131,6 +132,34 @@ export const updateOrder = async (req, res, next) => {
     res.status(httpCodes.OK).json({
       success: true,
       message: 'Pedido actualizado exitosamente.',
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Registrar o actualizar solo el valor del envio de un pedido.
+export const updateOrderShipping = async (req, res, next) => {
+  try {
+    const paramsValidation = validateOrderIdParams(req.params);
+
+    if (!paramsValidation.success) {
+      return res.status(httpCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Errores de validacion en parametros.',
+        errors: paramsValidation.errors,
+      });
+    }
+
+    const data = await new UpdateOrderShippingUseCase(repo).execute(
+      paramsValidation.data.id,
+      req.body
+    );
+
+    res.status(httpCodes.OK).json({
+      success: true,
+      message: 'Valor de envio actualizado exitosamente.',
       data,
     });
   } catch (err) {

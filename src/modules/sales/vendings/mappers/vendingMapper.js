@@ -1,3 +1,8 @@
+import {
+  getShippingStatus,
+  requiresShippingQuote,
+} from "../../orders/helpers/orderShippingStatus.js";
+
 const toNumber = (value) => {
   if (value === null || value === undefined) return null;
 
@@ -9,6 +14,21 @@ const toDate = (value) => {
 
   return value;
 };
+
+const toDeliveryLocation = (order) => ({
+  department: {
+    code:
+      order?.delivery_department_code || null,
+    name:
+      order?.delivery_department_name || null,
+  },
+  city: {
+    code:
+      order?.delivery_city_code || null,
+    name:
+      order?.delivery_city_name || null,
+  },
+});
 
 export class VendingMapper {
   static toDomain(sale) {
@@ -25,6 +45,8 @@ export class VendingMapper {
         toNumber(sale.subtotal),
       ivaAmount:
         toNumber(sale.sales_orders?.iva_amount),
+      shippingAmount:
+        toNumber(sale.sales_orders?.shipping_amount ?? 0),
       total:
         toNumber(sale.sales_orders?.total ?? sale.subtotal),
       saleDate:
@@ -105,6 +127,8 @@ export class VendingMapper {
         toNumber(sale.subtotal),
       ivaAmount:
         toNumber(sale.sales_orders?.iva_amount),
+      shippingAmount:
+        toNumber(sale.sales_orders?.shipping_amount ?? 0),
       total:
         toNumber(sale.sales_orders?.total ?? sale.subtotal),
       saleDate:
@@ -247,6 +271,23 @@ export class VendingMapper {
   static toOrder(order) {
     if (!order) return null;
 
+    const shippingAmount =
+      toNumber(order.shipping_amount ?? 0);
+    const shippingStatus =
+      getShippingStatus({
+        deliveryType:
+          order.delivery_type,
+        shippingAmount,
+      });
+    const needsShippingQuote =
+      requiresShippingQuote({
+        deliveryType:
+          order.delivery_type,
+        saleType:
+          order.sale_type,
+        shippingAmount,
+      });
+
     return {
       idOrder:
         order.id_order,
@@ -262,6 +303,20 @@ export class VendingMapper {
         order.delivery_adress,
       deliveryType:
         order.delivery_type,
+      deliveryDepartment: {
+        code:
+          order.delivery_department_code || null,
+        name:
+          order.delivery_department_name || null,
+      },
+      deliveryCity: {
+        code:
+          order.delivery_city_code || null,
+        name:
+          order.delivery_city_name || null,
+      },
+      deliveryLocation:
+        toDeliveryLocation(order),
       paymentStatus:
         order.payment_status,
       paymentStatusDetail:
@@ -286,6 +341,10 @@ export class VendingMapper {
         toNumber(order.subtotal),
       ivaAmount:
         toNumber(order.iva_amount),
+      shippingAmount,
+      shippingStatus,
+      requiresShippingQuote:
+        needsShippingQuote,
       total:
         toNumber(order.total),
 
@@ -316,6 +375,23 @@ export class VendingMapper {
   static toOrderSummary(order) {
     if (!order) return null;
 
+    const shippingAmount =
+      toNumber(order.shipping_amount ?? 0);
+    const shippingStatus =
+      getShippingStatus({
+        deliveryType:
+          order.delivery_type,
+        shippingAmount,
+      });
+    const needsShippingQuote =
+      requiresShippingQuote({
+        deliveryType:
+          order.delivery_type,
+        saleType:
+          order.sale_type,
+        shippingAmount,
+      });
+
     return {
       idOrder:
         order.id_order,
@@ -331,6 +407,20 @@ export class VendingMapper {
         order.delivery_adress,
       deliveryType:
         order.delivery_type,
+      deliveryDepartment: {
+        code:
+          order.delivery_department_code || null,
+        name:
+          order.delivery_department_name || null,
+      },
+      deliveryCity: {
+        code:
+          order.delivery_city_code || null,
+        name:
+          order.delivery_city_name || null,
+      },
+      deliveryLocation:
+        toDeliveryLocation(order),
       paymentStatus:
         order.payment_status,
       paymentStatusDetail:
@@ -341,6 +431,10 @@ export class VendingMapper {
         toNumber(order.subtotal),
       ivaAmount:
         toNumber(order.iva_amount),
+      shippingAmount,
+      shippingStatus,
+      requiresShippingQuote:
+        needsShippingQuote,
       total:
         toNumber(order.total),
 
@@ -531,6 +625,8 @@ export class VendingMapper {
         sale.subtotal,
       ivaAmount:
         sale.ivaAmount,
+      shippingAmount:
+        sale.shippingAmount,
       total:
         sale.total,
       saleDate:

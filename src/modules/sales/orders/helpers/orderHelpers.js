@@ -71,7 +71,8 @@ const splitIncludedIva = ({ totalWithIva, ivaPercentage }) => {
 };
 
 // Calcular totales monetarios del pedido con precios que ya incluyen IVA.
-export const calculateOrderTotals = (items = []) => {
+export const calculateOrderTotals = (items = [], options = {}) => {
+  const shippingAmount = roundMoney(options.shippingAmount);
   const calculatedItems = items.map((item) => {
     const quantity = Number(item.quantity) || 0;
     const unitPrice = Number(item.unitPrice) || 0;
@@ -107,17 +108,19 @@ export const calculateOrderTotals = (items = []) => {
     )
   );
 
-  const total = roundMoney(
+  const productTotal = roundMoney(
     calculatedItems.reduce(
       (acc, item) => acc + item.total,
       0
     )
   );
+  const total = roundMoney(productTotal + shippingAmount);
 
   return {
     items: calculatedItems,
     subtotal,
     ivaAmount,
+    shippingAmount,
     total,
   };
 };
