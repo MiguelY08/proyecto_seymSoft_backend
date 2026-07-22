@@ -4,7 +4,6 @@ import {
   validatePurchaseReturnPeriod,
   validateReturnQuantity,
 } from "../helpers/purchaseReturnHelper.js";
-import { validateReturnCatalogReferences } from "../helpers/validateReturnCatalogReferences.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
 const getNextPurchaseStatusOnCreate = (currentPurchaseStatusId) => {
@@ -28,18 +27,78 @@ const buildEnrichedDetails = async ({
   const enrichedDetails = [];
   const requestedByPurchaseDetail = new Map();
   const requestedByBarcode = new Map();
+  const idPurchaseDetails =
+    details.map((detail) => detail.idPurchaseDetail);
+  const idReturnReasons =
+    details.map((detail) => detail.idReturnReason);
+  const idReturnMethods =
+    details.map((detail) => detail.idReturnMethod);
+
+  const [
+    returnReasons,
+    returnMethods,
+    purchaseDetails,
+    availabilityByPurchaseDetail,
+  ] = await Promise.all([
+    PurchaseReturnRepository.findReturnReasonsByIds(
+      idReturnReasons
+    ),
+    PurchaseReturnRepository.findReturnMethodsByIds(
+      idReturnMethods
+    ),
+    PurchaseReturnRepository.findRawPurchaseDetailsByIds(
+      idPurchaseDetails
+    ),
+    PurchaseReturnRepository.getReturnAvailabilityByPurchaseDetails(
+      idPurchaseDetails
+    ),
+  ]);
+
+  const returnReasonIds = new Set(
+    returnReasons.map((reason) =>
+      Number(reason.id_return_reason)
+    )
+  );
+  const returnMethodIds = new Set(
+    returnMethods.map((method) =>
+      Number(method.id_return_method)
+    )
+  );
+  const purchaseDetailsById =
+    purchaseDetails.reduce((indexed, purchaseDetail) => {
+      indexed.set(
+        Number(purchaseDetail.id_purchase_detail),
+        purchaseDetail
+      );
+      return indexed;
+    }, new Map());
 
   for (const detail of details) {
-    const catalogValidation =
-      await validateReturnCatalogReferences(detail);
+    if (!returnReasonIds.has(Number(detail.idReturnReason))) {
+      return {
+        success: false,
+        error: `El motivo de devolucion ${detail.idReturnReason} no existe.`,
+        errorCode: "RETURN_REASON_NOT_FOUND",
+        meta: {
+          idReturnReason: detail.idReturnReason,
+        },
+      };
+    }
 
-    if (!catalogValidation.success) {
-      return catalogValidation;
+    if (!returnMethodIds.has(Number(detail.idReturnMethod))) {
+      return {
+        success: false,
+        error: `El metodo de devolucion ${detail.idReturnMethod} no existe.`,
+        errorCode: "RETURN_METHOD_NOT_FOUND",
+        meta: {
+          idReturnMethod: detail.idReturnMethod,
+        },
+      };
     }
 
     const purchaseDetail =
-      await PurchaseReturnRepository.findRawPurchaseDetailById(
-        detail.idPurchaseDetail
+      purchaseDetailsById.get(
+        Number(detail.idPurchaseDetail)
       );
 
     if (!purchaseDetail) {
@@ -64,9 +123,14 @@ const buildEnrichedDetails = async ({
       ) || 0;
 
     const returnAvailability =
-      await PurchaseReturnRepository.getReturnAvailabilityByPurchaseDetail(
-        detail.idPurchaseDetail
-      );
+      availabilityByPurchaseDetail.get(
+        Number(detail.idPurchaseDetail)
+      ) ?? {
+        purchasedQuantity: 0,
+        reservedQuantity: 0,
+        finalReturnedQuantity: 0,
+        availableQuantity: 0,
+      };
 
     const quantityValidation =
       validateReturnQuantity({
@@ -157,7 +221,7 @@ const buildEnrichedDetails = async ({
 export const createPurchaseReturnUseCase = async (data) => {
   try {
     const purchase =
-      await PurchaseReturnRepository.findRawPurchaseById(
+      await PurchaseReturnRepository.findRawPurchaseForReturnCreationById(
         data.idPurchase
       );
 

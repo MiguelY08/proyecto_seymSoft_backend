@@ -78,17 +78,37 @@ export const registerSchema = z
  * REFRESH TOKEN SCHEMA
  * Validación para refrescar token de acceso
  */
-export const refreshTokenSchema = z.object({
-  refresh_token: z.string().min(1, "El token de refresco es requerido").trim(),
-});
+export const refreshTokenSchema = z
+  .object({
+    refresh_token: z
+      .string()
+      .min(1, "El token de refresco es requerido")
+      .trim()
+      .optional(),
+    refreshToken: z
+      .string()
+      .min(1, "El token de refresco es requerido")
+      .trim()
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.refresh_token && !data.refreshToken) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["refresh_token"],
+        message: "El token de refresco es requerido",
+      });
+    }
+  })
+  .transform((data) => ({
+    refresh_token: data.refresh_token ?? data.refreshToken,
+  }));
 
 /**
  * LOGOUT SCHEMA
  * Validación para logout
  */
-export const logoutSchema = z.object({
-  refresh_token: z.string().min(1, "El token de refresco es requerido").trim(),
-});
+export const logoutSchema = refreshTokenSchema;
 
 /**
  * UPDATE PROFILE SCHEMA
@@ -107,6 +127,18 @@ export const updateProfileSchema = z
       .string()
       .min(6, "La contraseña debe tener al menos 6 caracteres")
       .regex(/[A-Z]/, "La contraseña debe contener al menos una mayúscula")
+      .trim()
+      .optional(),
+    full_name: z
+      .string()
+      .min(1, "El nombre completo es requerido")
+      .max(255, "El nombre no puede exceder 255 caracteres")
+      .trim()
+      .optional(),
+    fullName: z
+      .string()
+      .min(1, "El nombre completo es requerido")
+      .max(255, "El nombre no puede exceder 255 caracteres")
       .trim()
       .optional(),
     current_password: z
@@ -132,8 +164,10 @@ export const updateProfileSchema = z
   .superRefine((data, ctx) => {
     const hasProfileChange =
       data.email !== undefined ||
+      data.full_name !== undefined ||
+      data.fullName !== undefined ||
       data.address !== undefined ||
-      data.phone !== null;
+      (data.phone !== undefined && data.phone !== null);
 
     const hasPasswordChange =
       data.pass_word !== undefined || data.password !== undefined;
@@ -178,6 +212,7 @@ export const updateProfileSchema = z
   })
   .transform((data) => ({
     ...data,
+    full_name: data.full_name ?? data.fullName,
     pass_word: data.pass_word ?? data.password,
   }));
 

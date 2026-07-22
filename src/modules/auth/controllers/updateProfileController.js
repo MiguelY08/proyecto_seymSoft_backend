@@ -12,26 +12,32 @@ export class UpdateProfileController {
       const { id_user } = req.user;
       const {
         email,
+        full_name,
+        fullName,
         pass_word,
         password,
         current_password,
         confirm_password,
+        address,
         phone,
       } = req.body;
 
       // Validar datos
       const validatedData = updateProfileSchema.parse({
         email,
+        full_name: full_name ?? fullName,
         pass_word: pass_word || password,
         current_password,
         confirm_password,
+        address,
         phone,
       });
 
-      const { user, requiresReLogin } = await UpdateProfileUseCase.execute(
-        id_user,
-        validatedData,
-      );
+      const { user, requiresReLogin, unchangedFields } =
+        await UpdateProfileUseCase.execute(
+          id_user,
+          validatedData,
+        );
       const userWithRole = await UserRepository.getUserWithRole(id_user);
 
       const response = {
@@ -47,6 +53,12 @@ export class UpdateProfileController {
 
       if (requiresReLogin) {
         response.requiresReLogin = true;
+        response.message =
+          "Profile updated successfully. Please sign in again for security.";
+      }
+
+      if (unchangedFields && Object.keys(unchangedFields).length > 0) {
+        response.data.unchangedFields = unchangedFields;
       }
 
       res.status(200).json(response);

@@ -76,6 +76,77 @@ export class VendingMapper {
     );
   }
 
+  static toSalePaymentMethodSummaries(salePaymentMethods = []) {
+    return salePaymentMethods.map(
+      (item) => ({
+        idPaymentMethod:
+          item.id_payment_method,
+        amount:
+          toNumber(item.amount),
+        paymentMethod:
+          this.toPaymentMethod(
+            item.payment_methods
+          ),
+      })
+    );
+  }
+
+  static toListDomain(sale) {
+    if (!sale) return null;
+
+    return {
+      idSale:
+        sale.id_sale,
+      idOrder:
+        sale.id_order,
+      idEmployee:
+        sale.id_employe,
+      subtotal:
+        toNumber(sale.subtotal),
+      ivaAmount:
+        toNumber(sale.sales_orders?.iva_amount),
+      total:
+        toNumber(sale.sales_orders?.total ?? sale.subtotal),
+      saleDate:
+        toDate(sale.sale_date),
+      idSaleStatus:
+        sale.id_sale_status,
+      idSaleType:
+        sale.id_sale_type,
+
+      employee:
+        this.toEmployee(
+          sale.employees
+        ),
+
+      paymentMethods:
+        this.toSalePaymentMethodSummaries(
+          sale.sale_payment_methods
+        ),
+
+      saleStatus:
+        this.toSaleStatus(
+          sale.sale_statuses
+        ),
+
+      saleType:
+        this.toSaleType(
+          sale.sale_types
+        ),
+
+      order:
+        this.toOrderSummary(
+          sale.sales_orders
+        ),
+    };
+  }
+
+  static toListDomainList(sales = []) {
+    return sales.map(
+      (sale) => this.toListDomain(sale)
+    );
+  }
+
   static toEmployee(employee) {
     if (!employee) return null;
 
@@ -239,6 +310,75 @@ export class VendingMapper {
               order.order_details
             )
           : [],
+    };
+  }
+
+  static toOrderSummary(order) {
+    if (!order) return null;
+
+    return {
+      idOrder:
+        order.id_order,
+      idCustomer:
+        order.id_customer,
+      orderDate:
+        toDate(order.order_date),
+      idOrderStatus:
+        order.id_order_status,
+      deliveryAddress:
+        order.delivery_adress,
+      deliveryAdress:
+        order.delivery_adress,
+      deliveryType:
+        order.delivery_type,
+      paymentStatus:
+        order.payment_status,
+      paymentStatusDetail:
+        this.toPaymentStatus(
+          order.payment_statuses
+        ),
+      subtotal:
+        toNumber(order.subtotal),
+      ivaAmount:
+        toNumber(order.iva_amount),
+      total:
+        toNumber(order.total),
+
+      customer:
+        this.toCustomerSummary(
+          order.clients
+        ),
+
+      orderStatus:
+        this.toOrderStatus(
+          order.order_statuses
+        ),
+    };
+  }
+
+  static toCustomerSummary(customer) {
+    if (!customer) return null;
+
+    return {
+      idClient:
+        customer.id_client,
+      clientType:
+        customer.client_type,
+      user:
+        customer.users
+          ? {
+              idUser:
+                customer.users.id_user,
+              fullName:
+                customer.users.full_name,
+              email:
+                customer.users.email,
+              phone:
+                customer.users.phone
+                  ? String(customer.users.phone)
+                  : null,
+            }
+          : null,
     };
   }
 

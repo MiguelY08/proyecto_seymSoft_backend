@@ -69,3 +69,25 @@ export const mapCartItem = (item) => ({
   updatedAt: item.updated_at,
   product: mapStorefrontProduct(item.products),
 });
+
+export const buildCartSummary = (items = []) => ({
+  totalItems: items.reduce(
+    (total, item) => total + (Number(item.quantity) || 0),
+    0,
+  ),
+  distinctItems: items.length,
+  isEmpty: items.length === 0,
+});
+
+export const mapCartResponse = (
+  items = [],
+  extra = {},
+) => {
+  const mappedItems = items.map(mapCartItem);
+
+  return {
+    items: mappedItems,
+    summary: buildCartSummary(mappedItems),
+    ...extra,
+  };
+};

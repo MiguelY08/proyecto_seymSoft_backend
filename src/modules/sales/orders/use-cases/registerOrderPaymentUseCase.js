@@ -15,6 +15,11 @@ const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
 
+const getVendingTypeFromOrder = (order = {}) =>
+  String(order.sale_type || DEFAULT_VENDING_TYPE)
+    .trim()
+    .toLowerCase();
+
 const getPaidAmountFromOrderPayments = (payments = []) =>
   roundMoney(
     payments.reduce(
@@ -50,7 +55,7 @@ const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
   );
 
   const saleResult = await createVendingUseCase({
-    vendingType: DEFAULT_VENDING_TYPE,
+    vendingType: getVendingTypeFromOrder(orderWithPayments),
     idUser: options.idUser,
     idEmployee: options.idEmployee,
     data: {
@@ -73,10 +78,11 @@ const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
 const validateSaleFromPaidOrder = async ({
   idOrder,
   paymentMethods,
+  saleType,
   options = {},
 }) => {
   const saleResult = await createVendingUseCase({
-    vendingType: DEFAULT_VENDING_TYPE,
+    vendingType: saleType || DEFAULT_VENDING_TYPE,
     idUser: options.idUser,
     idEmployee: options.idEmployee,
     dryRun: true,
@@ -95,7 +101,7 @@ const validateSaleFromPaidOrder = async ({
   }
 };
 
-const notifyPaymentRegistered = async ({
+export const notifyPaymentRegistered = async ({
   order,
   paymentMethod,
   amount,
@@ -104,7 +110,15 @@ const notifyPaymentRegistered = async ({
   isPaid,
   reference,
 }) => {
-  const mappedOrder = mapOrder(order);
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder) {
+    return;
+  }
+
   const customer = mappedOrder.customer;
 
   if (!customer?.email) {
@@ -124,7 +138,7 @@ const notifyPaymentRegistered = async ({
       reference,
     });
   } catch (error) {
-    console.error('[RegisterOrderPaymentUseCase] Email error:', error.message);
+    console.error('[NotifyPaymentRegistered] Email error:', error.message);
   }
 };
 
@@ -155,7 +169,9 @@ export class RegisterOrderPaymentUseCase {
           order.id_order,
           options
         );
-        const finalOrder = await this.repo.findSummaryById(order.id_order);
+        const finalOrder = await this.repo.findPaymentResultById(
+          order.id_order
+        );
 
         return {
           order: mapOrder(finalOrder),
@@ -221,7 +237,9 @@ export class RegisterOrderPaymentUseCase {
           PAYMENT_STATUSES[2].id
         );
 
-        const finalOrder = await this.repo.findSummaryById(order.id_order);
+        const finalOrder = await this.repo.findPaymentResultById(
+          order.id_order
+        );
 
         return {
           order: mapOrder(finalOrder),
@@ -260,6 +278,7 @@ export class RegisterOrderPaymentUseCase {
     if (isPaid && !order.sales) {
       await validateSaleFromPaidOrder({
         idOrder: order.id_order,
+        saleType: getVendingTypeFromOrder(order),
         paymentMethods: getPaymentMethodsFromOrder([
           ...order.order_payments,
           {
@@ -294,20 +313,14 @@ export class RegisterOrderPaymentUseCase {
         : PAYMENT_STATUSES[1].id
     );
 
-    const finalOrder = await this.repo.findSummaryById(order.id_order);
+    const finalOrder = await this.repo.findPaymentResultById(
+      order.id_order
+    );
 
-    void notifyPaymentRegistered({
-      order: finalOrder,
-      paymentMethod,
-      amount,
-      paidAmount: paidAfter,
-      pendingAmount: Math.max(pendingAfter, 0),
-      isPaid,
-      reference: data.reference,
-    });
+    const mappedOrder = mapOrder(finalOrder);
 
     return {
-      order: mapOrder(finalOrder),
+      order: mappedOrder,
       paymentSummary: {
         orderTotal,
         paidBefore,
@@ -317,6 +330,15 @@ export class RegisterOrderPaymentUseCase {
         isPaid,
       },
       generatedSale,
+      paymentNotification: {
+        order: mappedOrder,
+        paymentMethod,
+        amount,
+        paidAmount: paidAfter,
+        pendingAmount: Math.max(pendingAfter, 0),
+        isPaid,
+        reference: data.reference,
+      },
     };
   }
 }

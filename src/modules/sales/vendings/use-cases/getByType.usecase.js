@@ -12,6 +12,33 @@ const SALE_TYPE_CATALOG_NAMES = {
   web: "WEB",
 };
 
+const saleTypeCache = new Map();
+
+const resolveSaleType = async (normalizedType) => {
+  const catalogName =
+    SALE_TYPE_CATALOG_NAMES[normalizedType] || normalizedType;
+  const cacheKey =
+    catalogName.toLowerCase();
+
+  if (saleTypeCache.has(cacheKey)) {
+    return saleTypeCache.get(cacheKey);
+  }
+
+  const saleType =
+    await VendingRepository.findSaleTypeByName(
+      catalogName
+    );
+
+  if (saleType) {
+    saleTypeCache.set(
+      cacheKey,
+      saleType
+    );
+  }
+
+  return saleType;
+};
+
 /**
  * Use-Case: Obtener ventas por tipo
  *
@@ -60,8 +87,8 @@ export const getVendingsByTypeUseCase = async (
     }
 
     const saleType =
-      await VendingRepository.findSaleTypeByName(
-        SALE_TYPE_CATALOG_NAMES[normalizedType] || normalizedType
+      await resolveSaleType(
+        normalizedType
       );
 
     if (!saleType) {
