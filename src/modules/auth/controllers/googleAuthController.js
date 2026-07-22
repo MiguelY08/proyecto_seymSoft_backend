@@ -1,4 +1,5 @@
 import { GoogleLoginUseCase } from "../use-cases/googleLoginUseCase.js";
+import { env } from "../../../config/env.js";
 
 export class GoogleAuthController {
 
@@ -46,7 +47,7 @@ export class GoogleAuthController {
 
       return res.redirect(
 
-        `${process.env.FRONTEND_URL}/auth/callback?${params}`
+        `${env.FRONTEND_URL}/auth/callback?${params}`
 
       );
 
@@ -64,12 +65,12 @@ export class GoogleAuthController {
         "Tu cuenta se encuentra inactiva. Contacta al administrador."
       ) {
         return res.redirect(
-          `${process.env.FRONTEND_URL}/login?error=account_inactive`
+          `${env.FRONTEND_URL}/login?error=account_inactive`
         );
       }
 
       return res.redirect(
-        `${process.env.FRONTEND_URL}/login?error=google_auth_failed`
+        `${env.FRONTEND_URL}/login?error=google_auth_failed`
       );
     }
 

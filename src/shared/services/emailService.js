@@ -1,19 +1,20 @@
 import nodemailer from "nodemailer";
+import { env } from "../../config/env.js";
 
 const mailConfig = {
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined,
-  secure: false,
+  host: env.EMAIL_HOST,
+  port: env.EMAIL_PORT,
+  secure: env.EMAIL_SECURE,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: env.EMAIL_USER,
+    pass: env.EMAIL_PASSWORD,
   },
 };
 
 const transporter = nodemailer.createTransport(mailConfig);
 
 const getEmailFrom = () => {
-  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const from = env.EMAIL_FROM || env.EMAIL_USER;
 
   if (!from) {
     throw new Error(
@@ -39,7 +40,7 @@ const formatDate = (value) =>
 const getName = (fullName) => fullName || "usuario";
 
 const getFrontendUrl = () =>
-  process.env.FRONTEND_URL || "http://localhost:3000";
+  env.FRONTEND_URL;
 
 const COLORS = {
   primary: "#004D77",

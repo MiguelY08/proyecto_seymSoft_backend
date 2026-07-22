@@ -37,6 +37,8 @@ services:
         sync: false
       - key: EMAIL_PORT
         sync: false
+      - key: EMAIL_SECURE
+        sync: false
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASSWORD

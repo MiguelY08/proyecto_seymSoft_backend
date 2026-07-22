@@ -32,6 +32,7 @@ import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
 import indicatorsRoutes from "./modules/performance/indicators/routes/indicatorRoutes.js";
 import storefrontRoutes from "./modules/sales/storefront/routes/storefrontRoutes.js";
+import notificationRoutes from "./modules/notifications/routes/notificationRoutes.js";
 
 const app = express();
 
@@ -121,6 +122,9 @@ app.use("/api/vendings", vendingRoutes);
 
 /* Rutas de pagos y abonos */
 app.use("/api/payments", paymentsRoutes);
+
+/* Rutas de notificaciones */
+app.use("/api/notifications", authMiddleware, notificationRoutes);
 
 /* Rutas de Dashboard e indicadores */
 
