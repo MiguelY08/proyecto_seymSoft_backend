@@ -42,4 +42,6 @@ export const env = {
   JWT_REFRESH_EXPIRES: process.env.JWT_REFRESH_EXPIRES || "7d",
   FRONTEND_URL: process.env.FRONTEND_URL,
   CORS_ORIGIN: getOptionalList(process.env.CORS_ORIGIN || process.env.FRONTEND_URL),
+  LOCATION_CACHE_TTL_MINUTES:
+    Number(process.env.LOCATION_CACHE_TTL_MINUTES) || 1440,
 };

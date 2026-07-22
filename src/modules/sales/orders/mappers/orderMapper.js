@@ -69,6 +69,17 @@ const mapProductImages = (images = []) =>
     isPrimary: Boolean(image.is_primary),
   }));
 
+const mapDeliveryLocation = (order) => ({
+  department: {
+    code: order.delivery_department_code || null,
+    name: order.delivery_department_name || null,
+  },
+  city: {
+    code: order.delivery_city_code || null,
+    name: order.delivery_city_name || null,
+  },
+});
+
 export const mapOrder = (order) => {
   const subtotal =
     order.subtotal ??
@@ -146,6 +157,15 @@ export const mapOrder = (order) => {
       : null,
     deliveryAddress: order.delivery_adress || null,
     deliveryType: order.delivery_type || null,
+    deliveryDepartment: {
+      code: order.delivery_department_code || null,
+      name: order.delivery_department_name || null,
+    },
+    deliveryCity: {
+      code: order.delivery_city_code || null,
+      name: order.delivery_city_name || null,
+    },
+    deliveryLocation: mapDeliveryLocation(order),
     saleType: order.sale_type || 'manual',
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
@@ -253,6 +273,15 @@ export const mapOrderSummary = (order) => {
       : null,
     deliveryAddress: order.delivery_adress || null,
     deliveryType: order.delivery_type || null,
+    deliveryDepartment: {
+      code: order.delivery_department_code || null,
+      name: order.delivery_department_name || null,
+    },
+    deliveryCity: {
+      code: order.delivery_city_code || null,
+      name: order.delivery_city_name || null,
+    },
+    deliveryLocation: mapDeliveryLocation(order),
     saleType: order.sale_type || 'manual',
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,

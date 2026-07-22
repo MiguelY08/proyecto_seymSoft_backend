@@ -1,5 +1,6 @@
 import {
   normalizeDeliveryAddress,
+  normalizeDeliveryLocation,
   normalizeDeliveryType,
 } from '../../shared/deliveryTypes.js';
 
@@ -11,6 +12,35 @@ export class UpdateOrderDto {
     const deliveryAddress = normalizeDeliveryAddress(
       deliveryType,
       data.deliveryAddress ?? data.delivery_adress
+    );
+    const deliveryLocation = normalizeDeliveryLocation(
+      deliveryType,
+      {
+        deliveryDepartmentCode:
+          data.deliveryDepartmentCode ??
+          data.delivery_department_code ??
+          data.departmentCode ??
+          data.department_code,
+        deliveryDepartmentName:
+          data.deliveryDepartmentName ??
+          data.delivery_department_name ??
+          data.departmentName ??
+          data.department_name,
+        deliveryCityCode:
+          data.deliveryCityCode ??
+          data.delivery_city_code ??
+          data.cityCode ??
+          data.city_code ??
+          data.municipalityCode ??
+          data.municipality_code,
+        deliveryCityName:
+          data.deliveryCityName ??
+          data.delivery_city_name ??
+          data.cityName ??
+          data.city_name ??
+          data.municipalityName ??
+          data.municipality_name,
+      }
     );
 
     this.idClient = data.idClient ?? data.id_client;
@@ -25,6 +55,14 @@ export class UpdateOrderDto {
       data.payment_status;
     this.deliveryType = deliveryType;
     this.deliveryAddress = deliveryAddress;
+    this.deliveryDepartmentCode =
+      deliveryLocation.deliveryDepartmentCode;
+    this.deliveryDepartmentName =
+      deliveryLocation.deliveryDepartmentName;
+    this.deliveryCityCode =
+      deliveryLocation.deliveryCityCode;
+    this.deliveryCityName =
+      deliveryLocation.deliveryCityName;
     this.items = data.items ?? [];
 
     if (!this.idClient) {

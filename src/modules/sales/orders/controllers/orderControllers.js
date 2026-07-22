@@ -1,4 +1,5 @@
 import { httpCodes } from '../../../../shared/constants/httpCodes.js';
+import { AppError } from '../../../../shared/errors/appError.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
@@ -34,11 +35,23 @@ import {
 
 const repo = new OrderRepository();
 
+const buildDto = (DtoClass, data) => {
+  try {
+    return new DtoClass(data);
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError(error.message || 'Errores de validacion.', 400);
+  }
+};
+
 // Crear pedido con los datos recibidos desde el cliente.
 export const createOrder = async (req, res, next) => {
   try {
     // Normalizar y validar datos de entrada con DTO.
-    const dto = new CreateOrderDto(req.body);
+    const dto = buildDto(CreateOrderDto, req.body);
 
     const data = await new CreateOrderUseCase(repo).execute(dto);
     const message = data.hasSale
@@ -103,7 +116,7 @@ export const getOrderById = async (req, res, next) => {
 export const updateOrder = async (req, res, next) => {
   try {
     // Normalizar y validar datos modificables del pedido.
-    const dto = new UpdateOrderDto(req.body);
+    const dto = buildDto(UpdateOrderDto, req.body);
     const result = await new UpdateOrderUseCase(repo).execute(req.params.id, dto);
     const data = result.order;
 

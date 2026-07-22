@@ -32,6 +32,7 @@ import bannerRoutes from "./modules/settings/banners/routes/bannerRoutes.js";
 import paymentsRoutes from "./modules/sales/payments/routes/paymentsRoutes.js";
 import indicatorsRoutes from "./modules/performance/indicators/routes/indicatorRoutes.js";
 import storefrontRoutes from "./modules/sales/storefront/routes/storefrontRoutes.js";
+import locationRoutes from "./modules/locations/routes/locationRoutes.js";
 
 const app = express();
 
@@ -95,6 +96,9 @@ app.use("/api/products", productRoutes);
 
 /* Rutas de pedidos */
 app.use("/api/orders", orderRoutes);
+
+/* Rutas de ubicaciones */
+app.use("/api/locations", locationRoutes);
 
 /* Rutas de proveedores */
 app.use("/api/providers", providerRoutes);
