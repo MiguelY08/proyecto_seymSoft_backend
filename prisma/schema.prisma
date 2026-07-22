@@ -296,6 +296,24 @@ model password_resets {
   used            Boolean  @default(false)
 }
 
+model notifications {
+  id_notification Int      @id @default(autoincrement())
+  id_user         Int
+  title           String   @db.VarChar(120)
+  message         String   @db.VarChar(500)
+  type            String   @default("info") @db.VarChar(30)
+  action_url      String?  @db.VarChar(500)
+  is_read         Boolean  @default(false)
+  metadata        Json?
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  users           users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user")
+
+  @@index([id_user, is_read, created_at], map: "idx_notifications_user_read_created")
+  @@index([id_user, type], map: "idx_notifications_user_type")
+  @@index([created_at], map: "idx_notifications_created_at")
+}
+
 model payment_methods {
   id_payment_method    Int                    @id(map: "metodos_pago_pkey") @default(autoincrement())
   name_payment_method  String                 @unique(map: "metodos_pago_nombre_key") @db.VarChar(50)

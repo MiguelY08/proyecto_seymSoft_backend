@@ -46,6 +46,8 @@ export const CreateUserController = async (
 
     return res.status(201).json({
       message: "Usuario creado exitosamente",
+      warning: result.warning || null,
+      errorCode: result.errorCode || null,
       user: userWithRole || {
         user: result.data,
         role: null,
