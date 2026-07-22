@@ -2,9 +2,17 @@
 
 import { ReturnRepository } from '../repositories/returnRepository.js';
 
+const isDefectiveReason = (detail) => {
+  const reason = String(detail?.return_reasons?.description || '').toUpperCase();
+  return Number(detail?.id_return_reason) === 5 || reason === 'DEFECTUOSO';
+};
+
+const isReadyStatus = (detail) =>
+  String(detail?.return_statuses?.name_status || '').toLowerCase() === 'listo';
+
 export const getPurchaseReturnInfoController = async (req, res) => {
   try {
-    const { idBarcode, saleReturnId } = req.query;
+    const { idBarcode, saleReturnId, saleReturnDetailId } = req.query;
 
     if (!idBarcode) {
       return res.status(400).json({
@@ -13,22 +21,60 @@ export const getPurchaseReturnInfoController = async (req, res) => {
       });
     }
 
-    const info = await ReturnRepository.getPurchaseReturnInfo(Number(idBarcode));
+    let requestedQuantity = 1;
+    let resolution = null;
 
-    // Verificar si ya existe producto no conforme
-    const hasNCP = saleReturnId 
-      ? await ReturnRepository.hasNonConformingProduct(Number(idBarcode), Number(saleReturnId))
-      : false;
+    if (saleReturnId && saleReturnDetailId) {
+      const context = await ReturnRepository.findDefectiveReturnDetailContext(
+        Number(saleReturnId),
+        Number(saleReturnDetailId)
+      );
 
-    // Verificar si ya existe devolución de compra
-    const hasPR = await ReturnRepository.hasPurchaseReturn(Number(idBarcode), Number(saleReturnId));
+      if (!context) {
+        return res.status(404).json({
+          success: false,
+          message: 'El detalle de la devolución no existe'
+        });
+      }
+
+      if (!isReadyStatus(context.detail)) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            canReturn: false,
+            reason: 'El producto debe estar en estado Listo para gestionar la devolución de compra o producto no conforme.',
+            resolution: null
+          }
+        });
+      }
+
+      if (!isDefectiveReason(context.detail)) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            canReturn: false,
+            reason: 'Solo los productos con motivo DEFECTUOSO aplican para esta gestión.',
+            resolution: null
+          }
+        });
+      }
+
+      requestedQuantity = context.detail.quantity || 1;
+      resolution = context.resolution;
+    }
+
+    const info = await ReturnRepository.getPurchaseReturnInfo(
+      Number(idBarcode),
+      requestedQuantity
+    );
 
     return res.status(200).json({
       success: true,
       data: {
         ...info,
-        hasNonConformingProduct: hasNCP,
-        hasPurchaseReturn: hasPR
+        resolution,
+        hasNonConformingProduct: resolution?.type === 'NON_CONFORMING',
+        hasPurchaseReturn: resolution?.type === 'PURCHASE_RETURN'
       }
     });
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const getZodIssues = (error) =>
+  error?.issues || error?.errors || [];
+
 /**
  * LOGIN SCHEMA
  * Validación para login tradicional (email + contraseña)

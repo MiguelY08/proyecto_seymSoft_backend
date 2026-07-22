@@ -1,28 +1,27 @@
 // src/modules/sales/sales-returns/controllers/getAvailableInvoicesController.js
 
 import { prisma } from '../../../../config/prisma.js';
+import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
 
 export const getAvailableInvoicesController = async (req, res) => {
   try {
     const { search } = req.query;
 
-    console.log('📦 [getAvailableInvoices] search:', search || 'sin búsqueda');
-
     const where = {};
-    
-    // ✅ NO FILTRAR - mostrar TODAS (anuladas, con devolución, disponibles)
-    // El frontend las deshabilitará según corresponda
-    
+
+    // âœ… NO FILTRAR - mostrar TODAS (anuladas, con devoluciÃ³n, disponibles)
+    // El frontend las deshabilitarÃ¡ segÃºn corresponda
+
     if (search && search.trim() !== '') {
       const term = search.trim();
       const isNumber = !isNaN(Number(term));
-      
+
       where.OR = [];
-      
+
       if (isNumber) {
         where.OR.push({ id_sale: Number(term) });
       }
-      
+
       where.OR.push({
         sales_orders: {
           clients: {
@@ -48,6 +47,11 @@ export const getAvailableInvoicesController = async (req, res) => {
         subtotal: true,
         sale_date: true,
         id_sale_status: true,
+        sale_statuses: {
+          select: {
+            name_status: true
+          }
+        },
         employees: {
           select: {
             users: {
@@ -60,7 +64,18 @@ export const getAvailableInvoicesController = async (req, res) => {
         sales_orders: {
           select: {
             id_customer: true,
+            id_order_status: true,
             total: true,
+            order_statuses: {
+              select: {
+                name_status: true
+              }
+            },
+            hev: {
+              select: {
+                status_date: true
+              }
+            },
             clients: {
               select: {
                 id_client: true,
@@ -76,7 +91,7 @@ export const getAvailableInvoicesController = async (req, res) => {
             }
           }
         },
-        // ✅ IMPORTANTE: Incluir sales_returns para saber si tiene devolución
+        // âœ… IMPORTANTE: Incluir sales_returns para saber si tiene devoluciÃ³n
         sales_returns: {
           select: {
             id_sales_return: true
@@ -84,8 +99,6 @@ export const getAvailableInvoicesController = async (req, res) => {
         }
       }
     });
-
-    console.log('📦 [getAvailableInvoices] Ventas encontradas:', sales.length);
 
     const invoices = sales.map(sale => {
       try {
@@ -98,11 +111,12 @@ export const getAvailableInvoicesController = async (req, res) => {
         const clientPhone = clientUser?.phone || client?.contact_person_number || null;
         const phoneString = clientPhone !== null ? String(clientPhone) : null;
 
-        // ✅ DETECTAR SI TIENE DEVOLUCIÓN
+        // âœ… DETECTAR SI TIENE DEVOLUCIÃ“N
         const hasReturn = (sale.sales_returns?.length || 0) > 0;
-        
-        // ✅ DETECTAR SI ESTÁ ANULADA
+
+        // âœ… DETECTAR SI ESTÃ ANULADA
         const isAnnulled = sale.id_sale_status === 4;
+        const eligibility = evaluateSaleReturnEligibility(sale);
 
         return {
           idSale: sale.id_sale,
@@ -115,12 +129,18 @@ export const getAvailableInvoicesController = async (req, res) => {
           saleDate: sale.sale_date,
           subtotal: Number(sale.subtotal || 0),
           total: Number(order?.total || sale.subtotal || 0),
-          hasReturn: hasReturn,      // ✅ PARA DESHABILITAR EN FRONTEND
-          isAnnulled: isAnnulled,    // ✅ PARA DESHABILITAR EN FRONTEND
-          statusId: sale.id_sale_status
+          hasReturn: hasReturn,      // âœ… PARA DESHABILITAR EN FRONTEND
+          isAnnulled: isAnnulled,    // âœ… PARA DESHABILITAR EN FRONTEND
+          statusId: sale.id_sale_status,
+          statusName: sale.sale_statuses?.name_status || '',
+          canReturn: eligibility.canReturn && !hasReturn && !isAnnulled,
+          returnBlockReason: eligibility.reason,
+          deliveredAt: eligibility.deliveredAt,
+          daysSinceDelivery: eligibility.daysSinceDelivery,
+          remainingReturnDays: eligibility.remainingDays
         };
       } catch (mapError) {
-        console.error('📦 [getAvailableInvoices] Error mapeando venta:', sale.id_sale, mapError);
+
         return null;
       }
     }).filter(invoice => invoice !== null);
@@ -132,17 +152,16 @@ export const getAvailableInvoicesController = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[getAvailableInvoicesController] Error:', error);
-    
+
     if (error.code === 'P1001' || error.code === 'P1002' || error.message.includes('connect')) {
       return res.status(200).json({
         success: true,
         data: [],
         total: 0,
-        message: 'Error de conexión a la base de datos, intenta de nuevo'
+        message: 'Error de conexiÃ³n a la base de datos, intenta de nuevo'
       });
     }
-    
+
     return res.status(500).json({
       success: false,
       message: 'Error obteniendo facturas disponibles',

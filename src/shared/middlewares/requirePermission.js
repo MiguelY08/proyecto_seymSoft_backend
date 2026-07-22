@@ -1,0 +1,67 @@
+import { prisma } from "../../config/prisma.js";
+import { AppError } from "../errors/appError.js";
+
+export const requirePermission = (moduleName, privilegeName) =>
+  async (req, res, next) => {
+    try {
+      const idUser = Number(req.user?.id_user);
+
+      if (!Number.isInteger(idUser) || idUser <= 0) {
+        throw new AppError("Usuario no autenticado.", 401);
+      }
+
+      const employee = await prisma.employees.findUnique({
+        where: { id_user: idUser },
+        select: {
+          employee_roles: {
+            select: {
+              assigned_permissions: {
+                select: { id_role: true },
+              },
+            },
+          },
+        },
+      });
+
+      const idRole =
+        employee?.employee_roles?.assigned_permissions?.id_role;
+
+      if (!idRole) {
+        throw new AppError("No tienes permiso para realizar esta accion.", 403);
+      }
+
+      const [moduleRecord, privilegeRecord] = await Promise.all([
+        prisma.modules.findUnique({
+          where: { name_module: moduleName },
+          select: { id_module: true },
+        }),
+        prisma.privileges.findUnique({
+          where: { name_privilege: privilegeName },
+          select: { id_privilege: true },
+        }),
+      ]);
+
+      if (!moduleRecord || !privilegeRecord) {
+        throw new AppError("El permiso solicitado no esta configurado.", 403);
+      }
+
+      const permission = await prisma.assigned_permissions.findUnique({
+        where: {
+          id_role_id_module_id_privilege: {
+            id_role: idRole,
+            id_module: moduleRecord.id_module,
+            id_privilege: privilegeRecord.id_privilege,
+          },
+        },
+        select: { id_permission: true },
+      });
+
+      if (!permission) {
+        throw new AppError("No tienes permiso para realizar esta accion.", 403);
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };

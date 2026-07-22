@@ -100,6 +100,10 @@ export const CreateVendingController = async (req, res) => {
           result.error,
         errorCode:
           result.errorCode,
+        ...(result.details && {
+          details:
+            result.details,
+        }),
       });
     }
 

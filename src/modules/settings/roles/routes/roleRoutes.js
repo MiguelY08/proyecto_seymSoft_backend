@@ -11,20 +11,20 @@ import { authMiddleware } from "../../../../shared/middlewares/authMiddleware.js
 const router = express.Router();
 
 router.get(
-  "/available-permissions",
+  "/available-permissions", authMiddleware,
   GetAvailablePermissionsController.getAvailablePermissions
 );
 
-router.get("/listar", ListRolesController.listRoles);
+router.get("/listar", authMiddleware, ListRolesController.listRoles);
 
-router.post("/crear", CreateRoleController.createRole);
+router.post("/crear",  authMiddleware, CreateRoleController.createRole);
 
-router.get("/:id", GetRoleController.getRole);
+router.get("/:id",  authMiddleware, GetRoleController.getRole);
 
-router.put("/:id", UpdateRoleController.updateRole);
+router.put("/:id",  authMiddleware, UpdateRoleController.updateRole);
 
-router.patch("/:id/status", UpdateRoleStatusController.updateRoleStatus);
+router.patch("/:id/status",  authMiddleware, UpdateRoleStatusController.updateRoleStatus);
 
-router.delete("/:id", DeleteRoleController.deleteRole);
+router.delete("/:id",  authMiddleware, DeleteRoleController.deleteRole);
 
 export default router;

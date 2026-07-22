@@ -4,6 +4,13 @@ import { prisma } from '../../../../config/prisma.js';
 import { ReturnMapper } from '../mappers/returnMapper.js';
 import { processAndSaveImage, deleteImage } from '../../../../shared/utils/imageProcessor.js';
 import { calculateReturnStockDelta } from '../helpers/returnHelpers.js';
+import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
+import {
+  PURCHASE_STATUS_IDS,
+  calculatePurchaseDetailReturnAvailability,
+  getPurchaseMaxReturnDate,
+  validatePurchaseReturnPeriod,
+} from '../../../purchases/purchase-returns/helpers/purchaseReturnHelper.js';
 
 const BUCKET_NAME = process.env.SUPABASE_BUCKET_SALES_RETURNS || 'sales_returns';
 
@@ -291,13 +298,20 @@ static async findAll(filters = {}) {
         sales_orders: {
           id_customer: Number(clientId)
         },
-        sale_date: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        }
       },
       include: {
         sales_orders: {
           include: {
+            hev: {
+              select: {
+                status_date: true
+              }
+            },
+            order_statuses: {
+              select: {
+                name_status: true
+              }
+            },
             order_details: {
               include: {
                 products: {
@@ -340,12 +354,19 @@ static async findAll(filters = {}) {
               }
             }
           }
+        },
+        sale_statuses: {
+          select: {
+            name_status: true
+          }
         }
       },
       orderBy: { sale_date: 'desc' }
     });
 
-    return sales.map(sale => {
+    return sales.filter(
+      (sale) => evaluateSaleReturnEligibility(sale).canReturn
+    ).map(sale => {
       const order = sale.sales_orders;
       const details = [];
       
@@ -738,6 +759,16 @@ static async findAll(filters = {}) {
       include: {
         sales_orders: {
           include: {
+            hev: {
+              select: {
+                status_date: true
+              }
+            },
+            order_statuses: {
+              select: {
+                name_status: true
+              }
+            },
             order_details: {
               include: {
                 products: true
@@ -763,6 +794,11 @@ static async findAll(filters = {}) {
                 full_name: true
               }
             }
+          }
+        },
+        sale_statuses: {
+          select: {
+            name_status: true
           }
         }
       }
@@ -1046,12 +1082,83 @@ static async findAll(filters = {}) {
     });
   }
 
-  static async getPurchaseReturnInfo(idBarcode) {
-    const purchaseDetail = await prisma.purchase_details.findFirst({
+  static async findDefectiveReturnDetailContext(saleReturnId, saleReturnDetailId) {
+    const saleReturn = await prisma.sales_returns.findUnique({
+      where: { id_sales_return: Number(saleReturnId) },
+      select: {
+        id_sales_return: true,
+        return_number: true,
+        returnable_sale_data: true,
+        sale_return_details: {
+          where: { id_sale_return_detail: Number(saleReturnDetailId) },
+          include: {
+            return_reasons: true,
+            return_methods: true,
+            return_statuses: true,
+            barcodes: true
+          }
+        }
+      }
+    });
+
+    if (!saleReturn || saleReturn.sale_return_details.length === 0) {
+      return null;
+    }
+
+    const detail = saleReturn.sale_return_details[0];
+    const saleData = saleReturn.returnable_sale_data || {};
+
+    return {
+      saleReturn,
+      detail,
+      saleData,
+      resolution: this.getDefectiveResolution(saleData, saleReturnDetailId)
+    };
+  }
+
+  static getDefectiveResolution(returnableSaleData, saleReturnDetailId) {
+    const resolutions = Array.isArray(returnableSaleData?.defectiveResolutions)
+      ? returnableSaleData.defectiveResolutions
+      : [];
+
+    return resolutions.find((resolution) =>
+      Number(resolution.detailId) === Number(saleReturnDetailId)
+    ) || null;
+  }
+
+  static async saveDefectiveResolution(saleReturnId, saleData, resolution) {
+    const resolutions = Array.isArray(saleData?.defectiveResolutions)
+      ? saleData.defectiveResolutions
+      : [];
+
+    const nextResolutions = [
+      ...resolutions.filter((item) =>
+        Number(item.detailId) !== Number(resolution.detailId)
+      ),
+      resolution
+    ];
+
+    await prisma.sales_returns.update({
+      where: { id_sales_return: Number(saleReturnId) },
+      data: {
+        returnable_sale_data: {
+          ...(saleData || {}),
+          defectiveResolutions: nextResolutions
+        }
+      }
+    });
+
+    return resolution;
+  }
+
+  static async getPurchaseReturnInfo(idBarcode, requestedQuantity = 1) {
+    const purchaseDetails = await prisma.purchase_details.findMany({
       where: {
         id_barcode: Number(idBarcode)
       },
       include: {
+        prd: true,
+        barcodes: true,
         purchases: {
           include: {
             providers: {
@@ -1060,7 +1167,8 @@ static async findAll(filters = {}) {
                 name_provider: true,
                 max_return_period: true
               }
-            }
+            },
+            purchase_statuses: true
           }
         }
       },
@@ -1071,55 +1179,129 @@ static async findAll(filters = {}) {
       }
     });
 
-    if (!purchaseDetail) {
+    if (!purchaseDetails.length) {
       return {
         canReturn: false,
-        reason: 'No se encontró compra para este producto',
+        reason: 'No se encontró una compra asociada a este producto.',
         provider: null,
         purchaseDate: null,
         maxReturnDays: 0,
+        maxReturnDate: null,
         daysSincePurchase: 0,
         idPurchase: null,
-        idPurchaseDetail: null
+        idPurchaseDetail: null,
+        availableQuantity: 0,
+        requestedQuantity: Number(requestedQuantity || 1)
       };
     }
 
-    const provider = purchaseDetail.purchases?.providers;
-    const maxReturnDays = provider?.max_return_period || 30;
-    const purchaseDate = purchaseDetail.purchases?.purchase_date;
-    
-    if (!purchaseDate) {
+    const requested = Math.max(1, Number(requestedQuantity || 1));
+    let bestExpired = null;
+    let bestWithoutQuantity = null;
+    let bestAnnulled = null;
+
+    const candidates = purchaseDetails.map((purchaseDetail) => {
+      const purchase = purchaseDetail.purchases;
+      const provider = purchase?.providers || null;
+      const availability = calculatePurchaseDetailReturnAvailability({
+        purchasedQuantity: purchaseDetail.quantity,
+        returnDetails: purchaseDetail.prd || []
+      });
+      const periodValidation = validatePurchaseReturnPeriod(purchase || {});
+      const maxReturnDate = getPurchaseMaxReturnDate(purchase || {});
+      const purchaseDate = purchase?.purchase_date || null;
+      const daysSincePurchase = purchaseDate
+        ? Math.floor((Date.now() - new Date(purchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const isAnnulled = Number(purchase?.id_purchase_status) === PURCHASE_STATUS_IDS.ANNULLED;
+
       return {
-        canReturn: false,
-        reason: 'Fecha de compra no disponible',
+        purchaseDetail,
+        purchase,
         provider,
-        purchaseDate: null,
+        availability,
+        periodValidation,
+        maxReturnDate,
+        purchaseDate,
+        daysSincePurchase,
+        isAnnulled
+      };
+    });
+
+    const eligible = [];
+
+    for (const candidate of candidates) {
+      if (candidate.isAnnulled) {
+        bestAnnulled ??= candidate;
+        continue;
+      }
+
+      if (!candidate.periodValidation.success) {
+        bestExpired ??= candidate;
+        continue;
+      }
+
+      if (candidate.availability.availableQuantity <= 0) {
+        bestWithoutQuantity ??= candidate;
+        continue;
+      }
+
+      eligible.push(candidate);
+    }
+
+    const selected =
+      eligible.find((candidate) => candidate.availability.availableQuantity >= requested)
+      || eligible[0];
+
+    if (selected) {
+      const maxReturnDays = selected.provider?.max_return_period || 0;
+
+      return {
+        canReturn: true,
+        reason: selected.availability.availableQuantity >= requested
+          ? 'Compra vigente con cantidad disponible.'
+          : `Compra vigente, pero solo hay ${selected.availability.availableQuantity} unidad(es) disponibles.`,
+        provider: selected.provider,
+        providerName: selected.provider?.name_provider || null,
+        purchaseDate: selected.purchaseDate,
         maxReturnDays,
-        daysSincePurchase: 0,
-        idPurchase: purchaseDetail.id_purchase,
-        idPurchaseDetail: purchaseDetail.id_purchase_detail
+        maxReturnDate: selected.maxReturnDate,
+        daysSincePurchase: selected.daysSincePurchase,
+        idPurchase: selected.purchaseDetail.id_purchase,
+        idPurchaseDetail: selected.purchaseDetail.id_purchase_detail,
+        invoiceNumber: selected.purchase?.invoice_number || selected.purchaseDetail.id_purchase,
+        unitPrice: selected.purchaseDetail.net_unit_price,
+        quantity: selected.purchaseDetail.quantity,
+        availableQuantity: selected.availability.availableQuantity,
+        requestedQuantity: requested
       };
     }
 
-    const daysSincePurchase = Math.floor(
-      (Date.now() - new Date(purchaseDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    const canReturn = daysSincePurchase <= maxReturnDays;
+    const reference = bestWithoutQuantity || bestExpired || bestAnnulled || candidates[0];
+    const reason = bestWithoutQuantity
+      ? 'La compra asociada no tiene unidades disponibles para devolver.'
+      : bestExpired
+        ? 'La compra asociada ya está fuera del plazo permitido por el proveedor.'
+        : bestAnnulled
+          ? 'La compra asociada está anulada.'
+          : 'No hay una compra vigente para devolver este producto.';
 
     return {
-      canReturn,
-      reason: canReturn 
-        ? `Dentro del plazo (${daysSincePurchase}/${maxReturnDays} días)`
-        : `Fuera del plazo (${daysSincePurchase}/${maxReturnDays} días)`,
-      provider,
-      purchaseDate,
-      maxReturnDays,
-      daysSincePurchase,
-      idPurchase: purchaseDetail.id_purchase,
-      idPurchaseDetail: purchaseDetail.id_purchase_detail,
-      unitPrice: purchaseDetail.net_unit_price,
-      quantity: purchaseDetail.quantity
+      canReturn: false,
+      reason,
+      provider: reference?.provider || null,
+      providerName: reference?.provider?.name_provider || null,
+      purchaseDate: reference?.purchaseDate || null,
+      maxReturnDays: reference?.provider?.max_return_period || 0,
+      maxReturnDate: reference?.maxReturnDate || null,
+      daysSincePurchase: reference?.daysSincePurchase || 0,
+      idPurchase: reference?.purchaseDetail?.id_purchase || null,
+      idPurchaseDetail: reference?.purchaseDetail?.id_purchase_detail || null,
+      invoiceNumber: reference?.purchase?.invoice_number || null,
+      unitPrice: reference?.purchaseDetail?.net_unit_price || 0,
+      quantity: reference?.purchaseDetail?.quantity || 0,
+      availableQuantity: reference?.availability?.availableQuantity || 0,
+      requestedQuantity: requested
     };
   }
 

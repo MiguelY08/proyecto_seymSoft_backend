@@ -1,5 +1,5 @@
 import { LogoutUseCase } from "../use-cases/logoutUseCase.js";
-import { logoutSchema } from "../validators/authValidators.js";
+import { getZodIssues, logoutSchema } from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/index.js";
 
 export class LogoutController {
@@ -8,7 +8,10 @@ export class LogoutController {
       // Validar input
       const validation = logoutSchema.safeParse(req.body);
       if (!validation.success) {
-        throw new ValidationError("Validation failed", validation.error.errors);
+        throw new ValidationError(
+          "Validation failed",
+          getZodIssues(validation.error),
+        );
       }
 
       // Ejecutar caso de uso

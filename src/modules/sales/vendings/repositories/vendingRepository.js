@@ -250,6 +250,60 @@ const getCreditAmount = (paymentMethods = []) => {
   return Number(creditPayment?.amount || 0);
 };
 
+const groupQuantitiesByBarcode = (details = []) =>
+  Array.from(
+    details.reduce((grouped, detail) => {
+      const barcode = String(detail.barcode || "").trim();
+      const quantity = Number(detail.quantity || 0);
+
+      if (!barcode || quantity <= 0) {
+        return grouped;
+      }
+
+      grouped.set(
+        barcode,
+        (grouped.get(barcode) || 0) + quantity
+      );
+
+      return grouped;
+    }, new Map()),
+    ([barcode, quantity]) => ({
+      barcode,
+      quantity,
+    })
+  );
+
+const decreaseStockAtomically = async (tx, details = []) => {
+  const groupedDetails =
+    groupQuantitiesByBarcode(details);
+
+  for (const detail of groupedDetails) {
+    const result =
+      await tx.barcodes.updateMany({
+        where: {
+          barcode:
+            detail.barcode,
+          stock: {
+            gte:
+              detail.quantity,
+          },
+        },
+        data: {
+          stock: {
+            decrement:
+              detail.quantity,
+          },
+        },
+      });
+
+    if (result.count !== 1) {
+      throw new Error(
+        `Stock insuficiente para el codigo de barras ${detail.barcode}`
+      );
+    }
+  }
+};
+
 const buildCreditData = ({ data, idCustomer, creditAmount }) => {
   if (creditAmount <= 0) {
     return null;
@@ -265,8 +319,11 @@ const buildCreditData = ({ data, idCustomer, creditAmount }) => {
     throw new Error("El estado inicial del credito es obligatorio");
   }
 
+  const dueDate = new Date();
+  dueDate.setMonth(dueDate.getMonth() + 2);
+
   return {
-    due_date: creditData.dueDate || data.creditDueDate,
+    due_date: dueDate,
     id_credit_status: Number(creditData.idCreditStatus || data.idCreditStatus),
     id_customer: Number(idCustomer),
     credit_amount: creditAmount,
@@ -426,6 +483,11 @@ export class VendingRepository {
             },
             select: {
               id_customer: true,
+              sales: {
+                select: {
+                  id_sale: true,
+                },
+              },
               clients: {
                 select: {
                   id_client: true,
@@ -454,6 +516,10 @@ export class VendingRepository {
 
         if (!order) {
           throw new Error("Pedido no encontrado");
+        }
+
+        if (order.sales) {
+          throw new Error("El pedido ya tiene una venta asociada");
         }
 
         const creditData =
@@ -542,21 +608,9 @@ export class VendingRepository {
         }
 
         if (data.decreaseStock) {
-          await Promise.all(
-            (data.orderDetails || []).map((detail) =>
-              tx.barcodes.updateMany({
-                where: {
-                  barcode:
-                    detail.barcode,
-                },
-                data: {
-                  stock: {
-                    decrement:
-                      detail.quantity,
-                  },
-                },
-              })
-            )
+          await decreaseStockAtomically(
+            tx,
+            data.orderDetails || []
           );
         }
 
@@ -994,6 +1048,7 @@ export class VendingRepository {
       idPaymentMethod,
       idEmployee,
       idOrder,
+      search,
       dateFrom,
       dateTo,
       sortBy = "date",
@@ -1007,6 +1062,12 @@ export class VendingRepository {
 
     const skip =
       (parsedPage - 1) * parsedLimit;
+    const searchTerm =
+      String(search || "").trim();
+    const numericSearch =
+      searchTerm && /^\d+(\.\d+)?$/.test(searchTerm)
+        ? Number(searchTerm)
+        : null;
 
     const where = {
       ...(idSaleStatus && {
@@ -1032,6 +1093,106 @@ export class VendingRepository {
       ...(idOrder && {
         id_order:
           Number(idOrder),
+      }),
+      ...(searchTerm && {
+        OR: [
+          ...(numericSearch !== null
+            ? [
+                {
+                  id_sale:
+                    Number(numericSearch),
+                },
+                {
+                  id_order:
+                    Number(numericSearch),
+                },
+                {
+                  subtotal:
+                    numericSearch,
+                },
+                {
+                  sales_orders: {
+                    total:
+                      numericSearch,
+                  },
+                },
+              ]
+            : []),
+          {
+            employees: {
+              users: {
+                full_name: {
+                  contains:
+                    searchTerm,
+                  mode:
+                    "insensitive",
+                },
+              },
+            },
+          },
+          {
+            sales_orders: {
+              clients: {
+                users: {
+                  full_name: {
+                    contains:
+                      searchTerm,
+                    mode:
+                      "insensitive",
+                  },
+                },
+              },
+            },
+          },
+          {
+            sales_orders: {
+              clients: {
+                users: {
+                  email: {
+                    contains:
+                      searchTerm,
+                    mode:
+                      "insensitive",
+                  },
+                },
+              },
+            },
+          },
+          {
+            sale_payment_methods: {
+              some: {
+                payment_methods: {
+                  name_payment_method: {
+                    contains:
+                      searchTerm,
+                    mode:
+                      "insensitive",
+                  },
+                },
+              },
+            },
+          },
+          {
+            sale_statuses: {
+              name_status: {
+                contains:
+                  searchTerm,
+                mode:
+                  "insensitive",
+              },
+            },
+          },
+          {
+            sale_types: {
+              sale_type_name: {
+                contains:
+                  searchTerm,
+                mode:
+                  "insensitive",
+              },
+            },
+          },
+        ],
       }),
       ...((dateFrom || dateTo) && {
         sale_date: {

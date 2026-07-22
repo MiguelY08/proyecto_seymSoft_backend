@@ -9,3 +9,4 @@ export { getReturnableSalesController } from './getReturnableSalesController.js'
 export { deleteEvidenceController } from './deleteEvidenceController.js';
 export { getPurchaseReturnInfoController } from './getPurchaseReturnInfoController.js';
 export { getAvailableInvoicesController } from './getAvailableInvoicesController.js';
+export { resolveDefectiveProductController } from './resolveDefectiveProductController.js';

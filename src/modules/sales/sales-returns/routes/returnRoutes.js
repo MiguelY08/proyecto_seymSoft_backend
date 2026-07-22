@@ -10,7 +10,8 @@ import {
   cancelReturnController,
   getAvailableInvoicesController,
   getPurchaseReturnInfoController,
-  getReturnableSalesController
+  getReturnableSalesController,
+  resolveDefectiveProductController
 } from '../controllers/index.js';
 import { deleteEvidenceController } from '../controllers/deleteEvidenceController.js';
 import {
@@ -57,6 +58,7 @@ router.get('/returnable-sales', getReturnableSalesController);
 router.get('/available-invoices', getAvailableInvoicesController);
 router.get('/purchase-return-info', getPurchaseReturnInfoController);
 router.delete('/evidence/:id', deleteEvidenceController);
+router.post('/:id/details/:detailId/defective-resolution', resolveDefectiveProductController);
 
 router.get('/:id', getReturnByIdController);
 router.put('/:id', uploadEvidences, updateReturnController);

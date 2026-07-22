@@ -2,23 +2,23 @@
 
 import { prisma } from '../../../../config/prisma.js';
 import { ReturnRepository } from '../repositories/returnRepository.js';
-import { 
+import {
   generateReturnNumber,
   RETURN_STATUS,
   isDefectiveReason,
   calculateGeneralStatus
 } from '../helpers/returnHelpers.js';
+import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
 
 export const createReturnUseCase = async (returnData, evidenceFiles = [], evidenceDescription = '') => {
-  console.log('🔥🔥🔥 createReturnUseCase EJECUTADO 🔥🔥🔥');
-  console.log('📦 returnData:', JSON.stringify(returnData, null, 2));
-  console.log('📦 evidenceFiles length:', evidenceFiles?.length || 0);
-  console.log('📦 evidenceDescription:', evidenceDescription);
+
+
+
 
   try {
     const sale = await ReturnRepository.findSaleById(returnData.idSale);
     if (!sale) {
-      console.log('❌ Venta no encontrada:', returnData.idSale);
+
       return {
         success: false,
         data: null,
@@ -27,24 +27,32 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       };
     }
 
-    console.log('📦 [createReturnUseCase] Venta encontrada:', sale.id_sale);
+    const eligibility = evaluateSaleReturnEligibility(sale);
+    if (!eligibility.canReturn) {
+      return {
+        success: false,
+        data: null,
+        error: eligibility.reason,
+        errorCode: 'SALE_NOT_RETURNABLE'
+      };
+    }
 
     const existingReturn = await prisma.sales_returns.findFirst({
       where: { id_sale: returnData.idSale }
     });
     if (existingReturn) {
-      console.log('❌ Venta ya tiene devolución:', returnData.idSale);
+
       return {
         success: false,
         data: null,
-        error: 'Esta venta ya tiene una devolución registrada',
+        error: 'Esta venta ya tiene una devoluciÃ³n registrada',
         errorCode: 'RETURN_ALREADY_EXISTS'
       };
     }
 
     const pendingStatus = await ReturnRepository.findReturnStatusByName('En Proceso');
     if (!pendingStatus) {
-      console.log('❌ Estado "En Proceso" no encontrado');
+
       return {
         success: false,
         data: null,
@@ -103,15 +111,10 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       }))
     };
 
-    console.log('📦 [createReturnUseCase] returnableSaleData:', JSON.stringify(returnableSaleData, null, 2));
-
     let totalAmount = 0;
     let totalUnits = 0;
     const totalProducts = returnData.details.length;
 
-    console.log('📦 [createReturnUseCase] Productos a procesar:', returnData.details.length);
-
-    const nonConformingToCreate = [];
     const details = [];
 
     for (const detail of returnData.details) {
@@ -122,32 +125,11 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
 
       const isDefective = isDefectiveReason(detail.reasonName || '');
 
-      if (isDefective && detail.idBarcode) {
-        try {
-          const purchaseInfo = await ReturnRepository.getPurchaseReturnInfo(detail.idBarcode);
-          if (!purchaseInfo.canReturn) {
-            nonConformingToCreate.push({
-              idBarcode: detail.idBarcode,
-              quantity: quantity,
-              reason: `Producto defectuoso detectado en devolución venta #${returnNumber} - ${detail.reasonName || 'Sin motivo'}`
-            });
-          }
-        } catch (error) {
-          console.error('[createReturnUseCase] Error verificando compra:', error);
-          nonConformingToCreate.push({
-            idBarcode: detail.idBarcode,
-            quantity: quantity,
-            reason: `Producto defectuoso (error verificación) en devolución #${returnNumber}`
-          });
-        }
-      }
-
-      // ✅ OBTENER ESTADO SELECCIONADO - SOLUCIÓN ERROR #1
+      // âœ… OBTENER ESTADO SELECCIONADO - SOLUCIÃ“N ERROR #1
       const statusName = detail.status || 'Pend. envio';
-      console.log('📦 statusName recibido:', statusName);
+
       const statusRecord = await ReturnRepository.findReturnStatusByName(statusName);
       const statusId = statusRecord?.id_return_status || pendingStatus.id_return_status;
-      console.log('📦 statusId encontrado:', statusId, 'para statusName:', statusName);
 
       const isOther = detail.idReturnReason === 4;
 
@@ -156,7 +138,7 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
         quantity: quantity,
         idReturnReason: detail.idReturnReason,
         idReturnMethod: detail.idReturnMethod,
-        idReturnStatus: statusId,  // ✅ SOLUCIÓN ERROR #1
+        idReturnStatus: statusId,  // âœ… SOLUCIÃ“N ERROR #1
         idBarcode: detail.idBarcode,
         reasonName: detail.reasonName || '',
         isDefective: isDefective,
@@ -166,8 +148,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       });
     }
 
-    console.log('📦 [createReturnUseCase] Detalles preparados:', details.length);
-
     const productStatuses = details.map(d => ({
       estado: d.estado || 'En Proceso',
       metodo: d.metodo || ''
@@ -175,8 +155,6 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
     const generalStatus = calculateGeneralStatus(productStatuses);
     const generalStatusRecord = await ReturnRepository.findReturnStatusByName(generalStatus);
     const generalStatusId = generalStatusRecord?.id_return_status || pendingStatus.id_return_status;
-
-    console.log('📦 [createReturnUseCase] Estado general calculado:', generalStatus, 'ID:', generalStatusId);
 
     const created = await ReturnRepository.create({
       idSale: returnData.idSale,
@@ -191,43 +169,22 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       evidenceDescription: evidenceDescription
     }, evidenceFiles);
 
-    console.log('📦 [createReturnUseCase] Devolución creada:', created.id_sales_return);
-
-    if (nonConformingToCreate.length > 0) {
-      const defaultStatus = await ReturnRepository.getDefaultNonConformingStatus();
-      const statusId = defaultStatus?.id_status || 1;
-
-      for (const ncp of nonConformingToCreate) {
-        try {
-          await ReturnRepository.createNonConformingProduct({
-            idBarcode: ncp.idBarcode,
-            quantity: ncp.quantity,
-            reason: ncp.reason,
-            idStatus: statusId
-          });
-          console.log(`[createReturnUseCase] Producto no conforme creado para barcode: ${ncp.idBarcode}`);
-        } catch (error) {
-          console.error('[createReturnUseCase] Error creando producto no conforme:', error);
-        }
-      }
-    }
-
     return {
       success: true,
       data: {
         id: created.id_sales_return,
         returnNumber: created.return_number,
         status: generalStatus,
-        nonConformingCreated: nonConformingToCreate.length
+        nonConformingCreated: 0
       },
       error: null,
       errorCode: null
     };
 
   } catch (error) {
-    console.error('❌❌❌ ERROR EN createReturnUseCase ❌❌❌');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+
+
+
     return {
       success: false,
       data: null,
