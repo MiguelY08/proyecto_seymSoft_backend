@@ -1,6 +1,7 @@
 import { getAllUsersUseCase } from "../use-cases/index.js";
 import { validateGetUsers } from "../validators/index.js";
 import { UserMapper } from "../mappers/usersMapper.js";
+import { isSelfUserAction } from "../helpers/selfUserAction.js";
 
 export const GetUsersController = async (req, res) => {
   try {
@@ -32,7 +33,17 @@ export const GetUsersController = async (req, res) => {
       result.data;
 
     // Mapear respuesta
-    const responseUsers = users.map((user) => UserMapper.toResponse(user));
+    const responseUsers = users.map((user) => {
+      const responseUser = UserMapper.toResponse(user);
+
+      return {
+        ...responseUser,
+        isSelf: isSelfUserAction({
+          authUser: req.user,
+          targetUserId: responseUser?.id,
+        }),
+      };
+    });
 
     // Construir respuesta con metadata
     return res.status(200).json({

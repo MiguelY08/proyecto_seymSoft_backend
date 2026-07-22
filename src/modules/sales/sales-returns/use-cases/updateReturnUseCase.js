@@ -4,8 +4,7 @@ import { prisma } from '../../../../config/prisma.js';
 import { ReturnRepository } from '../repositories/returnRepository.js';
 import { 
   RETURN_STATUS,
-  calculateGeneralStatus,
-  isDefectiveReason
+  calculateGeneralStatus
 } from '../helpers/returnHelpers.js';
 
 export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) => {
@@ -45,7 +44,6 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
     let newGeneralStatus = existingReturn.return_statuses?.name_status || 'En Proceso';
     let stockUpdated = false;
     let stockEvents = [];
-    const nonConformingToCreate = [];
     
     if (updateData.details && updateData.details.length > 0) {
       // Obtener los detalles actuales para comparar estados
@@ -77,33 +75,6 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
           };
         }
         
-        // Verificar si el motivo actual es defectuoso
-        const isDefective = currentDetail?.return_reasons?.description 
-          ? isDefectiveReason(currentDetail.return_reasons.description)
-          : false;
-
-        // Si es defectuoso y tiene barcode, verificar si necesita producto no conforme
-        if (isDefective && currentDetail?.id_barcode) {
-          // Verificar si ya existe un producto no conforme para este barcode
-          const existingNCP = await prisma.non_conforming_products.findFirst({
-            where: {
-              id_barcode: currentDetail.id_barcode,
-              report_reason: {
-                contains: `devolución ${id}`
-              }
-            }
-          });
-
-          if (!existingNCP) {
-            nonConformingToCreate.push({
-              idBarcode: currentDetail.id_barcode,
-              quantity: currentDetail.quantity,
-              reason: `Producto defectuoso detectado en devolución ${id}`,
-              idStatus: 1 // Pendiente
-            });
-          }
-        }
-
         await prisma.sale_return_details.update({
           where: { id_sale_return_detail: detail.idSaleReturnDetail },
           data: {
@@ -111,25 +82,6 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
             id_return_method: detail.idReturnMethod
           }
         });
-      }
-
-      // Crear productos no conformes
-      if (nonConformingToCreate.length > 0) {
-        const defaultStatus = await ReturnRepository.getDefaultNonConformingStatus();
-        const statusId = defaultStatus?.id_status || 1;
-
-        for (const ncp of nonConformingToCreate) {
-          try {
-            await ReturnRepository.createNonConformingProduct({
-              idBarcode: ncp.idBarcode,
-              quantity: ncp.quantity,
-              reason: ncp.reason,
-              idStatus: statusId
-            });
-          } catch (error) {
-            console.error('[updateReturnUseCase] Error creando producto no conforme:', error);
-          }
-        }
       }
 
       // Obtener los detalles actualizados para calcular el nuevo estado general
@@ -187,8 +139,7 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
         returnNumber: updated.return_number,
         status: newGeneralStatus,
         stockUpdated: stockUpdated,
-        nonConformingCreated: nonConformingToCreate.length
-        ,
+        nonConformingCreated: 0,
         creditApplied: creditEvents.reduce((total, event) => total + event.amount, 0),
         creditEvents,
         stockEvents

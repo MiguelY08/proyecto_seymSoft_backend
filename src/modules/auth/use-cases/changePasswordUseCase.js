@@ -16,8 +16,6 @@ export class ChangePasswordUseCase {
       newPassword,
     }
   ) {
-
-    // Obtener usuario
     const user =
       await AuthRepository.findUserById(
         idUser
@@ -29,9 +27,6 @@ export class ChangePasswordUseCase {
       );
     }
 
-
-
-    // Detectar primer acceso Google
     const isGoogleFirstLogin =
       user.id_google
         ? await comparePassword(
@@ -40,12 +35,7 @@ export class ChangePasswordUseCase {
           )
         : false;
 
-    // ─────────────────────────────
-    // USUARIO NORMAL
-    // ─────────────────────────────
-
     if (!isGoogleFirstLogin) {
-
       if (!currentPassword) {
         throw new UnauthorizedError(
           "La contraseña actual es requerida"
@@ -63,12 +53,7 @@ export class ChangePasswordUseCase {
           "La contraseña actual es incorrecta"
         );
       }
-
     }
-
-    // ─────────────────────────────
-    // VALIDAR QUE NO SEA LA MISMA
-    // ─────────────────────────────
 
     const isSamePassword =
       await comparePassword(
@@ -82,40 +67,15 @@ export class ChangePasswordUseCase {
       );
     }
 
-    // ─────────────────────────────
-    // GENERAR NUEVO HASH
-    // ─────────────────────────────
-
     const hashedNewPassword =
       await hashPassword(
         newPassword
       );
 
-
-
-    // ─────────────────────────────
-    // ACTUALIZAR CONTRASEÑA
-    // ─────────────────────────────
-
     await AuthRepository.updatePassword(
       idUser,
       hashedNewPassword
     );
-
-    // ─────────────────────────────
-    // VERIFICACIÓN TEMPORAL
-    // (puedes borrarla después)
-    // ─────────────────────────────
-
-    const updatedUser =
-      await AuthRepository.findUserById(
-        idUser
-      );
-
-
-    // ─────────────────────────────
-    // INVALIDAR TOKENS
-    // ─────────────────────────────
 
     await AuthRepository.deleteRefreshTokensByUserId(
       idUser

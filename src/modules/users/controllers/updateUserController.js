@@ -1,6 +1,7 @@
 import { updateUserUseCase } from "../use-cases/index.js";
 import { validateUpdateUser } from "../validators/index.js";
 import { UserMapper } from "../mappers/usersMapper.js";
+import { isSelfUserAction } from "../helpers/selfUserAction.js";
 
 export const UpdateUserController = async (req, res) => {
   try {
@@ -15,6 +16,15 @@ export const UpdateUserController = async (req, res) => {
     }
  
     const idUser = Number(id);
+
+    if (isSelfUserAction({ authUser: req.user, targetUserId: idUser })) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "No puedes editar tu propio usuario desde el módulo de usuarios. Usa la sección de perfil.",
+        errorCode: "SELF_USER_UPDATE_NOT_ALLOWED",
+      });
+    }
  
     // Validar datos con Zod
     const validation = validateUpdateUser(req.body);

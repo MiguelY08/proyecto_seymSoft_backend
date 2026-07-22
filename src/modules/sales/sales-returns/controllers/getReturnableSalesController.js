@@ -6,8 +6,6 @@ export const getReturnableSalesController = async (req, res) => {
   try {
     const { clientId } = req.query;
 
-    console.log('📦 [getReturnableSalesController] clientId recibido:', clientId);
-
     if (!clientId) {
       return res.status(400).json({
         success: false,
@@ -24,19 +22,16 @@ export const getReturnableSalesController = async (req, res) => {
       });
     }
 
-    console.log('📦 [getReturnableSalesController] Ventas devueltas:', result.data.length);
-
     return res.status(200).json({
       success: true,
       data: result.data,
     });
 
   } catch (error) {
-    console.error('[getReturnableSalesController]', error);
 
     return res.status(500).json({
       success: false,
-      message: 'Error obteniendo las ventas disponibles para devolución.',
+      message: 'Error obteniendo las ventas disponibles para devoluciÃ³n.',
       error: error.message,
     });
   }

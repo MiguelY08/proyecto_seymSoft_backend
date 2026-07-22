@@ -97,14 +97,14 @@ export const RETURN_STATUSES = {
 export const RETURN_METHODS = {
   1: { id: 1, description: "Reemplazo" },
   2: { id: 2, description: "Reembolso" },
-  3: { id: 3, description: "Prod. no conforme" },
+  3: { id: 3, description: "Saldo a favor" },
 };
 
 export const RETURN_REASONS = {
-  1: { id: 1, description: "Prod. en mal estado" },
-  2: { id: 2, description: "Insatisfecho" },
-  3: { id: 3, description: "Prod. incorrecto" },
-  4: { id: 4, description: "Otro motivo" },
+  8: { id: 8, description: "MAL_ESTADO", label: "Prod. en mal estado" },
+  5: { id: 5, description: "DEFECTUOSO", label: "Insatisfecho" },
+  11: { id: 11, description: "PROD._INCORRECTO", label: "Prod. incorrecto" },
+  10: { id: 10, description: "OTRO", label: "Otro motivo" },
 };
 
 // Unidades de medida

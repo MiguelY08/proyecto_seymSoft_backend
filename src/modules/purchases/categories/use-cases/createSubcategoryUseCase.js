@@ -1,4 +1,4 @@
-import { AppError } from "../../../../shared/errors/AppError.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 import { mapSubcategory } from "../mappers/categoryMapper.js";
 
 export class CreateSubcategoryUseCase {

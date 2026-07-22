@@ -9,12 +9,13 @@ export const RETURN_DETAIL_STATUS_IDS = {
   PENDING_REPLACEMENT: RETURN_STATUSES[2].id,
   PENDING_REFUND: RETURN_STATUSES[3].id,
   READY: RETURN_STATUSES[4].id,
+  ANNULLED: RETURN_STATUSES[5].id,
 };
 
 export const RETURN_METHOD_IDS = {
   REPLACEMENT: RETURN_METHODS[1].id,
   REFUND: RETURN_METHODS[2].id,
-  NON_CONFORMING_PRODUCT: RETURN_METHODS[3].id,
+  CREDIT_BALANCE: RETURN_METHODS[3].id,
 };
 
 export const PURCHASE_STATUS_IDS = {
@@ -42,6 +43,14 @@ const DETAIL_STATUS_FLOW_BY_METHOD = {
     ],
   },
   [RETURN_METHOD_IDS.REFUND]: {
+    [RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT]: [
+      RETURN_DETAIL_STATUS_IDS.PENDING_REFUND,
+    ],
+    [RETURN_DETAIL_STATUS_IDS.PENDING_REFUND]: [
+      RETURN_DETAIL_STATUS_IDS.READY,
+    ],
+  },
+  [RETURN_METHOD_IDS.CREDIT_BALANCE]: {
     [RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT]: [
       RETURN_DETAIL_STATUS_IDS.PENDING_REFUND,
     ],
@@ -158,6 +167,113 @@ export const calculateAvailableQuantity = ({
     toNumber(returnedQuantity);
 
   return Math.max(available, 0);
+};
+
+export const isAnnulledStatus = (idReturnStatus) =>
+  Number(idReturnStatus) === RETURN_DETAIL_STATUS_IDS.ANNULLED;
+
+export const isFinalDeductibleReturnMethod = (idReturnMethod) =>
+  [
+    RETURN_METHOD_IDS.REFUND,
+    RETURN_METHOD_IDS.CREDIT_BALANCE,
+  ].includes(Number(idReturnMethod));
+
+export const calculatePurchaseDetailReturnAvailability = ({
+  purchasedQuantity,
+  returnDetails = [],
+}) => {
+  const initial = {
+    purchasedQuantity: toNumber(purchasedQuantity),
+    reservedQuantity: 0,
+    finalReturnedQuantity: 0,
+  };
+
+  const totals = returnDetails.reduce((acc, detail) => {
+    const quantity = toNumber(detail.quantity);
+    const idReturnStatus = Number(
+      detail.id_return_status ??
+      detail.returnStatusId ??
+      detail.idReturnStatus
+    );
+    const idReturnMethod = Number(
+      detail.id_return_method ??
+      detail.returnMethodId ??
+      detail.idReturnMethod
+    );
+
+    if (quantity <= 0 || isAnnulledStatus(idReturnStatus)) {
+      return acc;
+    }
+
+    if (!isReadyStatus(idReturnStatus)) {
+      acc.reservedQuantity += quantity;
+      return acc;
+    }
+
+    if (isFinalDeductibleReturnMethod(idReturnMethod)) {
+      acc.finalReturnedQuantity += quantity;
+    }
+
+    return acc;
+  }, initial);
+
+  const availableQuantity =
+    totals.purchasedQuantity -
+    totals.reservedQuantity -
+    totals.finalReturnedQuantity;
+
+  return {
+    ...totals,
+    availableQuantity: Math.max(availableQuantity, 0),
+  };
+};
+
+export const calculatePurchaseDetailsReturnAvailability = ({
+  purchaseDetails = [],
+  returnDetails = [],
+}) => {
+  const returnDetailsByPurchaseDetail =
+    returnDetails.reduce((grouped, detail) => {
+      const idPurchaseDetail = Number(
+        detail.id_purchase_detail ??
+        detail.purchaseDetailId ??
+        detail.idPurchaseDetail
+      );
+
+      if (!idPurchaseDetail) {
+        return grouped;
+      }
+
+      const details = grouped.get(idPurchaseDetail) ?? [];
+      details.push(detail);
+      grouped.set(idPurchaseDetail, details);
+
+      return grouped;
+    }, new Map());
+
+  return purchaseDetails.reduce((availabilityByDetail, detail) => {
+    const idPurchaseDetail = Number(
+      detail.id_purchase_detail ??
+      detail.purchaseDetailId ??
+      detail.idPurchaseDetail ??
+      detail.id
+    );
+
+    if (!idPurchaseDetail) {
+      return availabilityByDetail;
+    }
+
+    availabilityByDetail.set(
+      idPurchaseDetail,
+      calculatePurchaseDetailReturnAvailability({
+        purchasedQuantity: detail.quantity,
+        returnDetails:
+          returnDetailsByPurchaseDetail.get(idPurchaseDetail) ?? [],
+      })
+    );
+
+    return availabilityByDetail;
+  }, new Map());
 };
 
 export const validateReturnQuantity = ({

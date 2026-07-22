@@ -10,6 +10,7 @@ import {
   reorderActiveBannersController,
   toggleBannerStatusController,
 } from "../controllers/index.js";
+import { authMiddleware } from "../../../../shared/middlewares/authMiddleware.js";
 
 /**
  * Rutas del módulo Banner
@@ -24,25 +25,25 @@ const router = Router();
  * Obtener banners activos
  * GET /api/banners/active
  */
-router.get("/active", getActiveBannersController);
+router.get("/active", authMiddleware, getActiveBannersController);
 
 /**
  * Reordenar banners activos
  * PATCH /api/banners/active/reorder
  */
-router.patch("/active/reorder", reorderActiveBannersController);
+router.patch("/active/reorder", authMiddleware, reorderActiveBannersController);
 
 /**
  * Obtener todos los banners
  * GET /api/banners
  */
-router.get("/", getAllBannersController);
+router.get("/", authMiddleware, getAllBannersController);
 
 /**
  * Obtener banner por ID
  * GET /api/banners/:id
  */
-router.get("/:id", getBannerByIdController);
+router.get("/:id", authMiddleware, getBannerByIdController);
 
 /**
  * Crear banner
@@ -51,18 +52,18 @@ router.get("/:id", getBannerByIdController);
  * Campo esperado en multipart/form-data:
  * image
  */
-router.post("/", uploadBannerImage, createBannerController);
+router.post("/", authMiddleware, uploadBannerImage, createBannerController);
 
 /**
  * Activar / desactivar banner
  * PATCH /api/banners/:id/status
  */
-router.patch("/:id/status", toggleBannerStatusController);
+router.patch("/:id/status", authMiddleware, toggleBannerStatusController);
 
 /**
  * Eliminar banner
  * DELETE /api/banners/:id
  */
-router.delete("/:id", deleteBannerController);
+router.delete("/:id", authMiddleware, deleteBannerController);
 
 export default router;

@@ -2,10 +2,34 @@ import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
+import {
+  normalizeDeliveryAddress,
+  normalizeDeliveryType,
+} from '../../shared/deliveryTypes.js';
 
 export class CreateOrderDto {
   constructor(data) {
+    const deliveryType = normalizeDeliveryType(
+      data.deliveryType ?? data.delivery_type ?? 'Recoge'
+    );
+    const deliveryAddress = normalizeDeliveryAddress(
+      deliveryType,
+      data.deliveryAddress ?? data.delivery_adress
+    );
+
     this.idClient = data.idClient ?? data.id_client;
+    this.idEmployee =
+      data.idEmployee ??
+      data.id_employee ??
+      data.asesorId ??
+      data.advisorId ??
+      null;
+    this.idUser =
+      data.idUser ??
+      data.id_user ??
+      data.usuarioId ??
+      data.userId ??
+      null;
     this.idOrderStatus =
       data.idOrderStatus ??
       data.id_order_status ??
@@ -18,11 +42,8 @@ export class CreateOrderDto {
       data.paymentStatus ??
       data.payment_status ??
       PAYMENT_STATUSES[1].name;
-    this.deliveryType = data.deliveryType ?? 'Recoge';
-    this.deliveryAddress =
-      data.deliveryAddress ??
-      data.delivery_adress ??
-      'El cliente lo recoge';
+    this.deliveryType = deliveryType;
+    this.deliveryAddress = deliveryAddress;
 
     this.items = data.items ?? [];
     this.initialPayments =

@@ -29,6 +29,16 @@ export class SupplierPurchaseMapper {
     const extraBarcodes = allBarcodes
       .filter((b) => b.id_barcode !== detail.id_barcode)
       .map((b) => b.barcode);
+    const returnAvailability =
+      detail.returnAvailability ?? {};
+    const purchasedQuantity =
+      returnAvailability.purchasedQuantity ?? detail.quantity;
+    const returnReservedQuantity =
+      returnAvailability.reservedQuantity ?? 0;
+    const finalReturnedQuantity =
+      returnAvailability.finalReturnedQuantity ?? 0;
+    const returnAvailableQuantity =
+      returnAvailability.availableQuantity ?? detail.quantity;
 
     return {
       id:             detail.id_purchase_detail,
@@ -37,6 +47,16 @@ export class SupplierPurchaseMapper {
       productId:      detail.barcodes?.id_product     ?? null,
       productName:    detail.barcodes?.products?.name ?? null,
       quantity:       detail.quantity,
+      purchasedQuantity,
+      returnReservedQuantity,
+      finalReturnedQuantity,
+      returnAvailableQuantity,
+      returnAvailability: {
+        purchasedQuantity,
+        reservedQuantity: returnReservedQuantity,
+        finalReturnedQuantity,
+        availableQuantity: returnAvailableQuantity,
+      },
       grossUnitPrice: Number(detail.gross_unit_price),
       taxUnitPrice:   Number(detail.tax_unit_price),
       netUnitPrice:   Number(detail.net_unit_price),
@@ -72,9 +92,15 @@ export class SupplierPurchaseMapper {
   // ─── Purchase mapper with details ───────────────────────────────────────────
   static toDTOWithDetails(purchase) {
     if (!purchase) return null;
+    const details =
+      (purchase.purchase_details ?? []).map(SupplierPurchaseMapper.detailToDTO);
+
     return {
       ...SupplierPurchaseMapper.toDTO(purchase),
-      details: (purchase.purchase_details ?? []).map(SupplierPurchaseMapper.detailToDTO),
+      totalQuantity:
+        purchase.total_quantity ??
+        details.reduce((sum, detail) => sum + (detail.quantity || 0), 0),
+      details,
     };
   }
 

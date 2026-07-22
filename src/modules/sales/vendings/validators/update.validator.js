@@ -1,9 +1,24 @@
 import { z } from "zod";
+import {
+  DELIVERY_TYPES,
+  normalizeDeliveryType,
+} from "../../shared/deliveryTypes.js";
 
-const DELIVERY_TYPES = [
-  "pickup",
-  "delivery",
-];
+const deliveryTypeSchema = z
+  .string()
+  .trim()
+  .transform((value, ctx) => {
+    try {
+      return normalizeDeliveryType(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error.message,
+      });
+
+      return z.NEVER;
+    }
+  });
 
 /**
  * Schema de validación para parámetros de UPDATE VENDING
@@ -43,13 +58,7 @@ export const updateVendingSchema = z.object({
     .positive("El ID del estado del pedido debe ser positivo")
     .optional(),
 
-  deliveryType: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .refine((value) => DELIVERY_TYPES.includes(value), {
-      message: `deliveryType debe ser uno de: ${DELIVERY_TYPES.join(", ")}`,
-    })
+  deliveryType: deliveryTypeSchema
     .optional(),
 
   deliveryAddress: z
@@ -60,7 +69,7 @@ export const updateVendingSchema = z.object({
     .optional(),
 }).strict()
   .superRefine((data, ctx) => {
-    if (data.deliveryType === "delivery" && !data.deliveryAddress) {
+    if (data.deliveryType === DELIVERY_TYPES.DELIVERY && !data.deliveryAddress) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["deliveryAddress"],

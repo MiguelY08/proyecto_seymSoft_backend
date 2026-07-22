@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: seymsoft-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    preDeployCommand: npm run migrate:deploy
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: "production"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES
+        value: "15m"
+      - key: JWT_REFRESH_EXPIRES
+        value: "7d"
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET_PRODUCTS
+        value: "products"
+      - key: SUPABASE_BUCKET_BANNERS
+        value: "banners"
+      - key: SUPABASE_BUCKET_SALES_RETURNS
+        value: "sales_returns"
+      - key: SUPABASE_BUCKET_PAYMENT_RECEIPTS
+        value: "payment_receipts"
+      - key: ORDER_PAYMENT_JOB_ENABLED
+        value: "true"
+      - key: ORDER_PAYMENT_JOB_INTERVAL_MINUTES
+        value: "15"

@@ -1,5 +1,8 @@
 import { UpdateProfileUseCase } from "../use-cases/updateProfileUseCase.js";
-import { updateProfileSchema } from "../validators/authValidators.js";
+import {
+  getZodIssues,
+  updateProfileSchema,
+} from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/index.js";
 import { UserRepository } from "../../users/repositories/userRepository.js";
 
@@ -49,7 +52,7 @@ export class UpdateProfileController {
       res.status(200).json(response);
     } catch (error) {
       if (error.name === "ZodError") {
-        next(new ValidationError("Validation failed", error.errors));
+        next(new ValidationError("Validation failed", getZodIssues(error)));
       } else {
         next(error);
       }

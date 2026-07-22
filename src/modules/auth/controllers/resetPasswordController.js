@@ -1,6 +1,9 @@
 import { ResetPasswordUseCase } from "../use-cases/resetPasswordUseCase.js";
 import { ValidatePasswordResetUseCase } from "../use-cases/validatePasswordResetUseCase.js";
-import { resetPasswordSchema } from "../validators/authValidators.js";
+import {
+  getZodIssues,
+  resetPasswordSchema,
+} from "../validators/authValidators.js";
 import { ValidationError } from "../../../shared/errors/validationError.js";
 
 export class ResetPasswordController {
@@ -18,7 +21,7 @@ export class ResetPasswordController {
       if (!validationResult.success) {
         throw new ValidationError(
           "Validation failed",
-          validationResult.error.errors,
+          getZodIssues(validationResult.error),
         );
       }
 
