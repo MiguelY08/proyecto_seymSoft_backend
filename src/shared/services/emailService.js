@@ -5,6 +5,9 @@ const mailConfig = {
   host: env.EMAIL_HOST,
   port: env.EMAIL_PORT,
   secure: env.EMAIL_SECURE,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
   auth: {
     user: env.EMAIL_USER,
     pass: env.EMAIL_PASSWORD,
