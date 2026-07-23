@@ -9,6 +9,7 @@ import {
   calculateOrderTotals,
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
+import { notifyCustomerOrderUpdated } from './orderCustomerNotifications.js';
 
 const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
 const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
@@ -143,6 +144,10 @@ export const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
   }
 };
 
+export const notifyOrderUpdated = async ({ order }) => {
+  await notifyCustomerOrderUpdated({ order });
+};
+
 export class UpdateOrderUseCase {
   constructor(repo) {
     this.repo = repo;
@@ -235,6 +240,11 @@ export class UpdateOrderUseCase {
     return {
       order:
         mappedOrder,
+      updateNotification:
+        {
+          order:
+            updated,
+        },
       statusNotification:
         statusChanged
           ? {

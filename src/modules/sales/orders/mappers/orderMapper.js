@@ -129,6 +129,7 @@ export const mapOrder = (order) => {
     customer: order.clients
       ? {
           id: order.clients.id_client,
+          idUser: order.clients.users?.id_user || null,
           name: order.clients.users?.full_name || null,
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,
@@ -238,6 +239,7 @@ export const mapOrderSummary = (order) => {
     customer: order.clients
       ? {
           id: order.clients.id_client,
+          idUser: order.clients.users?.id_user || null,
           name: order.clients.users?.full_name || null,
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,

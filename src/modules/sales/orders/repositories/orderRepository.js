@@ -156,6 +156,7 @@ const orderSummarySelect = {
       address: true,
       users: {
         select: {
+          id_user: true,
           full_name: true,
           email: true,
           phone: true,
@@ -284,6 +285,7 @@ const orderPaymentResultSelect = {
       address: true,
       users: {
         select: {
+          id_user: true,
           full_name: true,
           email: true,
           phone: true,
@@ -352,6 +354,7 @@ const orderListSelect = {
       client_type: true,
       users: {
         select: {
+          id_user: true,
           full_name: true,
           email: true,
           phone: true,

@@ -8,6 +8,7 @@ import {
 } from '../use-cases/createOrderUseCase.js';
 import {
   UpdateOrderUseCase,
+  notifyOrderUpdated,
   notifyOrderStatusChanged,
 } from '../use-cases/updateOrderUseCase.js';
 import { GetAllOrdersUseCase } from '../use-cases/getAllOrdersUseCase.js';
@@ -111,6 +112,14 @@ export const updateOrder = async (req, res, next) => {
       res.once('finish', () => {
         setImmediate(() => {
           void notifyOrderStatusChanged(result.statusNotification);
+        });
+      });
+    }
+
+    if (result.updateNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyOrderUpdated(result.updateNotification);
         });
       });
     }
