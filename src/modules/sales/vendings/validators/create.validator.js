@@ -94,6 +94,13 @@ const orderSchema = z.object({
     .max(255, "La direccion de entrega no puede exceder 255 caracteres")
     .optional(),
 
+  deliveryRecipientName: z
+    .string()
+    .trim()
+    .max(255, "El nombre de quien recibe el pedido no puede exceder 255 caracteres")
+    .nullable()
+    .optional(),
+
   shippingAmount: z
     .number()
     .nonnegative("El valor del envio no puede ser negativo")

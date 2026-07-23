@@ -173,6 +173,7 @@ export const mapOrder = (order) => {
         }
       : null,
     deliveryAddress: order.delivery_adress || null,
+    deliveryRecipientName: order.delivery_recipient_name || null,
     deliveryType,
     deliveryDepartment: {
       code: order.delivery_department_code || null,
@@ -306,6 +307,7 @@ export const mapOrderSummary = (order) => {
         }
       : null,
     deliveryAddress: order.delivery_adress || null,
+    deliveryRecipientName: order.delivery_recipient_name || null,
     deliveryType,
     deliveryDepartment: {
       code: order.delivery_department_code || null,

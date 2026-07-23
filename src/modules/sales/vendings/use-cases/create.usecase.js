@@ -482,6 +482,7 @@ export const createVendingUseCase = async (params) => {
       try {
         const orderDataForPreparation = {
           ...data.order,
+          saleType: data.order.saleType ?? normalizedType,
           idEmployee: data.order.idEmployee ?? resolvedEmployeeId,
           idUser: data.order.idUser ?? idUser,
           ...(directSaleOrderStatus && {

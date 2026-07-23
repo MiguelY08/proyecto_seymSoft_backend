@@ -53,6 +53,7 @@ const notifyOrderExpired = async (order) => {
       shippingAmount: mappedOrder.shippingAmount,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
       deliveryDepartment: mappedOrder.deliveryDepartment,
       deliveryCity: mappedOrder.deliveryCity,
     });
@@ -120,6 +121,7 @@ export class ProcessPendingOrderPaymentsUseCase {
           shippingAmount: mappedOrder.shippingAmount,
           deliveryType: mappedOrder.deliveryType,
           deliveryAddress: mappedOrder.deliveryAddress,
+          deliveryRecipientName: mappedOrder.deliveryRecipientName,
           deliveryDepartment: mappedOrder.deliveryDepartment,
           deliveryCity: mappedOrder.deliveryCity,
           hoursRemaining: shouldSend1h

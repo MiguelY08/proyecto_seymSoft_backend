@@ -24,6 +24,20 @@ const isEmptyShippingAmount = (value) =>
   value === null ||
   String(value).trim() === '';
 
+const normalizeDeliveryRecipientName = (value) => {
+  const recipientName = String(value || '').trim();
+
+  if (!recipientName) {
+    return null;
+  }
+
+  if (recipientName.length > 255) {
+    throw new Error('El nombre de quien recibe el pedido no puede exceder 255 caracteres.');
+  }
+
+  return recipientName;
+};
+
 const normalizeShippingAmount = ({
   value,
   deliveryType,
@@ -148,6 +162,19 @@ export class CreateOrderDto {
       deliveryLocation.deliveryCityCode;
     this.deliveryCityName =
       deliveryLocation.deliveryCityName;
+    this.deliveryRecipientName = normalizeDeliveryRecipientName(
+      data.deliveryRecipientName ??
+      data.delivery_recipient_name ??
+      data.recipientName ??
+      data.recipient_name ??
+      data.receiverName ??
+      data.receiver_name
+    );
+
+    if (this.saleType !== 'direct' && !this.deliveryRecipientName) {
+      throw new Error('El nombre de quien recibe el pedido es obligatorio.');
+    }
+
     this.shippingAmount = normalizeShippingAmount({
       value: getRawShippingAmount(data),
       deliveryType,

@@ -39,6 +39,12 @@ const formatDate = (value) =>
 
 const getName = (fullName) => fullName || "usuario";
 
+const formatDisplayText = (value, fallback = "No aplica") => {
+  const text = String(value || "").trim();
+
+  return text || fallback;
+};
+
 const getFrontendUrl = () =>
   env.FRONTEND_URL;
 
@@ -769,6 +775,7 @@ export class EmailService {
     paymentDeadline,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -780,8 +787,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const deliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const deliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nTu pedido #${orderId} fue registrado.\n\nSubtotal: ${formatMoney(subtotal)}\nIVA: ${formatMoney(ivaAmount)}\nEnvio: ${formatMoney(shippingAmount)}\nTotal: ${formatMoney(total)}\nFecha limite de pago: ${formatDate(paymentDeadline)}\nTipo de entrega: ${deliveryType || "No especificado"}\nDepartamento: ${deliveryDepartmentName}\nMunicipio/Ciudad: ${deliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nTu pedido #${orderId} fue registrado.\n\nSubtotal: ${formatMoney(subtotal)}\nIVA: ${formatMoney(ivaAmount)}\nEnvio: ${formatMoney(shippingAmount)}\nTotal: ${formatMoney(total)}\nFecha limite de pago: ${formatDate(paymentDeadline)}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${deliveryRecipient}\nDepartamento: ${deliveryDepartmentName}\nMunicipio/Ciudad: ${deliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Pedido registrado #${orderId}`,
@@ -844,6 +855,9 @@ export class EmailService {
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
           </p>
           <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${deliveryRecipient}
+          </p>
+          <p style="margin: 0 0 6px;">
             <strong>Departamento:</strong> ${deliveryDepartmentName}
           </p>
           <p style="margin: 0 0 6px;">
@@ -874,6 +888,7 @@ export class EmailService {
     shippingAmount,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -885,8 +900,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const paymentDeliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const paymentDeliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nSe registro un pago para tu pedido #${orderId}.\n\nMetodo: ${paymentMethod || "No especificado"}\nMonto: ${formatMoney(amount)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nEstado: ${isPaid ? "Pagado" : "Pendiente"}\nReferencia: ${reference || "No aplica"}\nTipo de entrega: ${deliveryType || "No especificado"}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${paymentDeliveryDepartmentName}\nMunicipio/Ciudad: ${paymentDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nSe registro un pago para tu pedido #${orderId}.\n\nMetodo: ${paymentMethod || "No especificado"}\nMonto: ${formatMoney(amount)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nEstado: ${isPaid ? "Pagado" : "Pendiente"}\nReferencia: ${reference || "No aplica"}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${paymentDeliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${paymentDeliveryDepartmentName}\nMunicipio/Ciudad: ${paymentDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Pago registrado - Pedido #${orderId}`,
@@ -949,6 +968,9 @@ export class EmailService {
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
           </p>
           <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${paymentDeliveryRecipient}
+          </p>
+          <p style="margin: 0 0 6px;">
             <strong>Envio:</strong> ${formatMoney(shippingAmount)}
           </p>
           <p style="margin: 0 0 6px;">
@@ -981,6 +1003,7 @@ export class EmailService {
     shippingAmount,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -992,8 +1015,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const approvedDeliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const approvedDeliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nTu comprobante del pedido #${orderId} fue aprobado.\n\nMonto registrado: ${formatMoney(amount)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nEstado: ${isPaid ? "Pagado" : "Pendiente"}\nObservaciones: ${reviewObservations || "No aplica"}\nTipo de entrega: ${deliveryType || "No especificado"}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${approvedDeliveryDepartmentName}\nMunicipio/Ciudad: ${approvedDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nTu comprobante del pedido #${orderId} fue aprobado.\n\nMonto registrado: ${formatMoney(amount)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nEstado: ${isPaid ? "Pagado" : "Pendiente"}\nObservaciones: ${reviewObservations || "No aplica"}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${approvedDeliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${approvedDeliveryDepartmentName}\nMunicipio/Ciudad: ${approvedDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Comprobante aprobado - Pedido #${orderId}`,
@@ -1059,6 +1086,9 @@ export class EmailService {
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
           </p>
           <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${approvedDeliveryRecipient}
+          </p>
+          <p style="margin: 0 0 6px;">
             <strong>Envio:</strong> ${formatMoney(shippingAmount)}
           </p>
           <p style="margin: 0 0 6px;">
@@ -1087,6 +1117,7 @@ export class EmailService {
     shippingAmount,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -1098,8 +1129,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const rejectedDeliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const rejectedDeliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nTu comprobante del pedido #${orderId} fue rechazado.\n\nMotivo: ${reason || "No especificado"}\nTipo de entrega: ${deliveryType || "No especificado"}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${rejectedDeliveryDepartmentName}\nMunicipio/Ciudad: ${rejectedDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\nPuedes revisar el pedido y enviar un nuevo comprobante si el saldo continua pendiente.\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nTu comprobante del pedido #${orderId} fue rechazado.\n\nMotivo: ${reason || "No especificado"}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${rejectedDeliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${rejectedDeliveryDepartmentName}\nMunicipio/Ciudad: ${rejectedDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\nPuedes revisar el pedido y enviar un nuevo comprobante si el saldo continua pendiente.\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Comprobante rechazado - Pedido #${orderId}`,
@@ -1126,6 +1161,9 @@ export class EmailService {
         ${renderInfoCard(`
           <p style="margin: 0 0 6px;">
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${rejectedDeliveryRecipient}
           </p>
           <p style="margin: 0 0 6px;">
             <strong>Envio:</strong> ${formatMoney(shippingAmount)}
@@ -1157,6 +1195,7 @@ export class EmailService {
     shippingAmount,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -1168,8 +1207,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const statusDeliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const statusDeliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nEl estado de tu pedido #${orderId} cambio de ${previousStatus || "No especificado"} a ${newStatus}.\n\nEntrega: ${deliveryType || "No especificado"}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${statusDeliveryDepartmentName}\nMunicipio/Ciudad: ${statusDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nEl estado de tu pedido #${orderId} cambio de ${previousStatus || "No especificado"} a ${newStatus}.\n\nEntrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${statusDeliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${statusDeliveryDepartmentName}\nMunicipio/Ciudad: ${statusDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Estado actualizado - Pedido #${orderId}`,
@@ -1206,6 +1249,9 @@ export class EmailService {
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
           </p>
           <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${statusDeliveryRecipient}
+          </p>
+          <p style="margin: 0 0 6px;">
             <strong>Envio:</strong> ${formatMoney(shippingAmount)}
           </p>
           <p style="margin: 0 0 6px;">
@@ -1235,6 +1281,7 @@ export class EmailService {
     shippingAmount,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -1246,8 +1293,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const cancelledDeliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const cancelledDeliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nTu pedido #${orderId} fue cancelado.\n\nMotivo: ${reason || "No especificado"}\nTotal: ${formatMoney(total)}\nTipo de entrega: ${deliveryType || "No especificado"}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${cancelledDeliveryDepartmentName}\nMunicipio/Ciudad: ${cancelledDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nTu pedido #${orderId} fue cancelado.\n\nMotivo: ${reason || "No especificado"}\nTotal: ${formatMoney(total)}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${cancelledDeliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${cancelledDeliveryDepartmentName}\nMunicipio/Ciudad: ${cancelledDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Pedido cancelado #${orderId}`,
@@ -1284,6 +1335,9 @@ export class EmailService {
         ${renderInfoCard(`
           <p style="margin: 0 0 6px;">
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${cancelledDeliveryRecipient}
           </p>
           <p style="margin: 0 0 6px;">
             <strong>Envio:</strong> ${formatMoney(shippingAmount)}
@@ -1486,6 +1540,7 @@ export class EmailService {
     shippingAmount,
     deliveryType,
     deliveryAddress,
+    deliveryRecipientName,
     deliveryDepartment,
     deliveryCity,
     frontendUrl = getFrontendUrl(),
@@ -1497,8 +1552,12 @@ export class EmailService {
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
     const reminderDeliveryCityName =
       deliveryCity?.name || deliveryCity || "No aplica";
+    const reminderDeliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nTu pedido #${orderId} aun tiene un saldo pendiente de pago.\n\nTotal del pedido: ${formatMoney(orderTotal)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nFecha limite de pago: ${formatDate(paymentDeadline)}\nTiempo restante aproximado: ${hoursRemaining} hora(s).\nTipo de entrega: ${deliveryType || "No especificado"}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${reminderDeliveryDepartmentName}\nMunicipio/Ciudad: ${reminderDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
+    const text = `Hola ${name},\n\nTu pedido #${orderId} aun tiene un saldo pendiente de pago.\n\nTotal del pedido: ${formatMoney(orderTotal)}\nTotal abonado: ${formatMoney(paidAmount)}\nSaldo pendiente: ${formatMoney(pendingAmount)}\nFecha limite de pago: ${formatDate(paymentDeadline)}\nTiempo restante aproximado: ${hoursRemaining} hora(s).\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${reminderDeliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${reminderDeliveryDepartmentName}\nMunicipio/Ciudad: ${reminderDeliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: "Recordatorio de pago pendiente",
@@ -1559,6 +1618,9 @@ export class EmailService {
         ${renderInfoCard(`
           <p style="margin: 0 0 6px;">
             <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${reminderDeliveryRecipient}
           </p>
           <p style="margin: 0 0 6px;">
             <strong>Envio:</strong> ${formatMoney(shippingAmount)}

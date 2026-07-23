@@ -61,6 +61,7 @@ export const notifyPaymentReceiptReviewed = async ({
         shippingAmount: mappedOrder.shippingAmount,
         deliveryType: mappedOrder.deliveryType,
         deliveryAddress: mappedOrder.deliveryAddress,
+        deliveryRecipientName: mappedOrder.deliveryRecipientName,
         deliveryDepartment: mappedOrder.deliveryDepartment,
         deliveryCity: mappedOrder.deliveryCity,
       });
@@ -76,6 +77,7 @@ export const notifyPaymentReceiptReviewed = async ({
         shippingAmount: mappedOrder.shippingAmount,
         deliveryType: mappedOrder.deliveryType,
         deliveryAddress: mappedOrder.deliveryAddress,
+        deliveryRecipientName: mappedOrder.deliveryRecipientName,
         deliveryDepartment: mappedOrder.deliveryDepartment,
         deliveryCity: mappedOrder.deliveryCity,
       });

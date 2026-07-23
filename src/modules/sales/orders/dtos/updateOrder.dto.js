@@ -22,6 +22,20 @@ const normalizeShippingAmount = ({
   return Math.round(amount * 100) / 100;
 };
 
+const normalizeDeliveryRecipientName = (value) => {
+  const recipientName = String(value || '').trim();
+
+  if (!recipientName) {
+    return null;
+  }
+
+  if (recipientName.length > 255) {
+    throw new Error('El nombre de quien recibe el pedido no puede exceder 255 caracteres.');
+  }
+
+  return recipientName;
+};
+
 export class UpdateOrderDto {
   constructor(data) {
     const deliveryType = normalizeDeliveryType(
@@ -81,6 +95,14 @@ export class UpdateOrderDto {
       deliveryLocation.deliveryCityCode;
     this.deliveryCityName =
       deliveryLocation.deliveryCityName;
+    this.deliveryRecipientName = normalizeDeliveryRecipientName(
+      data.deliveryRecipientName ??
+      data.delivery_recipient_name ??
+      data.recipientName ??
+      data.recipient_name ??
+      data.receiverName ??
+      data.receiver_name
+    );
     this.shippingAmount = normalizeShippingAmount({
       value:
         data.shippingAmount ??

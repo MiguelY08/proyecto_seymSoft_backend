@@ -121,6 +121,7 @@ const orderSummarySelect = {
   order_date: true,
   id_order_status: true,
   delivery_adress: true,
+  delivery_recipient_name: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -254,6 +255,7 @@ const orderPaymentResultSelect = {
   order_date: true,
   id_order_status: true,
   delivery_adress: true,
+  delivery_recipient_name: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -336,6 +338,7 @@ const orderListSelect = {
   order_date: true,
   id_order_status: true,
   delivery_adress: true,
+  delivery_recipient_name: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -417,6 +420,11 @@ export class OrderRepository {
     const page = Math.max(Number(filters.page) || 1, 1);
     const limit = Math.min(Math.max(Number(filters.limit) || 10, 1), 100);
     const skip = (page - 1) * limit;
+    const searchTerm = String(filters.search || '').trim();
+    const numericSearch =
+      searchTerm && /^\d+$/.test(searchTerm)
+        ? Number(searchTerm)
+        : null;
 
     if (filters.statusId) {
       where.id_order_status = Number(filters.statusId);
@@ -448,6 +456,45 @@ export class OrderRepository {
       if (filters.endDate) {
         where.order_date.lte = new Date(`${filters.endDate}T23:59:59.999Z`);
       }
+    }
+
+    if (searchTerm) {
+      where.OR = [
+        ...(numericSearch !== null
+          ? [
+              {
+                id_order: numericSearch,
+              },
+            ]
+          : []),
+        {
+          clients: {
+            doc_number: {
+              contains: searchTerm,
+            },
+          },
+        },
+        {
+          clients: {
+            users: {
+              full_name: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+        {
+          clients: {
+            users: {
+              email: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ];
     }
 
     const [orders, total] = await Promise.all([
@@ -715,6 +762,7 @@ export class OrderRepository {
           delivery_department_name: data.deliveryDepartmentName,
           delivery_city_code: data.deliveryCityCode,
           delivery_city_name: data.deliveryCityName,
+          delivery_recipient_name: data.deliveryRecipientName,
           sale_type: data.saleType || 'manual',
           payment_status: paymentStatus.name,
           payment_statuses: {
@@ -827,6 +875,7 @@ export class OrderRepository {
           delivery_department_name: data.deliveryDepartmentName,
           delivery_city_code: data.deliveryCityCode,
           delivery_city_name: data.deliveryCityName,
+          delivery_recipient_name: data.deliveryRecipientName,
           payment_status: paymentStatus.name,
           payment_statuses: {
             connect: {

@@ -157,6 +157,7 @@ export const notifyOrderCreated = async (order) => {
       paymentDeadline: mappedOrder.paymentDeadline,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
       deliveryDepartment: mappedOrder.deliveryDepartment,
       deliveryCity: mappedOrder.deliveryCity,
     });
@@ -271,6 +272,7 @@ export class CreateOrderUseCase {
       deliveryDepartmentName: dto.deliveryDepartmentName,
       deliveryCityCode: dto.deliveryCityCode,
       deliveryCityName: dto.deliveryCityName,
+      deliveryRecipientName: dto.deliveryRecipientName,
       saleType: dto.saleType,
       idOrderStatus,
       idPaymentStatus: paymentStatus.id,

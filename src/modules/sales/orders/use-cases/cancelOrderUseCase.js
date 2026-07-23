@@ -32,6 +32,7 @@ export const notifyOrderCancelled = async ({ order, reason }) => {
       shippingAmount: mappedOrder.shippingAmount,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
       deliveryDepartment: mappedOrder.deliveryDepartment,
       deliveryCity: mappedOrder.deliveryCity,
     });

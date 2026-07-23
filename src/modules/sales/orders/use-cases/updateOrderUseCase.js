@@ -46,6 +46,19 @@ const validateShippingAmountForUpdate = ({ order, dto }) => {
   }
 };
 
+const validateDeliveryRecipientForUpdate = ({ order, dto }) => {
+  if (getOrderSaleType(order) === 'direct') {
+    return;
+  }
+
+  if (!dto.deliveryRecipientName) {
+    throw new AppError(
+      'El nombre de quien recibe el pedido es obligatorio.',
+      400
+    );
+  }
+};
+
 const normalizeOrderItems = (items = []) =>
   items
     .map((item) => ({
@@ -168,6 +181,7 @@ export const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
       shippingAmount: mappedOrder.shippingAmount,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
       deliveryDepartment: mappedOrder.deliveryDepartment,
       deliveryCity: mappedOrder.deliveryCity,
     });
@@ -234,6 +248,10 @@ export class UpdateOrderUseCase {
       order,
       dto,
     });
+    validateDeliveryRecipientForUpdate({
+      order,
+      dto,
+    });
 
     const client = await this.repo.findClientById(dto.idClient);
 
@@ -278,6 +296,7 @@ export class UpdateOrderUseCase {
       deliveryDepartmentName: dto.deliveryDepartmentName,
       deliveryCityCode: dto.deliveryCityCode,
       deliveryCityName: dto.deliveryCityName,
+      deliveryRecipientName: dto.deliveryRecipientName,
       idOrderStatus: nextOrderStatusId,
       idPaymentStatus: dto.idPaymentStatus || order.id_payment_status || PAYMENT_STATUSES[1].id,
       paymentStatus: dto.paymentStatus,

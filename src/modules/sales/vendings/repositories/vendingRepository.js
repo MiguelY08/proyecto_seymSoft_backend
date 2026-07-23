@@ -109,6 +109,7 @@ const saleSummarySelect = {
       id_order_status: true,
       delivery_type: true,
       delivery_adress: true,
+      delivery_recipient_name: true,
       delivery_department_code: true,
       delivery_department_name: true,
       delivery_city_code: true,
@@ -175,6 +176,7 @@ const saleListSelect = {
       order_date: true,
       id_order_status: true,
       delivery_adress: true,
+      delivery_recipient_name: true,
       delivery_type: true,
       delivery_department_code: true,
       delivery_department_name: true,
@@ -266,6 +268,7 @@ const mapSaleSummary = (sale) => {
       idOrderStatus: sale.sales_orders?.id_order_status || null,
       deliveryType: sale.sales_orders?.delivery_type || null,
       deliveryAddress: sale.sales_orders?.delivery_adress || null,
+      deliveryRecipientName: sale.sales_orders?.delivery_recipient_name || null,
       deliveryDepartment: {
         code: sale.sales_orders?.delivery_department_code || null,
         name: sale.sales_orders?.delivery_department_name || null,
@@ -1181,6 +1184,16 @@ export class VendingRepository {
                     searchTerm,
                   mode:
                     "insensitive",
+                },
+              },
+            },
+          },
+          {
+            sales_orders: {
+              clients: {
+                doc_number: {
+                  contains:
+                    searchTerm,
                 },
               },
             },

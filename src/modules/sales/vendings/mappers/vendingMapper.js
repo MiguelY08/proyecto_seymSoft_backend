@@ -299,6 +299,8 @@ export class VendingMapper {
         order.id_order_status,
       deliveryAddress:
         order.delivery_adress,
+      deliveryRecipientName:
+        order.delivery_recipient_name || null,
       deliveryAdress:
         order.delivery_adress,
       deliveryType:
@@ -403,6 +405,8 @@ export class VendingMapper {
         order.id_order_status,
       deliveryAddress:
         order.delivery_adress,
+      deliveryRecipientName:
+        order.delivery_recipient_name || null,
       deliveryAdress:
         order.delivery_adress,
       deliveryType:
