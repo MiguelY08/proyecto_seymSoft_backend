@@ -98,7 +98,9 @@ export const createUserUseCase = async (userData) => {
         success: true,
         data: newUser,
         warning: "Usuario creado pero el email fallo",
-        errorCode: "EMAIL_SEND_ERROR",
+        warningCode: "EMAIL_SEND_ERROR",
+        error: null,
+        errorCode: null,
       };
     }
 
@@ -106,6 +108,7 @@ export const createUserUseCase = async (userData) => {
       success: true,
       data: newUser,
       warning: null,
+      warningCode: null,
       error: null,
       errorCode: null,
     };
@@ -125,4 +128,3 @@ export const createUserUseCase = async (userData) => {
 };
 
 export const create = createUserUseCase;
-

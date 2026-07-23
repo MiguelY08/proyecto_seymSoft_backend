@@ -4,6 +4,7 @@ import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 
 import { comparePassword } from "../../../../shared/utils/hashPassword.js";
+import { paymentNotificationService } from "../services/paymentNotificationService.js";
 
 export class CancelInstallmentUseCase {
   constructor(paymentsRepository) {
@@ -142,6 +143,19 @@ const newClientBalance =
     credit_balance:
       newClientBalance,
   });
+
+    await paymentNotificationService.notifyInstallmentCancelled({
+      paymentsRepository:
+        this.paymentsRepository,
+      idCredit:
+        credit.id_credit,
+      actorUserId:
+        userId,
+      amount:
+        installment.capital_paid,
+      idInstallment:
+        id_installment,
+    });
 
     return {
       message:

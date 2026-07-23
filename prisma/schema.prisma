@@ -120,11 +120,14 @@ model credits {
   id_customer       Int
   credit_amount     Decimal            @db.Decimal(12, 2)
   remaining_balance Decimal            @db.Decimal(12, 2)
+  overdue_notification_sent_at DateTime? @db.Timestamp(6)
   credit_interests  credit_interests[]
   sales             sales              @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "creditos_id_venta_fkey")
   clients           clients            @relation(fields: [id_customer], references: [id_client], map: "fk_creditos_cliente")
   credit_statuses   credit_statuses    @relation(fields: [id_credit_status], references: [id_credit_status], map: "fk_creditos_estado_credito")
   installments      installments[]
+
+  @@index([due_date, remaining_balance, overdue_notification_sent_at], map: "idx_credits_overdue_notification")
 }
 
 model employee_roles {
