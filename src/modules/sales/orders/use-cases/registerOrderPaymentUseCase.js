@@ -152,6 +152,11 @@ export const notifyPaymentRegistered = async ({
       pendingAmount,
       isPaid,
       reference,
+      shippingAmount: mappedOrder.shippingAmount,
+      deliveryType: mappedOrder.deliveryType,
+      deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[NotifyPaymentRegistered] Email error:', error.message);

@@ -152,10 +152,13 @@ export const notifyOrderCreated = async (order) => {
       details: mappedOrder.details,
       subtotal: mappedOrder.subtotal,
       ivaAmount: mappedOrder.ivaAmount,
+      shippingAmount: mappedOrder.shippingAmount,
       total: mappedOrder.total,
       paymentDeadline: mappedOrder.paymentDeadline,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[CreateOrderUseCase] Email error:', error.message);

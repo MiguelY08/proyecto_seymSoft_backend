@@ -58,6 +58,11 @@ export const notifyPaymentReceiptReviewed = async ({
         pendingAmount: paymentSummary?.pendingAfter || 0,
         isPaid: Boolean(paymentSummary?.isPaid),
         reviewObservations: receipt.reviewObservations,
+        shippingAmount: mappedOrder.shippingAmount,
+        deliveryType: mappedOrder.deliveryType,
+        deliveryAddress: mappedOrder.deliveryAddress,
+        deliveryDepartment: mappedOrder.deliveryDepartment,
+        deliveryCity: mappedOrder.deliveryCity,
       });
       return;
     }
@@ -68,6 +73,11 @@ export const notifyPaymentReceiptReviewed = async ({
         fullName: customer.name,
         orderId: mappedOrder.id,
         reason: receipt.reviewObservations,
+        shippingAmount: mappedOrder.shippingAmount,
+        deliveryType: mappedOrder.deliveryType,
+        deliveryAddress: mappedOrder.deliveryAddress,
+        deliveryDepartment: mappedOrder.deliveryDepartment,
+        deliveryCity: mappedOrder.deliveryCity,
       });
     }
   } catch (error) {

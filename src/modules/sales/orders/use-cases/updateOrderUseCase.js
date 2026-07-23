@@ -165,8 +165,11 @@ export const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
       orderId: mappedOrder.id,
       previousStatus,
       newStatus: mappedOrder.status?.name,
+      shippingAmount: mappedOrder.shippingAmount,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[UpdateOrderUseCase] Email error:', error.message);

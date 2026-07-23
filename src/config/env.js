@@ -45,10 +45,8 @@ export const env = {
   JWT_REFRESH_EXPIRES: process.env.JWT_REFRESH_EXPIRES || "7d",
   FRONTEND_URL: normalizeUrl(process.env.FRONTEND_URL, "http://localhost:5173"),
   CORS_ORIGIN: getOptionalList(process.env.CORS_ORIGIN || process.env.FRONTEND_URL),
-<<<<<<< HEAD
   LOCATION_CACHE_TTL_MINUTES:
     Number(process.env.LOCATION_CACHE_TTL_MINUTES) || 1440,
-=======
   EMAIL_HOST: process.env.EMAIL_HOST,
   EMAIL_PORT: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined,
   EMAIL_USER: process.env.EMAIL_USER,
@@ -57,5 +55,4 @@ export const env = {
   EMAIL_SECURE:
     process.env.EMAIL_SECURE === "true" ||
     process.env.EMAIL_PORT === "465",
->>>>>>> 88e03c2c613e8ec432d1aded03f5d4fc22e252a0
 };

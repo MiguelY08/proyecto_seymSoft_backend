@@ -37,6 +37,7 @@ const getHoursUntilDeadline = (order, now) => {
 
 const notifyOrderExpired = async (order) => {
   const to = getCustomerEmail(order);
+  const mappedOrder = mapOrder(order);
 
   if (!to) {
     return;
@@ -49,6 +50,11 @@ const notifyOrderExpired = async (order) => {
       orderId: order.id_order,
       reason: EXPIRATION_REASON,
       total: roundMoney(order.total),
+      shippingAmount: mappedOrder.shippingAmount,
+      deliveryType: mappedOrder.deliveryType,
+      deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[ProcessPendingOrderPaymentsUseCase] Expiration email error:', error.message);
@@ -93,6 +99,7 @@ export class ProcessPendingOrderPaymentsUseCase {
         }
 
         const to = getCustomerEmail(order);
+        const mappedOrder = mapOrder(order);
 
         if (!to) {
           errors.push({
@@ -110,6 +117,11 @@ export class ProcessPendingOrderPaymentsUseCase {
           paidAmount: getPaidAmount(order),
           pendingAmount: getPendingAmount(order),
           paymentDeadline: order.payment_deadline,
+          shippingAmount: mappedOrder.shippingAmount,
+          deliveryType: mappedOrder.deliveryType,
+          deliveryAddress: mappedOrder.deliveryAddress,
+          deliveryDepartment: mappedOrder.deliveryDepartment,
+          deliveryCity: mappedOrder.deliveryCity,
           hoursRemaining: shouldSend1h
             ? ORDER_PAYMENT_EXPIRATION.REMINDER_1H
             : ORDER_PAYMENT_EXPIRATION.REMINDER_6H,
