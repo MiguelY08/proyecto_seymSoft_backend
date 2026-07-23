@@ -121,8 +121,14 @@ const orderSummarySelect = {
   order_date: true,
   id_order_status: true,
   delivery_adress: true,
+  delivery_recipient_name: true,
+  delivery_department_code: true,
+  delivery_department_name: true,
+  delivery_city_code: true,
+  delivery_city_name: true,
   subtotal: true,
   iva_amount: true,
+  shipping_amount: true,
   total: true,
   payment_status: true,
   delivery_type: true,
@@ -153,6 +159,8 @@ const orderSummarySelect = {
       id_client: true,
       client_type: true,
       credit: true,
+      doc_type: true,
+      doc_number: true,
       address: true,
       users: {
         select: {
@@ -250,8 +258,14 @@ const orderPaymentResultSelect = {
   order_date: true,
   id_order_status: true,
   delivery_adress: true,
+  delivery_recipient_name: true,
+  delivery_department_code: true,
+  delivery_department_name: true,
+  delivery_city_code: true,
+  delivery_city_name: true,
   subtotal: true,
   iva_amount: true,
+  shipping_amount: true,
   total: true,
   payment_status: true,
   delivery_type: true,
@@ -282,6 +296,8 @@ const orderPaymentResultSelect = {
       id_client: true,
       client_type: true,
       credit: true,
+      doc_type: true,
+      doc_number: true,
       address: true,
       users: {
         select: {
@@ -328,8 +344,14 @@ const orderListSelect = {
   order_date: true,
   id_order_status: true,
   delivery_adress: true,
+  delivery_recipient_name: true,
+  delivery_department_code: true,
+  delivery_department_name: true,
+  delivery_city_code: true,
+  delivery_city_name: true,
   subtotal: true,
   iva_amount: true,
+  shipping_amount: true,
   total: true,
   payment_status: true,
   delivery_type: true,
@@ -352,6 +374,8 @@ const orderListSelect = {
     select: {
       id_client: true,
       client_type: true,
+      doc_type: true,
+      doc_number: true,
       users: {
         select: {
           id_user: true,
@@ -405,6 +429,11 @@ export class OrderRepository {
     const page = Math.max(Number(filters.page) || 1, 1);
     const limit = Math.min(Math.max(Number(filters.limit) || 10, 1), 100);
     const skip = (page - 1) * limit;
+    const searchTerm = String(filters.search || '').trim();
+    const numericSearch =
+      searchTerm && /^\d+$/.test(searchTerm)
+        ? Number(searchTerm)
+        : null;
 
     if (filters.statusId) {
       where.id_order_status = Number(filters.statusId);
@@ -436,6 +465,45 @@ export class OrderRepository {
       if (filters.endDate) {
         where.order_date.lte = new Date(`${filters.endDate}T23:59:59.999Z`);
       }
+    }
+
+    if (searchTerm) {
+      where.OR = [
+        ...(numericSearch !== null
+          ? [
+              {
+                id_order: numericSearch,
+              },
+            ]
+          : []),
+        {
+          clients: {
+            doc_number: {
+              contains: searchTerm,
+            },
+          },
+        },
+        {
+          clients: {
+            users: {
+              full_name: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+        {
+          clients: {
+            users: {
+              email: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ];
     }
 
     const [orders, total] = await Promise.all([
@@ -591,6 +659,8 @@ export class OrderRepository {
         id_order: true,
         id_order_status: true,
         id_payment_status: true,
+        sale_type: true,
+        shipping_amount: true,
         order_statuses: {
           select: {
             name_status: true,
@@ -612,6 +682,29 @@ export class OrderRepository {
     });
   }
 
+  async findShippingUpdateStateById(id) {
+    return prisma.sales_orders.findUnique({
+      where: {
+        id_order: Number(id),
+      },
+      select: {
+        id_order: true,
+        id_order_status: true,
+        id_payment_status: true,
+        delivery_type: true,
+        subtotal: true,
+        iva_amount: true,
+        shipping_amount: true,
+        total: true,
+        sales: {
+          select: {
+            id_sale: true,
+          },
+        },
+      },
+    });
+  }
+
   async findPaymentStateById(id) {
     return prisma.sales_orders.findUnique({
       where: {
@@ -622,6 +715,8 @@ export class OrderRepository {
         id_order_status: true,
         id_payment_status: true,
         sale_type: true,
+        delivery_type: true,
+        shipping_amount: true,
         total: true,
         sales: {
           select: {
@@ -672,6 +767,11 @@ export class OrderRepository {
           },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType || 'Recoge',
+          delivery_department_code: data.deliveryDepartmentCode,
+          delivery_department_name: data.deliveryDepartmentName,
+          delivery_city_code: data.deliveryCityCode,
+          delivery_city_name: data.deliveryCityName,
+          delivery_recipient_name: data.deliveryRecipientName,
           sale_type: data.saleType || 'manual',
           payment_status: paymentStatus.name,
           payment_statuses: {
@@ -689,6 +789,7 @@ export class OrderRepository {
           }),
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
+          shipping_amount: data.shippingAmount,
           total: data.total,
         },
         select: {
@@ -779,6 +880,11 @@ export class OrderRepository {
           },
           delivery_adress: data.deliveryAddress,
           delivery_type: data.deliveryType,
+          delivery_department_code: data.deliveryDepartmentCode,
+          delivery_department_name: data.deliveryDepartmentName,
+          delivery_city_code: data.deliveryCityCode,
+          delivery_city_name: data.deliveryCityName,
+          delivery_recipient_name: data.deliveryRecipientName,
           payment_status: paymentStatus.name,
           payment_statuses: {
             connect: {
@@ -788,6 +894,7 @@ export class OrderRepository {
           payment_deadline: data.paymentDeadline || data.payment_deadline || undefined,
           subtotal: data.subtotal,
           iva_amount: data.ivaAmount,
+          shipping_amount: data.shippingAmount,
           total: data.total,
         },
       });
@@ -812,6 +919,22 @@ export class OrderRepository {
     });
 
     return this.findSummaryById(idOrder);
+  }
+
+  async updateShippingAmount(idOrder, data) {
+    const orderId = Number(idOrder);
+
+    await prisma.sales_orders.update({
+      where: {
+        id_order: orderId,
+      },
+      data: {
+        shipping_amount: data.shippingAmount,
+        total: data.total,
+      },
+    });
+
+    return this.findSummaryById(orderId);
   }
 
   async cancel(id, reason = 'Pedido cancelado.') {
@@ -1028,6 +1151,23 @@ export class OrderRepository {
       },
       data: {
         payment_reminder_1h_sent: true,
+      },
+      select:
+        orderSummarySelect,
+    });
+  }
+
+  async resetPaymentDeadline(idOrder, paymentDeadline) {
+    return prisma.sales_orders.update({
+      where: {
+        id_order: Number(idOrder),
+      },
+      data: {
+        payment_deadline: paymentDeadline,
+        payment_reminder_6h_sent: false,
+        payment_reminder_1h_sent: false,
+        payment_expired_at: null,
+        payment_expiration_reason: null,
       },
       select:
         orderSummarySelect,

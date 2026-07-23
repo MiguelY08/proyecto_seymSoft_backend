@@ -12,6 +12,14 @@ export default class InstallmentMapper {
     const isCancelled =
       Boolean(data.is_cancelled);
 
+    const registeredByUser =
+      data.registered_by_user ??
+      data.users_installments_registered_byTousers;
+
+    const cancelledByUser =
+      data.cancelled_by_user ??
+      data.users_installments_cancelled_byTousers;
+
     return new InstallmentDto({
       idInstallment: data.id_installment,
 
@@ -38,10 +46,10 @@ export default class InstallmentMapper {
       cancellationLimitHours:
         PAYMENT_BUSINESS_RULES.INSTALLMENT_CANCELLATION_HOURS,
 
-      registeredBy: data.registered_by_user
+      registeredBy: registeredByUser
       ? {
-          id: data.registered_by_user.id_user,
-          nombre: data.registered_by_user.full_name,
+          id: registeredByUser.id_user,
+          nombre: registeredByUser.full_name,
         }
       : null,
 
@@ -49,10 +57,10 @@ export default class InstallmentMapper {
 
       cancellationReason: data.cancellation_reason,
 
-      cancelledBy: data.cancelled_by_user
+      cancelledBy: cancelledByUser
       ? {
-          id: data.cancelled_by_user.id_user,
-          nombre: data.cancelled_by_user.full_name,
+          id: cancelledByUser.id_user,
+          nombre: cancelledByUser.full_name,
         }
       : null,
 

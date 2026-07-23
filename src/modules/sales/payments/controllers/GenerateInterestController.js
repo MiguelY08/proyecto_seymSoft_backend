@@ -26,7 +26,11 @@ export const generateInterestController =
 
       const result =
         await useCase.execute(
-          req.body
+          {
+            ...req.body,
+            userId:
+              req.user.id_user,
+          }
         );
 
       return res.status(201).json({

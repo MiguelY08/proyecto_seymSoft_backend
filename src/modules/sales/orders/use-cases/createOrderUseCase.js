@@ -9,10 +9,13 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { VendingRepository } from '../../vendings/repositories/vendingRepository.js';
 import { mapOrder } from '../mappers/orderMapper.js';
+import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
+import { notifyStockAlertsForProducts } from '../../../notifications/services/stockNotificationService.js';
 import {
   calculateOrderTotals,
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
+import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
 
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
@@ -24,6 +27,10 @@ const APPROVED_SALE_STATUS_ID = SALE_STATUSES[1].id;
 const DIRECT_SALE_TYPE_NAME = 'DIRECTA';
 const WEB_SALE_TYPE_NAME = 'WEB';
 const PAID_ORDER_ALLOWED_STATUS_IDS = [
+  READY_ORDER_STATUS_ID,
+  DELIVERED_ORDER_STATUS_ID,
+];
+const OPERATIONAL_ORDER_STATUS_IDS = [
   READY_ORDER_STATUS_ID,
   DELIVERED_ORDER_STATUS_ID,
 ];
@@ -46,6 +53,14 @@ const buildPaymentDeadline = () => {
 
 const buildProductBarcodeKey = (item) =>
   `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
+
+const getOrderItemProductIds = (items = []) => [
+  ...new Set(
+    items
+      .map((item) => Number(item.idProduct ?? item.id_product ?? item.productId))
+      .filter((idProduct) => Number.isInteger(idProduct) && idProduct > 0)
+  ),
+];
 
 const getEnrichedOrderItems = async ({ repo, items, client }) => {
   const barcodeRecords =
@@ -147,13 +162,50 @@ export const notifyOrderCreated = async (order) => {
       details: mappedOrder.details,
       subtotal: mappedOrder.subtotal,
       ivaAmount: mappedOrder.ivaAmount,
+      shippingAmount: mappedOrder.shippingAmount,
       total: mappedOrder.total,
       paymentDeadline: mappedOrder.paymentDeadline,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[CreateOrderUseCase] Email error:', error.message);
+  }
+};
+
+export const notifyAdminsNewWebOrder = async (order) => {
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder || mappedOrder.saleType !== 'web') {
+    return;
+  }
+
+  try {
+    const customerName = mappedOrder.customer?.name || 'Un cliente';
+
+    await notifyAdmins({
+      title: 'Nuevo pedido web',
+      message: `${customerName} realizo el pedido #${mappedOrder.id}.`,
+      type: 'order',
+      actionUrl: '/admin/sales/orders',
+      metadata: {
+        module: 'orders',
+        idOrder: mappedOrder.id,
+        saleType: mappedOrder.saleType,
+        event: 'new_web_order',
+      },
+    });
+  } catch (error) {
+    console.error(
+      '[CreateOrderUseCase] Admin new web order notification error:',
+      error.message
+    );
   }
 };
 
@@ -179,7 +231,9 @@ export class CreateOrderUseCase {
         client,
       });
 
-    const calculated = calculateOrderTotals(enrichedItems);
+    const calculated = calculateOrderTotals(enrichedItems, {
+      shippingAmount: dto.shippingAmount,
+    });
     const initialPayments = dto.initialPayments || [];
 
     for (const payment of initialPayments) {
@@ -238,11 +292,30 @@ export class CreateOrderUseCase {
       );
     }
 
+    if (
+      OPERATIONAL_ORDER_STATUS_IDS.includes(idOrderStatus) &&
+      requiresShippingQuote({
+        deliveryType: dto.deliveryType,
+        saleType: dto.saleType,
+        shippingAmount: calculated.shippingAmount,
+      })
+    ) {
+      throw new AppError(
+        'Debe registrar el valor del envio antes de avanzar un pedido web a domicilio.',
+        400
+      );
+    }
+
     return {
       idClient: dto.idClient,
       idEmployee,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
+      deliveryDepartmentCode: dto.deliveryDepartmentCode,
+      deliveryDepartmentName: dto.deliveryDepartmentName,
+      deliveryCityCode: dto.deliveryCityCode,
+      deliveryCityName: dto.deliveryCityName,
+      deliveryRecipientName: dto.deliveryRecipientName,
       saleType: dto.saleType,
       idOrderStatus,
       idPaymentStatus: paymentStatus.id,
@@ -252,6 +325,7 @@ export class CreateOrderUseCase {
       items: calculated.items,
       subtotal: calculated.subtotal,
       ivaAmount: calculated.ivaAmount,
+      shippingAmount: calculated.shippingAmount,
       total: calculated.total,
     };
   }
@@ -298,6 +372,10 @@ export class CreateOrderUseCase {
         decreaseStock: true,
         markOrderAsPaid: false,
       });
+
+      await notifyStockAlertsForProducts(
+        getOrderItemProductIds(orderData.items)
+      );
     } catch (error) {
       await this.repo.deleteCreatedOrder(order.id_order);
 

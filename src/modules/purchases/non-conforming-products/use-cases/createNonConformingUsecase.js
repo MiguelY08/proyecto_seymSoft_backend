@@ -2,7 +2,7 @@
 import { prisma } from '../../../../config/prisma.js';
 import { NonConformingRepository } from '../repositories/nonConformingRepository.js';
 import { NonConformingMapper } from '../mappers/nonConformingMapper.js';
-import { notifyLowStockProductForCartOwners } from '../../../notifications/services/stockNotificationService.js';
+import { notifyStockAlertsForProduct } from '../../../notifications/services/stockNotificationService.js';
 
 const repo = new NonConformingRepository();
 
@@ -82,7 +82,7 @@ export class CreateNonConformingUseCase {
       };
     });
 
-    await notifyLowStockProductForCartOwners(report.idProduct);
+    await notifyStockAlertsForProduct(report.idProduct);
     
     return NonConformingMapper.toDTO(report.report);
   }

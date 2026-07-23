@@ -14,6 +14,7 @@ export const CreateUserController = async (
 
     if (!validation.success) {
       return res.status(400).json({
+        success: false,
         message:
           "Errores de validación",
         errors:
@@ -34,6 +35,7 @@ export const CreateUserController = async (
 
     if (!result.success) {
       return res.status(400).json({
+        success: false,
         message: result.error
       });
     }
@@ -45,9 +47,11 @@ export const CreateUserController = async (
       );
 
     return res.status(201).json({
+      success: true,
       message: "Usuario creado exitosamente",
       warning: result.warning || null,
-      errorCode: result.errorCode || null,
+      warningCode: result.warningCode || null,
+      errorCode: null,
       user: userWithRole || {
         user: result.data,
         role: null,
@@ -62,6 +66,7 @@ export const CreateUserController = async (
     );
 
     return res.status(500).json({
+      success: false,
       message:
         "Error creando usuario"
     });
