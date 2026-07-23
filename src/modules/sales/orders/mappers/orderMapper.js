@@ -160,6 +160,8 @@ export const mapOrder = (order) => {
           name: order.clients.users?.full_name || null,
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,
+          documentType: order.clients.doc_type || null,
+          document: order.clients.doc_number?.toString() || null,
           address: order.clients.address || null,
           clientType: order.clients.client_type || null,
           credit: Number(order.clients.credit || 0),
@@ -296,6 +298,8 @@ export const mapOrderSummary = (order) => {
           name: order.clients.users?.full_name || null,
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,
+          documentType: order.clients.doc_type || null,
+          document: order.clients.doc_number?.toString() || null,
           clientType: order.clients.client_type || null,
         }
       : null,

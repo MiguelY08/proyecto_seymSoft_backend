@@ -159,6 +159,8 @@ const orderSummarySelect = {
       id_client: true,
       client_type: true,
       credit: true,
+      doc_type: true,
+      doc_number: true,
       address: true,
       users: {
         select: {
@@ -293,6 +295,8 @@ const orderPaymentResultSelect = {
       id_client: true,
       client_type: true,
       credit: true,
+      doc_type: true,
+      doc_number: true,
       address: true,
       users: {
         select: {
@@ -368,6 +372,8 @@ const orderListSelect = {
     select: {
       id_client: true,
       client_type: true,
+      doc_type: true,
+      doc_number: true,
       users: {
         select: {
           full_name: true,
@@ -1142,6 +1148,23 @@ export class OrderRepository {
       },
       data: {
         payment_reminder_1h_sent: true,
+      },
+      select:
+        orderSummarySelect,
+    });
+  }
+
+  async resetPaymentDeadline(idOrder, paymentDeadline) {
+    return prisma.sales_orders.update({
+      where: {
+        id_order: Number(idOrder),
+      },
+      data: {
+        payment_deadline: paymentDeadline,
+        payment_reminder_6h_sent: false,
+        payment_reminder_1h_sent: false,
+        payment_expired_at: null,
+        payment_expiration_reason: null,
       },
       select:
         orderSummarySelect,

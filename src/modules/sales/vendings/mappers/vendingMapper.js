@@ -462,6 +462,10 @@ export class VendingMapper {
         customer.id_client,
       clientType:
         customer.client_type,
+      documentType:
+        customer.doc_type || null,
+      document:
+        customer.doc_number ? String(customer.doc_number) : null,
       user:
         customer.users
           ? {
@@ -528,6 +532,10 @@ export class VendingMapper {
         customer.person_type,
       clientType:
         customer.client_type,
+      documentType:
+        customer.doc_type || null,
+      document:
+        customer.doc_number ? String(customer.doc_number) : null,
       credit:
         toNumber(customer.credit),
       user:

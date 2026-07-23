@@ -351,7 +351,7 @@ export const reviewOrderPaymentReceipt = async (req, res, next) => {
     return res.status(httpCodes.OK).json({
       success: true,
       message: responseData.paymentResult
-        ? 'Comprobante aprobado y abono registrado exitosamente.'
+        ? 'Comprobante aprobado y pago pendiente registrado exitosamente.'
         : 'Comprobante revisado exitosamente.',
       data: responseData,
     });

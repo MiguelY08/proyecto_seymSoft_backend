@@ -42,6 +42,8 @@ const saleInclude = {
           person_type: true,
           client_type: true,
           credit: true,
+          doc_type: true,
+          doc_number: true,
           users: {
             select: {
               id_user: true,
@@ -192,6 +194,8 @@ const saleListSelect = {
         select: {
           id_client: true,
           client_type: true,
+          doc_type: true,
+          doc_number: true,
           users: {
             select: {
               id_user: true,
