@@ -213,13 +213,6 @@ export const reviewOrderPaymentReceiptSchema = z
         });
       }
 
-      if (!data.amount) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["amount"],
-          message: "El monto del pago es obligatorio al aprobar el comprobante",
-        });
-      }
     }
   });
 

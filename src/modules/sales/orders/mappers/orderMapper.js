@@ -1,4 +1,8 @@
 import { PAYMENT_STATUSES } from '../../../../shared/constants/generalStatuses.js';
+import {
+  getShippingStatus,
+  requiresShippingQuote,
+} from '../helpers/orderShippingStatus.js';
 
 const mapPaymentStatus = (order) => {
   if (order.payment_statuses) {
@@ -69,6 +73,17 @@ const mapProductImages = (images = []) =>
     isPrimary: Boolean(image.is_primary),
   }));
 
+const mapDeliveryLocation = (order) => ({
+  department: {
+    code: order.delivery_department_code || null,
+    name: order.delivery_department_name || null,
+  },
+  city: {
+    code: order.delivery_city_code || null,
+    name: order.delivery_city_name || null,
+  },
+});
+
 export const mapOrder = (order) => {
   const subtotal =
     order.subtotal ??
@@ -86,9 +101,22 @@ export const mapOrder = (order) => {
     ) ??
     0;
 
+  const shippingAmount = order.shipping_amount ?? 0;
+  const deliveryType = order.delivery_type || null;
+  const saleType = order.sale_type || 'manual';
+  const shippingStatus = getShippingStatus({
+    deliveryType,
+    shippingAmount,
+  });
+  const needsShippingQuote = requiresShippingQuote({
+    deliveryType,
+    saleType,
+    shippingAmount,
+  });
+
   const total =
     order.total ??
-    Number(subtotal) + Number(ivaAmount);
+    Number(subtotal) + Number(ivaAmount) + Number(shippingAmount);
 
   const payments = mapPayments(order.order_payments || []);
   const paymentReceipts = mapPaymentReceipts(
@@ -132,6 +160,8 @@ export const mapOrder = (order) => {
           name: order.clients.users?.full_name || null,
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,
+          documentType: order.clients.doc_type || null,
+          document: order.clients.doc_number?.toString() || null,
           address: order.clients.address || null,
           clientType: order.clients.client_type || null,
           credit: Number(order.clients.credit || 0),
@@ -145,8 +175,18 @@ export const mapOrder = (order) => {
         }
       : null,
     deliveryAddress: order.delivery_adress || null,
-    deliveryType: order.delivery_type || null,
-    saleType: order.sale_type || 'manual',
+    deliveryRecipientName: order.delivery_recipient_name || null,
+    deliveryType,
+    deliveryDepartment: {
+      code: order.delivery_department_code || null,
+      name: order.delivery_department_name || null,
+    },
+    deliveryCity: {
+      code: order.delivery_city_code || null,
+      name: order.delivery_city_name || null,
+    },
+    deliveryLocation: mapDeliveryLocation(order),
+    saleType,
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
     paymentDeadline: order.payment_deadline || null,
@@ -158,6 +198,9 @@ export const mapOrder = (order) => {
     cancelledAt: order.cancelled_at || null,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
+    shippingAmount: Number(shippingAmount),
+    shippingStatus,
+    requiresShippingQuote: needsShippingQuote,
     total: Number(total),
     paidAmount,
     pendingAmount,
@@ -189,7 +232,21 @@ export const mapOrder = (order) => {
 export const mapOrderSummary = (order) => {
   const subtotal = order.subtotal ?? 0;
   const ivaAmount = order.iva_amount ?? 0;
-  const total = order.total ?? Number(subtotal) + Number(ivaAmount);
+  const shippingAmount = order.shipping_amount ?? 0;
+  const deliveryType = order.delivery_type || null;
+  const saleType = order.sale_type || 'manual';
+  const shippingStatus = getShippingStatus({
+    deliveryType,
+    shippingAmount,
+  });
+  const needsShippingQuote = requiresShippingQuote({
+    deliveryType,
+    saleType,
+    shippingAmount,
+  });
+  const total =
+    order.total ??
+    Number(subtotal) + Number(ivaAmount) + Number(shippingAmount);
   const paymentStatus = mapPaymentStatus(order);
   const sale = mapSale(order.sales);
   const isPaid =
@@ -241,6 +298,8 @@ export const mapOrderSummary = (order) => {
           name: order.clients.users?.full_name || null,
           email: order.clients.users?.email || null,
           phone: order.clients.users?.phone?.toString() || null,
+          documentType: order.clients.doc_type || null,
+          document: order.clients.doc_number?.toString() || null,
           clientType: order.clients.client_type || null,
         }
       : null,
@@ -252,12 +311,25 @@ export const mapOrderSummary = (order) => {
         }
       : null,
     deliveryAddress: order.delivery_adress || null,
-    deliveryType: order.delivery_type || null,
-    saleType: order.sale_type || 'manual',
+    deliveryRecipientName: order.delivery_recipient_name || null,
+    deliveryType,
+    deliveryDepartment: {
+      code: order.delivery_department_code || null,
+      name: order.delivery_department_name || null,
+    },
+    deliveryCity: {
+      code: order.delivery_city_code || null,
+      name: order.delivery_city_name || null,
+    },
+    deliveryLocation: mapDeliveryLocation(order),
+    saleType,
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
+    shippingAmount: Number(shippingAmount),
+    shippingStatus,
+    requiresShippingQuote: needsShippingQuote,
     total: Number(total),
     paidAmount,
     pendingAmount,

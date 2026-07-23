@@ -37,6 +37,8 @@ services:
         sync: false
       - key: EMAIL_PORT
         sync: false
+      - key: EMAIL_SECURE
+        sync: false
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASSWORD
@@ -59,3 +61,7 @@ services:
         value: "true"
       - key: ORDER_PAYMENT_JOB_INTERVAL_MINUTES
         value: "15"
+      - key: OVERDUE_CREDIT_NOTIFICATION_JOB_ENABLED
+        value: "false"
+      - key: OVERDUE_CREDIT_NOTIFICATION_JOB_INTERVAL_HOURS
+        value: "24"

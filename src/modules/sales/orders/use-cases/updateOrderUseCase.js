@@ -9,12 +9,55 @@ import {
   calculateOrderTotals,
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
+import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
+import { DELIVERY_TYPES } from '../../shared/deliveryTypes.js';
 
 const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
 const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
+const ADVISOR_ORDER_SALE_TYPES = ['manual', 'direct'];
+const OPERATIONAL_ORDER_STATUS_IDS = [
+  READY_ORDER_STATUS_ID,
+  DELIVERED_ORDER_STATUS_ID,
+];
+
+const roundMoney = (value) =>
+  Math.round((Number(value) || 0) * 100) / 100;
+
+const getOrderSaleType = (order = {}) =>
+  String(order.sale_type || 'manual')
+    .trim()
+    .toLowerCase();
+
+const validateShippingAmountForUpdate = ({ order, dto }) => {
+  const saleType = getOrderSaleType(order);
+
+  if (
+    dto.deliveryType === DELIVERY_TYPES.DELIVERY &&
+    ADVISOR_ORDER_SALE_TYPES.includes(saleType) &&
+    roundMoney(dto.shippingAmount) <= 0
+  ) {
+    throw new AppError(
+      'El valor del envio debe ser mayor a 0 para pedidos a domicilio registrados por asesor.',
+      400
+    );
+  }
+};
+
+const validateDeliveryRecipientForUpdate = ({ order, dto }) => {
+  if (getOrderSaleType(order) === 'direct') {
+    return;
+  }
+
+  if (!dto.deliveryRecipientName) {
+    throw new AppError(
+      'El nombre de quien recibe el pedido es obligatorio.',
+      400
+    );
+  }
+};
 
 const normalizeOrderItems = (items = []) =>
   items
@@ -135,8 +178,12 @@ export const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
       orderId: mappedOrder.id,
       previousStatus,
       newStatus: mappedOrder.status?.name,
+      shippingAmount: mappedOrder.shippingAmount,
       deliveryType: mappedOrder.deliveryType,
       deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[UpdateOrderUseCase] Email error:', error.message);
@@ -181,19 +228,30 @@ export class UpdateOrderUseCase {
       order.order_details,
       dto.items
     );
+    const hasShippingAmountChanges =
+      roundMoney(order.shipping_amount) !== roundMoney(dto.shippingAmount);
 
     if (
-      hasContentChanges &&
+      (hasContentChanges || hasShippingAmountChanges) &&
       (
         order.id_payment_status === PAID_PAYMENT_STATUS_ID ||
         Boolean(order.sales)
       )
     ) {
       throw new AppError(
-        'No se pueden modificar productos o cantidades de un pedido pagado o con venta asociada.',
+        'No se pueden modificar productos, cantidades o envio de un pedido pagado o con venta asociada.',
         400
       );
     }
+
+    validateShippingAmountForUpdate({
+      order,
+      dto,
+    });
+    validateDeliveryRecipientForUpdate({
+      order,
+      dto,
+    });
 
     const client = await this.repo.findClientById(dto.idClient);
 
@@ -206,7 +264,9 @@ export class UpdateOrderUseCase {
       items: dto.items,
       client,
     });
-    const calculated = calculateOrderTotals(enrichedItems);
+    const calculated = calculateOrderTotals(enrichedItems, {
+      shippingAmount: dto.shippingAmount,
+    });
 
 
     const nextOrderStatusId =
@@ -214,16 +274,36 @@ export class UpdateOrderUseCase {
         ? IN_PROCESS_ORDER_STATUS_ID
         : dto.idOrderStatus || order.id_order_status;
 
+    if (
+      OPERATIONAL_ORDER_STATUS_IDS.includes(Number(nextOrderStatusId)) &&
+      requiresShippingQuote({
+        deliveryType: dto.deliveryType,
+        saleType: getOrderSaleType(order),
+        shippingAmount: calculated.shippingAmount,
+      })
+    ) {
+      throw new AppError(
+        'Debe registrar el valor del envio antes de avanzar un pedido web a domicilio.',
+        400
+      );
+    }
+
     const orderData = {
       idClient: dto.idClient,
       deliveryType: dto.deliveryType,
       deliveryAddress: dto.deliveryAddress,
+      deliveryDepartmentCode: dto.deliveryDepartmentCode,
+      deliveryDepartmentName: dto.deliveryDepartmentName,
+      deliveryCityCode: dto.deliveryCityCode,
+      deliveryCityName: dto.deliveryCityName,
+      deliveryRecipientName: dto.deliveryRecipientName,
       idOrderStatus: nextOrderStatusId,
       idPaymentStatus: dto.idPaymentStatus || order.id_payment_status || PAYMENT_STATUSES[1].id,
       paymentStatus: dto.paymentStatus,
       items: calculated.items,
       subtotal: calculated.subtotal,
       ivaAmount: calculated.ivaAmount,
+      shippingAmount: calculated.shippingAmount,
       total: calculated.total,
     };
 

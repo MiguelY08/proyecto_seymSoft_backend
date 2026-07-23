@@ -1,6 +1,7 @@
 import calculateInterestAmount from "../helpers/calculateInterestAmount.js";
 import calculateOverdueDays from "../helpers/calculateOverdueDays.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
+import { paymentNotificationService } from "../services/paymentNotificationService.js";
 
 export class GenerateInterestUseCase {
   constructor(paymentsRepository) {
@@ -11,6 +12,7 @@ export class GenerateInterestUseCase {
   async execute({
     id_credit,
     percentage,
+    userId,
   }) {
     const credit =
       await this.paymentsRepository.getCreditById(
@@ -69,6 +71,18 @@ export class GenerateInterestUseCase {
             generatedAmount,
         }
       );
+
+    await paymentNotificationService.notifyInterestGenerated({
+      paymentsRepository:
+        this.paymentsRepository,
+      idCredit:
+        id_credit,
+      actorUserId:
+        userId,
+      generatedAmount,
+      idInterest:
+        interest.id_interest,
+    });
 
     return {
       message:

@@ -6,10 +6,17 @@ import {
   startOrderPaymentExpirationJob,
   stopOrderPaymentExpirationJob,
 } from './modules/sales/orders/jobs/orderPaymentExpirationJob.js';
+import {
+  startOverdueCreditNotificationJob,
+  stopOverdueCreditNotificationJob,
+} from './modules/sales/payments/jobs/overdueCreditNotificationJob.js';
 // import { prisma } from './config/prisma.js';
 
-const shouldStartJobs = () =>
+const shouldStartOrderPaymentJob = () =>
   process.env.ORDER_PAYMENT_JOB_ENABLED !== 'false';
+
+const shouldStartOverdueCreditNotificationJob = () =>
+  process.env.OVERDUE_CREDIT_NOTIFICATION_JOB_ENABLED === 'true';
 
 const startServer = async () => {
   try {
@@ -20,13 +27,18 @@ const startServer = async () => {
     const server = app.listen(env.PORT, () => {
       console.log(`Servidor escuchando en el puerto ${env.PORT}`);
 
-      if (shouldStartJobs()) {
+      if (shouldStartOrderPaymentJob()) {
         startOrderPaymentExpirationJob();
+      }
+
+      if (shouldStartOverdueCreditNotificationJob()) {
+        startOverdueCreditNotificationJob();
       }
     });
 
     const shutdown = () => {
       stopOrderPaymentExpirationJob();
+      stopOverdueCreditNotificationJob();
 
       server.close(() => {
         console.log('Servidor detenido correctamente');

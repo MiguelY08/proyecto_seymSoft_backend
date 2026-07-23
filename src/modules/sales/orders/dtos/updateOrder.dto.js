@@ -1,7 +1,40 @@
 import {
+  DELIVERY_TYPES,
   normalizeDeliveryAddress,
+  normalizeDeliveryLocation,
   normalizeDeliveryType,
 } from '../../shared/deliveryTypes.js';
+
+const normalizeShippingAmount = ({
+  value,
+  deliveryType,
+}) => {
+  if (deliveryType === DELIVERY_TYPES.PICKUP) {
+    return 0;
+  }
+
+  const amount = Number(value ?? 0);
+
+  if (Number.isNaN(amount) || amount < 0) {
+    throw new Error('El valor del envio debe ser un numero mayor o igual a 0.');
+  }
+
+  return Math.round(amount * 100) / 100;
+};
+
+const normalizeDeliveryRecipientName = (value) => {
+  const recipientName = String(value || '').trim();
+
+  if (!recipientName) {
+    return null;
+  }
+
+  if (recipientName.length > 255) {
+    throw new Error('El nombre de quien recibe el pedido no puede exceder 255 caracteres.');
+  }
+
+  return recipientName;
+};
 
 export class UpdateOrderDto {
   constructor(data) {
@@ -11,6 +44,35 @@ export class UpdateOrderDto {
     const deliveryAddress = normalizeDeliveryAddress(
       deliveryType,
       data.deliveryAddress ?? data.delivery_adress
+    );
+    const deliveryLocation = normalizeDeliveryLocation(
+      deliveryType,
+      {
+        deliveryDepartmentCode:
+          data.deliveryDepartmentCode ??
+          data.delivery_department_code ??
+          data.departmentCode ??
+          data.department_code,
+        deliveryDepartmentName:
+          data.deliveryDepartmentName ??
+          data.delivery_department_name ??
+          data.departmentName ??
+          data.department_name,
+        deliveryCityCode:
+          data.deliveryCityCode ??
+          data.delivery_city_code ??
+          data.cityCode ??
+          data.city_code ??
+          data.municipalityCode ??
+          data.municipality_code,
+        deliveryCityName:
+          data.deliveryCityName ??
+          data.delivery_city_name ??
+          data.cityName ??
+          data.city_name ??
+          data.municipalityName ??
+          data.municipality_name,
+      }
     );
 
     this.idClient = data.idClient ?? data.id_client;
@@ -25,6 +87,31 @@ export class UpdateOrderDto {
       data.payment_status;
     this.deliveryType = deliveryType;
     this.deliveryAddress = deliveryAddress;
+    this.deliveryDepartmentCode =
+      deliveryLocation.deliveryDepartmentCode;
+    this.deliveryDepartmentName =
+      deliveryLocation.deliveryDepartmentName;
+    this.deliveryCityCode =
+      deliveryLocation.deliveryCityCode;
+    this.deliveryCityName =
+      deliveryLocation.deliveryCityName;
+    this.deliveryRecipientName = normalizeDeliveryRecipientName(
+      data.deliveryRecipientName ??
+      data.delivery_recipient_name ??
+      data.recipientName ??
+      data.recipient_name ??
+      data.receiverName ??
+      data.receiver_name
+    );
+    this.shippingAmount = normalizeShippingAmount({
+      value:
+        data.shippingAmount ??
+        data.shipping_amount ??
+        data.deliveryAmount ??
+        data.delivery_amount ??
+        data.envio,
+      deliveryType,
+    });
     this.items = data.items ?? [];
 
     if (!this.idClient) {
