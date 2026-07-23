@@ -9,6 +9,8 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { VendingRepository } from '../../vendings/repositories/vendingRepository.js';
 import { mapOrder } from '../mappers/orderMapper.js';
+import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
+import { notifyStockAlertsForProducts } from '../../../notifications/services/stockNotificationService.js';
 import {
   calculateOrderTotals,
   getPriceByClientType,
@@ -51,6 +53,14 @@ const buildPaymentDeadline = () => {
 
 const buildProductBarcodeKey = (item) =>
   `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
+
+const getOrderItemProductIds = (items = []) => [
+  ...new Set(
+    items
+      .map((item) => Number(item.idProduct ?? item.id_product ?? item.productId))
+      .filter((idProduct) => Number.isInteger(idProduct) && idProduct > 0)
+  ),
+];
 
 const getEnrichedOrderItems = async ({ repo, items, client }) => {
   const barcodeRecords =
@@ -163,6 +173,39 @@ export const notifyOrderCreated = async (order) => {
     });
   } catch (error) {
     console.error('[CreateOrderUseCase] Email error:', error.message);
+  }
+};
+
+export const notifyAdminsNewWebOrder = async (order) => {
+  const mappedOrder =
+    order?.id_order
+      ? mapOrder(order)
+      : order;
+
+  if (!mappedOrder || mappedOrder.saleType !== 'web') {
+    return;
+  }
+
+  try {
+    const customerName = mappedOrder.customer?.name || 'Un cliente';
+
+    await notifyAdmins({
+      title: 'Nuevo pedido web',
+      message: `${customerName} realizo el pedido #${mappedOrder.id}.`,
+      type: 'order',
+      actionUrl: '/admin/sales/orders',
+      metadata: {
+        module: 'orders',
+        idOrder: mappedOrder.id,
+        saleType: mappedOrder.saleType,
+        event: 'new_web_order',
+      },
+    });
+  } catch (error) {
+    console.error(
+      '[CreateOrderUseCase] Admin new web order notification error:',
+      error.message
+    );
   }
 };
 
@@ -329,6 +372,10 @@ export class CreateOrderUseCase {
         decreaseStock: true,
         markOrderAsPaid: false,
       });
+
+      await notifyStockAlertsForProducts(
+        getOrderItemProductIds(orderData.items)
+      );
     } catch (error) {
       await this.repo.deleteCreatedOrder(order.id_order);
 

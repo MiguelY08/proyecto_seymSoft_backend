@@ -3,6 +3,7 @@
 } from '../../../../shared/constants/generalStatuses.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
+import { notifyCustomerOrderExpired } from './orderCustomerNotifications.js';
 
 const EXPIRATION_REASON = 'Pedido cancelado automaticamente por vencimiento de pago.';
 
@@ -154,6 +155,10 @@ export class ProcessPendingOrderPaymentsUseCase {
         );
 
         await notifyOrderExpired(expiredOrder);
+        await notifyCustomerOrderExpired({
+          order: expiredOrder,
+          reason: EXPIRATION_REASON,
+        });
 
         expirations.push({
           idOrder: order.id_order,

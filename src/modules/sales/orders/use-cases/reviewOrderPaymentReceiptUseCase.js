@@ -7,6 +7,7 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { RegisterOrderPaymentUseCase } from './registerOrderPaymentUseCase.js';
+import { notifyCustomerPaymentReceiptReviewed } from './orderCustomerNotifications.js';
 
 const REVIEWABLE_RECEIPT_STATUSES = [
   PAYMENT_RECEIPT_STATUSES.APPROVED,
@@ -90,7 +91,6 @@ export const notifyPaymentReceiptReviewed = async ({
         deliveryDepartment: mappedOrder.deliveryDepartment,
         deliveryCity: mappedOrder.deliveryCity,
       });
-      return;
     }
 
     if (receipt.status === PAYMENT_RECEIPT_STATUSES.REJECTED) {
@@ -110,6 +110,12 @@ export const notifyPaymentReceiptReviewed = async ({
   } catch (error) {
     console.error('[NotifyPaymentReceiptReviewed] Email error:', error.message);
   }
+
+  await notifyCustomerPaymentReceiptReviewed({
+    order: mappedOrder,
+    receipt,
+    paymentSummary,
+  });
 };
 
 export class ReviewOrderPaymentReceiptUseCase {

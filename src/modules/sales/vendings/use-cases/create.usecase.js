@@ -6,6 +6,7 @@ import {
 } from "../../../../shared/constants/generalStatuses.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
 import { EmailService } from "../../../../shared/services/emailService.js";
+import { notifyStockAlertsForProducts } from "../../../notifications/services/stockNotificationService.js";
 import { CreateOrderDto } from "../../orders/dtos/createOrder.dto.js";
 import { CreateOrderUseCase } from "../../orders/use-cases/createOrderUseCase.js";
 import { OrderRepository } from "../../orders/repositories/orderRepository.js";
@@ -320,6 +321,30 @@ export const notifySaleCreated = async (saleSummary) => {
       error.message
     );
   }
+};
+
+const getOrderDetailProductIds = (orderDetails = []) => (
+  [
+    ...new Set(
+      orderDetails
+        .map((detail) => Number(
+          detail.idProduct ??
+          detail.id_product ??
+          detail.productId
+        ))
+        .filter((idProduct) => Number.isInteger(idProduct) && idProduct > 0)
+    ),
+  ]
+);
+
+const notifyLowStockProductsInCarts = async (orderDetails = []) => {
+  const productIds = getOrderDetailProductIds(orderDetails);
+
+  if (!productIds.length) {
+    return;
+  }
+
+  await notifyStockAlertsForProducts(productIds);
 };
 
 const buildPaymentMethodsFromOrderPayments = (orderPayments = []) => {
@@ -827,6 +852,8 @@ export const createVendingUseCase = async (params) => {
         markOrderAsPaid:
           createsOrderFromSale,
       });
+
+    await notifyLowStockProductsInCarts(orderDetails);
 
     return {
       success: true,

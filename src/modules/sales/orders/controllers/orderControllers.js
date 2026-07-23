@@ -5,10 +5,12 @@ import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
 import {
   CreateOrderUseCase,
+  notifyAdminsNewWebOrder,
   notifyOrderCreated,
 } from '../use-cases/createOrderUseCase.js';
 import {
   UpdateOrderUseCase,
+  notifyOrderUpdated,
   notifyOrderStatusChanged,
 } from '../use-cases/updateOrderUseCase.js';
 import { UpdateOrderShippingUseCase } from '../use-cases/updateOrderShippingUseCase.js';
@@ -62,6 +64,7 @@ export const createOrder = async (req, res, next) => {
     res.once('finish', () => {
       setImmediate(() => {
         void notifyOrderCreated(data);
+        void notifyAdminsNewWebOrder(data);
       });
     });
 
@@ -125,6 +128,14 @@ export const updateOrder = async (req, res, next) => {
       res.once('finish', () => {
         setImmediate(() => {
           void notifyOrderStatusChanged(result.statusNotification);
+        });
+      });
+    }
+
+    if (result.updateNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyOrderUpdated(result.updateNotification);
         });
       });
     }
