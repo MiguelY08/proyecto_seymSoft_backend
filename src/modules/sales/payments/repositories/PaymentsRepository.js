@@ -165,14 +165,14 @@ export class PaymentsRepository {
           },
         },
 
-        registered_by_user: {
+        users_installments_registered_byTousers: {
           select: {
             id_user: true,
             full_name: true,
           },
         },
 
-        cancelled_by_user: {
+        users_installments_cancelled_byTousers: {
           select: {
             id_user: true,
             full_name: true,
@@ -324,14 +324,14 @@ export class PaymentsRepository {
               },
             },
 
-            registered_by_user: {
+            users_installments_registered_byTousers: {
               select: {
                 id_user: true,
                 full_name: true,
               },
             },
 
-            cancelled_by_user: {
+            users_installments_cancelled_byTousers: {
               select: {
                 id_user: true,
                 full_name: true,
@@ -407,13 +407,13 @@ export class PaymentsRepository {
         data: installmentData,
         include: {
           payment_methods: true,
-          registered_by_user: {
+          users_installments_registered_byTousers: {
             select: {
               id_user: true,
               full_name: true,
             },
           },
-          cancelled_by_user: {
+          users_installments_cancelled_byTousers: {
             select: {
               id_user: true,
               full_name: true,
