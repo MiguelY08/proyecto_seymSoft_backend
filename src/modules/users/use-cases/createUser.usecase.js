@@ -21,6 +21,28 @@ const generateRandomPassword = () => {
   return password;
 };
 
+const sendWelcomeEmailInBackground = ({
+  email,
+  tempPassword,
+  fullName,
+}) => {
+  setImmediate(async () => {
+    try {
+      await EmailService.sendWelcomeEmail(
+        email,
+        tempPassword,
+        fullName,
+        env.FRONTEND_URL
+      );
+    } catch (emailError) {
+      console.error(
+        "[CreateUserUseCase] Email error:",
+        emailError.message
+      );
+    }
+  });
+};
+
 export const createUserUseCase = async (userData) => {
   try {
     const {
@@ -81,31 +103,17 @@ export const createUserUseCase = async (userData) => {
       );
     }
 
-    try {
-      await EmailService.sendWelcomeEmail(
-        email,
-        tempPassword,
-        fullName,
-        env.FRONTEND_URL
-      );
-    } catch (emailError) {
-      console.error(
-        "[CreateUserUseCase] Email error:",
-        emailError.message
-      );
-
-      return {
-        success: true,
-        data: newUser,
-        warning: "Usuario creado pero el email fallo",
-        errorCode: "EMAIL_SEND_ERROR",
-      };
-    }
+    sendWelcomeEmailInBackground({
+      email,
+      tempPassword,
+      fullName,
+    });
 
     return {
       success: true,
       data: newUser,
       warning: null,
+      warningCode: null,
       error: null,
       errorCode: null,
     };
@@ -125,4 +133,3 @@ export const createUserUseCase = async (userData) => {
 };
 
 export const create = createUserUseCase;
-
