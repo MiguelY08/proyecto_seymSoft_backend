@@ -16,14 +16,13 @@ model access {
 }
 
 model assigned_permissions {
-  id_permission  Int              @id(map: "permisos_asignados_pkey") @default(autoincrement())
-  id_role        Int
-  id_module      Int
-  id_privilege   Int
-  modules        modules          @relation(fields: [id_module], references: [id_module], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_modulo_fkey")
-  privileges     privileges       @relation(fields: [id_privilege], references: [id_privilege], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_privilegio_fkey")
-  roles          roles            @relation(fields: [id_role], references: [id_role], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_rol_fkey")
-  employee_roles employee_roles[]
+  id_permission Int        @id(map: "permisos_asignados_pkey") @default(autoincrement())
+  id_role       Int
+  id_module     Int
+  id_privilege  Int
+  modules       modules    @relation(fields: [id_module], references: [id_module], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_modulo_fkey")
+  privileges    privileges @relation(fields: [id_privilege], references: [id_privilege], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_privilegio_fkey")
+  roles         roles      @relation(fields: [id_role], references: [id_role], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_rol_fkey")
 
   @@unique([id_role, id_module, id_privilege], map: "permisos_asignados_id_rol_id_modulo_id_privilegio_key")
 }
@@ -131,11 +130,11 @@ model credits {
 }
 
 model employee_roles {
-  id_employee_role       Int                  @id(map: "empleados_rol_pkey") @default(autoincrement())
-  id_employee            Int                  @unique(map: "empleados_rol_id_empleado_key")
-  id_assigned_permission Int
-  employees              employees            @relation(fields: [id_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_empleado_fkey")
-  assigned_permissions   assigned_permissions @relation(fields: [id_assigned_permission], references: [id_permission], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_permisos_asignados_fkey")
+  id_employee_role Int       @id(map: "empleados_rol_pkey") @default(autoincrement())
+  id_employee      Int       @unique(map: "empleados_rol_id_empleado_key")
+  id_role          Int
+  employees        employees @relation(fields: [id_employee], references: [id_employee], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_empleado_fkey")
+  roles            roles     @relation(fields: [id_role], references: [id_role], onDelete: NoAction, onUpdate: NoAction, map: "empleados_rol_id_rol_fkey")
 }
 
 model employees {
@@ -611,6 +610,7 @@ model roles {
   date_creation        DateTime?              @default(dbgenerated("CURRENT_DATE")) @db.Date
   id_status            Int
   assigned_permissions assigned_permissions[]
+  employee_roles       employee_roles[]
   general_statuses     general_statuses       @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "fk_roles_estado")
 }
 
