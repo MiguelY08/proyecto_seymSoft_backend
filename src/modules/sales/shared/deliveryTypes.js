@@ -10,6 +10,22 @@ const normalizeText = (value) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+const normalizeOptionalText = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+
+  return normalized || null;
+};
+
+const validateMaxLength = (field, value, maxLength) => {
+  if (value && value.length > maxLength) {
+    throw new Error(`${field} no puede exceder ${maxLength} caracteres.`);
+  }
+};
+
 export const normalizeDeliveryType = (value = DELIVERY_TYPES.PICKUP) => {
   const normalized = normalizeText(value);
 
@@ -36,4 +52,41 @@ export const normalizeDeliveryAddress = (deliveryType, value) => {
   }
 
   return address;
+};
+
+export const normalizeDeliveryLocation = (deliveryType, location = {}) => {
+  const deliveryDepartmentCode = normalizeOptionalText(
+    location.deliveryDepartmentCode
+  );
+  const deliveryDepartmentName = normalizeOptionalText(
+    location.deliveryDepartmentName
+  );
+  const deliveryCityCode = normalizeOptionalText(
+    location.deliveryCityCode
+  );
+  const deliveryCityName = normalizeOptionalText(
+    location.deliveryCityName
+  );
+
+  validateMaxLength('El codigo del departamento de entrega', deliveryDepartmentCode, 10);
+  validateMaxLength('El nombre del departamento de entrega', deliveryDepartmentName, 100);
+  validateMaxLength('El codigo del municipio o ciudad de entrega', deliveryCityCode, 20);
+  validateMaxLength('El nombre del municipio o ciudad de entrega', deliveryCityName, 100);
+
+  if (deliveryType === DELIVERY_TYPES.DELIVERY) {
+    if (!deliveryDepartmentCode || !deliveryDepartmentName) {
+      throw new Error('El departamento de entrega es obligatorio para Domicilio.');
+    }
+
+    if (!deliveryCityCode || !deliveryCityName) {
+      throw new Error('El municipio o ciudad de entrega es obligatorio para Domicilio.');
+    }
+  }
+
+  return {
+    deliveryDepartmentCode,
+    deliveryDepartmentName,
+    deliveryCityCode,
+    deliveryCityName,
+  };
 };

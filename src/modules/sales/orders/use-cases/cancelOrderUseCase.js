@@ -29,6 +29,12 @@ export const notifyOrderCancelled = async ({ order, reason }) => {
       orderId: mappedOrder.id,
       reason,
       total: mappedOrder.total,
+      shippingAmount: mappedOrder.shippingAmount,
+      deliveryType: mappedOrder.deliveryType,
+      deliveryAddress: mappedOrder.deliveryAddress,
+      deliveryRecipientName: mappedOrder.deliveryRecipientName,
+      deliveryDepartment: mappedOrder.deliveryDepartment,
+      deliveryCity: mappedOrder.deliveryCity,
     });
   } catch (error) {
     console.error('[NotifyOrderCancelled] Email error:', error.message);

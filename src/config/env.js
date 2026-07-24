@@ -45,6 +45,8 @@ export const env = {
   JWT_REFRESH_EXPIRES: process.env.JWT_REFRESH_EXPIRES || "7d",
   FRONTEND_URL: normalizeUrl(process.env.FRONTEND_URL, "http://localhost:5173"),
   CORS_ORIGIN: getOptionalList(process.env.CORS_ORIGIN || process.env.FRONTEND_URL),
+  LOCATION_CACHE_TTL_MINUTES:
+    Number(process.env.LOCATION_CACHE_TTL_MINUTES) || 1440,
   EMAIL_HOST: process.env.EMAIL_HOST,
   EMAIL_PORT: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined,
   EMAIL_USER: process.env.EMAIL_USER,

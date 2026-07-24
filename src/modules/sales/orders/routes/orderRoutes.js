@@ -4,6 +4,7 @@ import {
   getAllOrders,
   getOrderById,
   updateOrder,
+  updateOrderShipping,
   cancelOrder,
   registerOrderPayment,
   uploadOrderPaymentReceipt,
@@ -39,6 +40,9 @@ router.patch(
   authMiddleware,
   reviewOrderPaymentReceipt
 );
+
+// Registrar o actualizar solo el valor del envio
+router.patch('/:id/shipping', authMiddleware, updateOrderShipping);
 
 // Obtener pedido por ID
 router.get('/:id', authMiddleware, getOrderById);

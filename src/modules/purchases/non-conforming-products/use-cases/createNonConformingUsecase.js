@@ -2,6 +2,7 @@
 import { prisma } from '../../../../config/prisma.js';
 import { NonConformingRepository } from '../repositories/nonConformingRepository.js';
 import { NonConformingMapper } from '../mappers/nonConformingMapper.js';
+import { notifyStockAlertsForProduct } from '../../../notifications/services/stockNotificationService.js';
 
 const repo = new NonConformingRepository();
 
@@ -63,18 +64,26 @@ export class CreateNonConformingUseCase {
       });
       
       // Restar el stock
-      await tx.barcodes.update({
+      const updatedBarcode = await tx.barcodes.update({
         where: { id_barcode: dto.id_barcode },
         data: {
           stock: {
             decrement: dto.affected_quantity
           }
-        }
+        },
+        select: {
+          id_product: true,
+        },
       });
       
-      return newReport;
+      return {
+        report: newReport,
+        idProduct: updatedBarcode.id_product,
+      };
     });
+
+    await notifyStockAlertsForProduct(report.idProduct);
     
-    return NonConformingMapper.toDTO(report);
+    return NonConformingMapper.toDTO(report.report);
   }
 }

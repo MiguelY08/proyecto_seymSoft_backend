@@ -233,6 +233,24 @@ model non_conforming_products {
   barcodes          barcodes         @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
 }
 
+model notifications {
+  id_notification Int      @id @default(autoincrement())
+  id_user         Int
+  title           String   @db.VarChar(120)
+  message         String   @db.VarChar(500)
+  type            String   @default("info") @db.VarChar(30)
+  action_url      String?  @db.VarChar(500)
+  is_read         Boolean  @default(false)
+  metadata        Json?
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+  updated_at      DateTime @default(now()) @db.Timestamp(6)
+  users           users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user")
+
+  @@index([created_at], map: "idx_notifications_created_at")
+  @@index([id_user, is_read, created_at], map: "idx_notifications_user_read_created")
+  @@index([id_user, type], map: "idx_notifications_user_type")
+}
+
 model order_details {
   id_order_detail Int          @id(map: "detalles_pedidos_pkey") @default(autoincrement())
   id_order        Int
@@ -261,6 +279,7 @@ model order_payment_receipts {
   users                    users?       @relation(fields: [reviewed_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payment_receipts_reviewed_by")
 
   @@index([id_order], map: "idx_order_payment_receipts_id_order")
+  @@index([id_order, verification_status], map: "idx_order_payment_receipts_order_status")
   @@index([verification_status, reviewed_at], map: "idx_order_payment_receipts_review_status")
   @@index([id_order, verification_status], map: "idx_order_payment_receipts_order_status")
 }
@@ -294,24 +313,6 @@ model password_resets {
   expiration_date DateTime
   created_at      DateTime @default(now())
   used            Boolean  @default(false)
-}
-
-model notifications {
-  id_notification Int      @id @default(autoincrement())
-  id_user         Int
-  title           String   @db.VarChar(120)
-  message         String   @db.VarChar(500)
-  type            String   @default("info") @db.VarChar(30)
-  action_url      String?  @db.VarChar(500)
-  is_read         Boolean  @default(false)
-  metadata        Json?
-  created_at      DateTime @default(now()) @db.Timestamp(6)
-  updated_at      DateTime @default(now()) @updatedAt @db.Timestamp(6)
-  users           users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user")
-
-  @@index([id_user, is_read, created_at], map: "idx_notifications_user_read_created")
-  @@index([id_user, type], map: "idx_notifications_user_type")
-  @@index([created_at], map: "idx_notifications_created_at")
 }
 
 model payment_methods {
@@ -508,6 +509,24 @@ model purchase_details {
   prd                 prd[]
   barcodes            barcodes  @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_codigo_producto_fkey")
   purchases           purchases @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_compra_fkey")
+}
+
+model purchase_return_audit_logs {
+  id_purchase_return_audit_log Int               @id @default(autoincrement())
+  id_purchase_return           Int
+  id_user                      Int?
+  action                       String            @db.VarChar(50)
+  previous_return_status       Int?
+  new_return_status            Int?
+  reason                       String?           @db.VarChar(250)
+  metadata                     Json?
+  created_at                   DateTime          @default(now()) @db.Timestamp(6)
+  purchases_returns            purchases_returns @relation(fields: [id_purchase_return], references: [id_purchase_return], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_return")
+  users                        users?            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_user")
+
+  @@index([action], map: "idx_purchase_return_audit_logs_action")
+  @@index([created_at], map: "idx_purchase_return_audit_logs_created_at")
+  @@index([id_purchase_return], map: "idx_purchase_return_audit_logs_return")
 }
 
 model purchase_statuses {
@@ -795,22 +814,4 @@ model users {
   purchase_return_audit_logs                     purchase_return_audit_logs[]
   purchases_returns                              purchases_returns[]
   general_statuses                               general_statuses?            @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model purchase_return_audit_logs {
-  id_purchase_return_audit_log Int               @id @default(autoincrement())
-  id_purchase_return           Int
-  id_user                      Int?
-  action                       String            @db.VarChar(50)
-  previous_return_status       Int?
-  new_return_status            Int?
-  reason                       String?           @db.VarChar(250)
-  metadata                     Json?
-  created_at                   DateTime          @default(now()) @db.Timestamp(6)
-  purchases_returns            purchases_returns @relation(fields: [id_purchase_return], references: [id_purchase_return], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_return")
-  users                        users?            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_user")
-
-  @@index([action], map: "idx_purchase_return_audit_logs_action")
-  @@index([created_at], map: "idx_purchase_return_audit_logs_created_at")
-  @@index([id_purchase_return], map: "idx_purchase_return_audit_logs_return")
 }
