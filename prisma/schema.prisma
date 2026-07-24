@@ -281,7 +281,6 @@ model order_payment_receipts {
   @@index([id_order], map: "idx_order_payment_receipts_id_order")
   @@index([id_order, verification_status], map: "idx_order_payment_receipts_order_status")
   @@index([verification_status, reviewed_at], map: "idx_order_payment_receipts_review_status")
-  @@index([id_order, verification_status], map: "idx_order_payment_receipts_order_status")
 }
 
 model order_payments {
