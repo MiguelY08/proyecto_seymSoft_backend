@@ -1,4 +1,6 @@
 import { notificationService } from '../../../notifications/services/index.js';
+import { ORDER_STATUSES } from '../../../../shared/constants/generalStatuses.js';
+import { DELIVERY_TYPES } from '../../shared/deliveryTypes.js';
 
 const getOrderId = (order) =>
   order?.id_order ?? order?.id ?? order?.orderNumber ?? null;
@@ -13,6 +15,39 @@ const getCustomerUserId = (order) =>
 const createOrderActionUrl = (order) => {
   const orderId = getOrderId(order);
   return orderId ? `/orders-l/${orderId}` : '/orders-l';
+};
+
+const normalizeText = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const isReadyStatus = (order) => {
+  const statusId =
+    Number(
+      order?.id_order_status ??
+      order?.status?.id ??
+      order?.statusId
+    );
+  const statusName =
+    order?.order_statuses?.name_status ??
+    order?.status?.name ??
+    order?.statusName;
+
+  return (
+    statusId === ORDER_STATUSES[2].id ||
+    normalizeText(statusName) === normalizeText(ORDER_STATUSES[2].name)
+  );
+};
+
+const isPickupOrder = (order) => {
+  const deliveryType =
+    order?.delivery_type ??
+    order?.deliveryType;
+
+  return normalizeText(deliveryType) === normalizeText(DELIVERY_TYPES.PICKUP);
 };
 
 export const notifyCustomerOrderUpdated = async ({ order }) => {
@@ -37,6 +72,32 @@ export const notifyCustomerOrderUpdated = async ({ order }) => {
     });
   } catch (error) {
     console.error('[OrderCustomerNotifications] Order update notification error:', error.message);
+    return null;
+  }
+};
+
+export const notifyCustomerOrderReadyForPickup = async ({ order }) => {
+  const idUser = getCustomerUserId(order);
+  const orderId = getOrderId(order);
+
+  if (!idUser || !orderId || !isReadyStatus(order) || !isPickupOrder(order)) {
+    return null;
+  }
+
+  try {
+    return await notificationService.create({
+      idUser,
+      title: 'Pedido listo para recoger',
+      message: `Tu pedido #${orderId} esta listo para recoger.`,
+      type: 'order',
+      actionUrl: createOrderActionUrl(order),
+      metadata: {
+        orderId,
+        event: 'order_ready_for_pickup',
+      },
+    });
+  } catch (error) {
+    console.error('[OrderCustomerNotifications] Ready for pickup notification error:', error.message);
     return null;
   }
 };
@@ -110,4 +171,3 @@ export const notifyCustomerOrderExpired = async ({ order, reason }) => {
     return null;
   }
 };
-

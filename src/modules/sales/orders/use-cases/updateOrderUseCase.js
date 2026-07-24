@@ -9,7 +9,10 @@ import {
   calculateOrderTotals,
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
-import { notifyCustomerOrderUpdated } from './orderCustomerNotifications.js';
+import {
+  notifyCustomerOrderReadyForPickup,
+  notifyCustomerOrderUpdated,
+} from './orderCustomerNotifications.js';
 import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
 import { DELIVERY_TYPES } from '../../shared/deliveryTypes.js';
 
@@ -189,6 +192,10 @@ export const notifyOrderStatusChanged = async ({ order, previousStatus }) => {
   } catch (error) {
     console.error('[UpdateOrderUseCase] Email error:', error.message);
   }
+
+  await notifyCustomerOrderReadyForPickup({
+    order: mappedOrder,
+  });
 };
 
 export const notifyOrderUpdated = async ({ order }) => {
