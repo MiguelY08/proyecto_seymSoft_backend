@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { env } from "../../config/env.js";
 
 const mailConfig = {
@@ -15,6 +16,10 @@ const mailConfig = {
 };
 
 const transporter = nodemailer.createTransport(mailConfig);
+const resend =
+  env.RESEND_API_KEY
+    ? new Resend(env.RESEND_API_KEY)
+    : null;
 
 const getEmailFrom = () => {
   const from = env.EMAIL_FROM || env.EMAIL_USER;
@@ -266,12 +271,65 @@ const renderSummaryGrid = (items = []) => {
 };
 
 const sendMail = async ({ to, subject, text, html }) => {
-  await transporter.sendMail({
-    from: getEmailFrom(),
+  const from = getEmailFrom();
+
+  if (resend) {
+    console.log("[EmailService] Sending email with Resend", {
+      to,
+      subject,
+      from,
+    });
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    if (result.error) {
+      throw new Error(
+        result.error.message || "Resend email send failed"
+      );
+    }
+
+    console.log("[EmailService] Email sent with Resend", {
+      to,
+      id: result.data?.id,
+    });
+
+    return;
+  }
+
+  if (env.NODE_ENV === "production") {
+    throw new Error(
+      "RESEND_API_KEY must be configured to send emails in production"
+    );
+  }
+
+  console.log("[EmailService] Sending email", {
+    to,
+    subject,
+    from,
+    host: env.EMAIL_HOST,
+    port: env.EMAIL_PORT,
+    secure: env.EMAIL_SECURE,
+  });
+
+  const info = await transporter.sendMail({
+    from,
     to,
     subject,
     text,
     html,
+  });
+
+  console.log("[EmailService] Email sent", {
+    to,
+    messageId: info.messageId,
+    accepted: info.accepted,
+    rejected: info.rejected,
   });
 };
 
