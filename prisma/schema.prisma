@@ -16,13 +16,13 @@ model access {
 }
 
 model assigned_permissions {
-  id_permission  Int              @id(map: "permisos_asignados_pkey") @default(autoincrement())
-  id_role        Int
-  id_module      Int
-  id_privilege   Int
-  modules        modules          @relation(fields: [id_module], references: [id_module], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_modulo_fkey")
-  privileges     privileges       @relation(fields: [id_privilege], references: [id_privilege], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_privilegio_fkey")
-  roles          roles            @relation(fields: [id_role], references: [id_role], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_rol_fkey")
+  id_permission Int        @id(map: "permisos_asignados_pkey") @default(autoincrement())
+  id_role       Int
+  id_module     Int
+  id_privilege  Int
+  modules       modules    @relation(fields: [id_module], references: [id_module], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_modulo_fkey")
+  privileges    privileges @relation(fields: [id_privilege], references: [id_privilege], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_privilegio_fkey")
+  roles         roles      @relation(fields: [id_role], references: [id_role], onDelete: NoAction, onUpdate: NoAction, map: "permisos_asignados_id_rol_fkey")
 
   @@unique([id_role, id_module, id_privilege], map: "permisos_asignados_id_rol_id_modulo_id_privilegio_key")
 }
