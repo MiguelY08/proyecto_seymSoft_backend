@@ -59,26 +59,6 @@ export class UserRepository {
       });
     }
 
-    // Obtener cualquier permiso del rol
-    const assignedPermission = await prisma.assigned_permissions.findFirst({
-      where: {
-        id_role: idRole,
-      },
-      orderBy: {
-        id_permission: "asc",
-      },
-    });
-
-    // Si el rol no tiene permisos, NO se crea employee_roles
-    // porque employee_roles depende de assigned_permissions.
-    if (!assignedPermission) {
-      return {
-        employee,
-        role,
-        assignedPermission: null,
-      };
-    }
-
     const existingRole = await prisma.employee_roles.findFirst({
       where: {
         id_employee: employee.id_employee,
@@ -91,27 +71,15 @@ export class UserRepository {
           id_employee_role: existingRole.id_employee_role,
         },
         data: {
-          assigned_permissions: {
-            connect: {
-              id_permission: assignedPermission.id_permission,
-            },
-          },
+          id_role: idRole,
         },
       });
     }
 
     return await prisma.employee_roles.create({
       data: {
-        employees: {
-          connect: {
-            id_employee: employee.id_employee,
-          },
-        },
-        assigned_permissions: {
-          connect: {
-            id_permission: assignedPermission.id_permission,
-          },
-        },
+        id_employee: employee.id_employee,
+        id_role: idRole,
       },
     });
   }
@@ -170,12 +138,10 @@ export class UserRepository {
           {
             employees: {
               employee_roles: {
-                assigned_permissions: {
-                  roles: {
-                    name_role: {
-                      contains: searchTerm,
-                      mode: "insensitive",
-                    },
+                roles: {
+                  name_role: {
+                    contains: searchTerm,
+                    mode: "insensitive",
                   },
                 },
               },
@@ -240,16 +206,12 @@ export class UserRepository {
               select: {
                 employee_roles: {
                   select: {
-                    assigned_permissions: {
+                    roles: {
                       select: {
-                        roles: {
-                          select: {
-                            id_role: true,
-                            name_role: true,
-                            description: true,
-                            id_status: true,
-                          },
-                        },
+                        id_role: true,
+                        name_role: true,
+                        description: true,
+                        id_status: true,
                       },
                     },
                   },
@@ -270,7 +232,6 @@ export class UserRepository {
       const roleData =
         user.employees
           ?.employee_roles
-          ?.assigned_permissions
           ?.roles || null;
 
       const { employees, clients, ...cleanUser } = user;
@@ -564,11 +525,7 @@ const employee =
     include: {
       employee_roles: {
         include: {
-          assigned_permissions: {
-            include: {
-              roles: true
-            }
-          }
+          roles: true
         }
       }
     }
@@ -594,11 +551,11 @@ if (!employee || !employee.employee_roles) {
 
 }
 
-const assignedPermission =
+const role =
   employee.employee_roles
-    ?.assigned_permissions;
+    ?.roles;
 
-if (!assignedPermission) {
+if (!role) {
 
   return {
 
@@ -619,7 +576,7 @@ if (!assignedPermission) {
 }
 
 const idRole =
-  assignedPermission.id_role;
+  role.id_role;
 
 const permissions =
   await prisma.assigned_permissions.findMany({
@@ -641,23 +598,19 @@ return {
   role: {
 
     idRole:
-      assignedPermission
-        .roles
+      role
         .id_role,
 
     nameRole:
-      assignedPermission
-        .roles
+      role
         .name_role,
 
     description:
-      assignedPermission
-        .roles
+      role
         .description,
 
     idStatus:
-      assignedPermission
-        .roles
+      role
         .id_status
 
   },

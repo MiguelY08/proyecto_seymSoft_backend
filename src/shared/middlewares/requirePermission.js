@@ -15,16 +15,14 @@ export const requirePermission = (moduleName, privilegeName) =>
         select: {
           employee_roles: {
             select: {
-              assigned_permissions: {
-                select: { id_role: true },
-              },
+              id_role: true,
             },
           },
         },
       });
 
       const idRole =
-        employee?.employee_roles?.assigned_permissions?.id_role;
+        employee?.employee_roles?.id_role;
 
       if (!idRole) {
         throw new AppError("No tienes permiso para realizar esta accion.", 403);

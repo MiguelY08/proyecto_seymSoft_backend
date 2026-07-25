@@ -52,6 +52,7 @@ export const env = {
   EMAIL_USER: process.env.EMAIL_USER,
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
   EMAIL_FROM: process.env.EMAIL_FROM,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
   EMAIL_SECURE:
     process.env.EMAIL_SECURE === "true" ||
     process.env.EMAIL_PORT === "465",
