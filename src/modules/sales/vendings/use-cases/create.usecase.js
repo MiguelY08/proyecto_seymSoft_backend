@@ -279,7 +279,7 @@ const validateClientCreditLimit = async ({ idCustomer, creditAmount }) => {
 };
 
 
-const notifySaleCreated = async (saleSummary) => {
+export const notifySaleCreated = async (saleSummary) => {
   if (!saleSummary?.idSale) {
     return;
   }
@@ -312,7 +312,7 @@ const notifySaleCreated = async (saleSummary) => {
     });
   } catch (error) {
     console.error(
-      "[CreateVendingUseCase] Email error:",
+      "[NotifySaleCreated] Email error:",
       error.message
     );
   }
@@ -820,8 +820,6 @@ export const createVendingUseCase = async (params) => {
         markOrderAsPaid:
           createsOrderFromSale,
       });
-
-    void notifySaleCreated(sale);
 
     return {
       success: true,

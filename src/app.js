@@ -7,6 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import session from "express-session";
 import passport from "./config/google.js";
+import { env } from "./config/env.js";
 
 import { errorMiddleware } from "./shared/middlewares/errorMiddleware.js";
 import { authMiddleware } from "./shared/middlewares/authMiddleware.js";
@@ -44,17 +45,23 @@ const __dirname = path.dirname(
 /**
  * Middlewares globales
  */
-app.use(cors());
+app.use(cors({
+  origin: env.CORS_ORIGIN.length > 0 ? env.CORS_ORIGIN : true,
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
 /* Sesion necesaria para Passport */
 app.use(session({
-  secret: process.env.JWT_ACCESS_SECRET,
+  secret: env.JWT_ACCESS_SECRET,
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false }
+  cookie: {
+    secure: env.NODE_ENV === "production",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+  }
 }));
 
 /* Inicializar Passport */
@@ -110,7 +117,7 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/storefront", storefrontRoutes);
 
 /* Rutas de ventas */
-app.use("/api/vendings", authMiddleware, vendingRoutes);
+app.use("/api/vendings", vendingRoutes);
 
 /* Rutas de pagos y abonos */
 app.use("/api/payments", paymentsRoutes);

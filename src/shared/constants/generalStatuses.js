@@ -14,6 +14,12 @@ export const PAYMENT_STATUSES = {
   2: { id: 2, name: "Pagado", description: "Pedido pagado" },
 };
 
+export const PAYMENT_RECEIPT_STATUSES = {
+  PENDING: "Pendiente",
+  APPROVED: "Aprobado",
+  REJECTED: "Rechazado",
+};
+
 export const SALE_STATUSES = {
   1: { id: 1, name: "Aprobada", description: "Venta aprobada" },
   2: { id: 2, name: "Denegada", description: "Venta denegada" },

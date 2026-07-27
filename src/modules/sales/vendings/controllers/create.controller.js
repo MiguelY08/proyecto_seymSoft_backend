@@ -1,4 +1,7 @@
-import { createVendingUseCase } from "../use-cases/index.js";
+import {
+  createVendingUseCase,
+  notifySaleCreated,
+} from "../use-cases/index.js";
 import {
   validateCreateVending,
   validateCreateVendingParams,
@@ -106,6 +109,14 @@ export const CreateVendingController = async (req, res) => {
         }),
       });
     }
+
+    res.once("finish", () => {
+      setImmediate(() => {
+        void notifySaleCreated(
+          result.data?.sale
+        );
+      });
+    });
 
     return res.status(201).json({
       success: true,

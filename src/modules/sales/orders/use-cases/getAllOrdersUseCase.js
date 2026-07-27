@@ -1,4 +1,4 @@
-﻿import { mapOrders } from '../mappers/orderMapper.js';
+import { mapOrderSummaries } from '../mappers/orderMapper.js';
 
 export class GetAllOrdersUseCase {
   constructor(repo) {
@@ -10,7 +10,7 @@ export class GetAllOrdersUseCase {
     const result = await this.repo.findAll(filters);
 
     return {
-      orders: mapOrders(result.orders),
+      orders: mapOrderSummaries(result.orders),
       total: result.total,
       page: result.page,
       limit: result.limit,

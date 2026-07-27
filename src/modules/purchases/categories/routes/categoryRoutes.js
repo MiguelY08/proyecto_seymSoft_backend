@@ -10,7 +10,7 @@ import { createSubcategory } from "../controllers/createSubcategoryController.js
 import { updateSubcategory } from "../controllers/updateSubcategoryController.js";
 import { deleteSubcategory } from "../controllers/deleteSubcategoryController.js";
 import { toggleSubcategoryStatus } from "../controllers/toggleSubcategoryStatusController.js";
-import { getAllSubcategories } from "../controllers/getallsubCategoriesController.js";
+import { getAllSubcategories } from "../controllers/getallSubCategoriesController.js";
 import { getSubcategoryById } from "../controllers/getSubCategoryByIdController.js";
 
 const router = Router();

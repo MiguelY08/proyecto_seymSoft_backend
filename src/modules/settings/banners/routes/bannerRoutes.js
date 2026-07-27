@@ -25,7 +25,7 @@ const router = Router();
  * Obtener banners activos
  * GET /api/banners/active
  */
-router.get("/active", authMiddleware, getActiveBannersController);
+router.get("/active", getActiveBannersController);
 
 /**
  * Reordenar banners activos

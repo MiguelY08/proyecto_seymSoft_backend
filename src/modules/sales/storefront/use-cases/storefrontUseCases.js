@@ -4,6 +4,7 @@ import {
 } from "../../../../shared/errors/index.js";
 import {
   mapCartItem,
+  mapCartResponse,
   mapFavorite,
 } from "../mappers/storefrontMapper.js";
 import { storefrontRepository } from "../repositories/storefrontRepository.js";
@@ -35,7 +36,7 @@ export const removeFavoriteUseCase = async (idClient, productId) => {
 
 export const getCartUseCase = async (idClient) => {
   const items = await storefrontRepository.getCart(idClient);
-  return items.map(mapCartItem);
+  return mapCartResponse(items);
 };
 
 export const setCartItemUseCase = async (
@@ -56,23 +57,35 @@ export const setCartItemUseCase = async (
     );
   }
 
-  return mapCartItem(
-    await storefrontRepository.setCartItem(
-      idClient,
-      productId,
-      requestedQuantity,
-    ),
+  const changedItem = await storefrontRepository.setCartItem(
+    idClient,
+    productId,
+    requestedQuantity,
   );
+  const items = await storefrontRepository.getCart(idClient);
+
+  return mapCartResponse(items, {
+    changedItem: mapCartItem(changedItem),
+  });
 };
 
 export const removeCartItemUseCase = async (idClient, productId) => {
   const result = await storefrontRepository.removeCartItem(idClient, productId);
-  return { removed: result.count > 0 };
+  const items = await storefrontRepository.getCart(idClient);
+
+  return mapCartResponse(items, {
+    removed: result.count > 0,
+    removedProductId: productId,
+  });
 };
 
 export const clearCartUseCase = async (idClient) => {
   const result = await storefrontRepository.clearCart(idClient);
-  return { removedItems: result.count };
+  const items = await storefrontRepository.getCart(idClient);
+
+  return mapCartResponse(items, {
+    removedItems: result.count,
+  });
 };
 
 export const mergeCartUseCase = async (idClient, incomingItems) => {
@@ -86,5 +99,5 @@ export const mergeCartUseCase = async (idClient, incomingItems) => {
   );
 
   const items = await storefrontRepository.mergeCart(idClient, combinedItems);
-  return items.map(mapCartItem);
+  return mapCartResponse(items);
 };

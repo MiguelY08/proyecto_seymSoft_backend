@@ -25,6 +25,28 @@ export class PurchaseReturnRepository {
     return PurchaseReturnMapper.toDetailResponse(purchaseReturn);
   }
 
+  static async findCreatedById(idPurchaseReturn) {
+    const purchaseReturn = await prisma.purchases_returns.findUnique({
+      where: {
+        id_purchase_return: idPurchaseReturn,
+      },
+      select: this.getCreateResponseSelect(),
+    });
+
+    return PurchaseReturnMapper.toDetailResponse(purchaseReturn);
+  }
+
+  static async findAnnulledById(idPurchaseReturn) {
+    const purchaseReturn = await prisma.purchases_returns.findUnique({
+      where: {
+        id_purchase_return: idPurchaseReturn,
+      },
+      select: this.getAnnulResponseSelect(),
+    });
+
+    return PurchaseReturnMapper.toDetailResponse(purchaseReturn);
+  }
+
   static async findRawById(idPurchaseReturn) {
     return prisma.purchases_returns.findUnique({
       where: {
@@ -55,8 +77,21 @@ export class PurchaseReturnRepository {
       prisma.purchases_returns.count({ where }),
     ]);
 
+    const progressByReturn =
+      await this.getListProgressByReturnIds(
+        items.map((item) => item.id_purchase_return)
+      );
+
     return {
-      items: items.map((item) => PurchaseReturnMapper.toListResponse(item)),
+      items: items.map((item) =>
+        PurchaseReturnMapper.toListResponse({
+          ...item,
+          progress:
+            progressByReturn.get(
+              Number(item.id_purchase_return)
+            ) ?? null,
+        })
+      ),
       total,
     };
   }
@@ -105,6 +140,25 @@ export class PurchaseReturnRepository {
     });
   }
 
+  static async findRawPurchaseForReturnCreationById(idPurchase) {
+    return prisma.purchases.findUnique({
+      where: {
+        id_purchase: idPurchase,
+      },
+      select: {
+        id_purchase: true,
+        purchase_date: true,
+        max_return_date: true,
+        id_purchase_status: true,
+        providers: {
+          select: {
+            max_return_period: true,
+          },
+        },
+      },
+    });
+  }
+
   static async findPurchaseDetailById(idPurchaseDetail) {
     const detail = await prisma.purchase_details.findUnique({
       where: {
@@ -139,11 +193,80 @@ export class PurchaseReturnRepository {
     });
   }
 
+  static async findRawPurchaseDetailsByIds(idPurchaseDetails) {
+    const uniqueIds = [
+      ...new Set(
+        (idPurchaseDetails ?? [])
+          .map((id) => Number(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    return prisma.purchase_details.findMany({
+      where: {
+        id_purchase_detail: {
+          in: uniqueIds,
+        },
+      },
+      select: {
+        id_purchase_detail: true,
+        id_purchase: true,
+        id_barcode: true,
+        barcodes: {
+          select: {
+            id_barcode: true,
+            barcode: true,
+            stock: true,
+            id_product: true,
+          },
+        },
+      },
+    });
+  }
+
   static async findRawReturnDetailById(idPurchaseReturnDetail) {
     return prisma.prd.findUnique({
       where: {
         id_purchase_return_details:
           Number(idPurchaseReturnDetail),
+      },
+      select: {
+        id_purchase_return_details: true,
+        id_purchase_return: true,
+        quantity: true,
+        id_return_method: true,
+        id_return_status: true,
+        purchase_details: {
+          select: {
+            id_barcode: true,
+          },
+        },
+      },
+    });
+  }
+
+  static async findRawReturnDetailsByIds(idPurchaseReturnDetails) {
+    const uniqueIds = [
+      ...new Set(
+        (idPurchaseReturnDetails ?? [])
+          .map((id) => Number(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    return prisma.prd.findMany({
+      where: {
+        id_purchase_return_details: {
+          in: uniqueIds,
+        },
       },
       select: {
         id_purchase_return_details: true,
@@ -179,6 +302,31 @@ export class PurchaseReturnRepository {
     });
   }
 
+  static async findReturnMethodsByIds(idReturnMethods) {
+    const uniqueIds = [
+      ...new Set(
+        (idReturnMethods ?? [])
+          .map((id) => Number(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    return prisma.return_methods.findMany({
+      where: {
+        id_return_method: {
+          in: uniqueIds,
+        },
+      },
+      select: {
+        id_return_method: true,
+      },
+    });
+  }
+
   static async findReturnMethodById(idReturnMethod) {
     return prisma.return_methods.findUnique({
       where: {
@@ -194,6 +342,31 @@ export class PurchaseReturnRepository {
           equals: description,
           mode: "insensitive",
         },
+      },
+    });
+  }
+
+  static async findReturnReasonsByIds(idReturnReasons) {
+    const uniqueIds = [
+      ...new Set(
+        (idReturnReasons ?? [])
+          .map((id) => Number(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    return prisma.return_reasons.findMany({
+      where: {
+        id_return_reason: {
+          in: uniqueIds,
+        },
+      },
+      select: {
+        id_return_reason: true,
       },
     });
   }
@@ -387,7 +560,7 @@ export class PurchaseReturnRepository {
       return purchaseReturn;
     });
 
-    return this.findById(created.id_purchase_return);
+    return this.findCreatedById(created.id_purchase_return);
   }
 
   static async addDetails(idPurchaseReturn, details) {
@@ -448,6 +621,28 @@ export class PurchaseReturnRepository {
     }, new Map());
   }
 
+  static groupQuantitiesByBarcode(items = []) {
+    return items.reduce((grouped, item) => {
+      const idBarcode = Number(
+        item.idBarcode ??
+        item.id_barcode ??
+        item.purchase_details?.id_barcode
+      );
+
+      if (!idBarcode) {
+        return grouped;
+      }
+
+      grouped.set(
+        idBarcode,
+        (grouped.get(idBarcode) || 0) +
+          Number(item.quantity || 0)
+      );
+
+      return grouped;
+    }, new Map());
+  }
+
   static async assertFreshDetailsToAdd(tx, changeset) {
     if (changeset.detailsToAdd.length === 0) {
       return;
@@ -465,20 +660,72 @@ export class PurchaseReturnRepository {
         "idBarcode"
       );
 
+    const idPurchaseDetails = [
+      ...requestedByPurchaseDetail.keys(),
+    ];
+    const idBarcodes = [
+      ...requestedByBarcode.keys(),
+    ];
+
+    const [
+      purchaseDetails,
+      availabilityByPurchaseDetail,
+      barcodes,
+    ] = await Promise.all([
+      tx.purchase_details.findMany({
+        where: {
+          id_purchase_detail: {
+            in: idPurchaseDetails,
+          },
+        },
+        select: {
+          id_purchase_detail: true,
+          id_purchase: true,
+        },
+      }),
+      this.getReturnAvailabilityByPurchaseDetails(
+        idPurchaseDetails,
+        tx
+      ),
+      tx.barcodes.findMany({
+        where: {
+          id_barcode: {
+            in: idBarcodes,
+          },
+        },
+        select: {
+          id_barcode: true,
+          stock: true,
+        },
+      }),
+    ]);
+
+    const purchaseDetailsById =
+      purchaseDetails.reduce((indexed, detail) => {
+        indexed.set(
+          Number(detail.id_purchase_detail),
+          detail
+        );
+        return indexed;
+      }, new Map());
+
+    const barcodesById =
+      barcodes.reduce((indexed, barcode) => {
+        indexed.set(
+          Number(barcode.id_barcode),
+          barcode
+        );
+        return indexed;
+      }, new Map());
+
     for (const [
       idPurchaseDetail,
       requestedQuantity,
     ] of requestedByPurchaseDetail.entries()) {
       const purchaseDetail =
-        await tx.purchase_details.findUnique({
-          where: {
-            id_purchase_detail: idPurchaseDetail,
-          },
-          select: {
-            id_purchase: true,
-            quantity: true,
-          },
-        });
+        purchaseDetailsById.get(
+          Number(idPurchaseDetail)
+        );
 
       if (!purchaseDetail) {
         throw this.createDomainError(
@@ -498,10 +745,11 @@ export class PurchaseReturnRepository {
       }
 
       const returnAvailability =
-        await this.getReturnAvailabilityByPurchaseDetail(
-          idPurchaseDetail,
-          tx
-        );
+        availabilityByPurchaseDetail.get(
+          Number(idPurchaseDetail)
+        ) ?? {
+          availableQuantity: 0,
+        };
 
       const availableQuantity =
         returnAvailability.availableQuantity;
@@ -523,14 +771,7 @@ export class PurchaseReturnRepository {
       requestedQuantity,
     ] of requestedByBarcode.entries()) {
       const barcode =
-        await tx.barcodes.findUnique({
-          where: {
-            id_barcode: idBarcode,
-          },
-          select: {
-            stock: true,
-          },
-        });
+        barcodesById.get(Number(idBarcode));
 
       const availableStock =
         Number(barcode?.stock || 0);
@@ -681,7 +922,7 @@ export class PurchaseReturnRepository {
             id_purchase_return:
               changeset.idPurchaseReturn,
           },
-          select: this.getByIdSelect(),
+          select: this.getUpdateResponseSelect(),
         });
       });
 
@@ -740,38 +981,43 @@ export class PurchaseReturnRepository {
     idPurchaseReturn,
     idReturnStatus,
     cancellationReason,
+    cancelledBy = null,
+    auditLog = null,
     idPurchaseStatus,
     detailsToRestore = null,
   }) {
     const cancelled = await prisma.$transaction(async (tx) => {
-      const purchaseReturn = await tx.purchases_returns.findUnique({
-        where: {
-          id_purchase_return: idPurchaseReturn,
-        },
-        include: {
-          prd: true,
-        },
-      });
-
+      const cancelledAt = new Date();
       const stockDetails =
-        detailsToRestore || purchaseReturn.prd;
-
-      for (const detail of stockDetails) {
-        const idBarcode =
-          detail.purchase_details?.id_barcode;
-
-        if (idBarcode) {
-          await tx.barcodes.update({
-            where: {
-              id_barcode: idBarcode,
-            },
-            data: {
-              stock: {
-                increment: detail.quantity,
+        detailsToRestore ??
+        (await tx.prd.findMany({
+          where: {
+            id_purchase_return: idPurchaseReturn,
+          },
+          select: {
+            quantity: true,
+            purchase_details: {
+              select: {
+                id_barcode: true,
               },
             },
-          });
-        }
+          },
+        }));
+
+      const stockIncrements =
+        this.groupQuantitiesByBarcode(stockDetails);
+
+      for (const [idBarcode, quantity] of stockIncrements.entries()) {
+        await tx.barcodes.update({
+          where: {
+            id_barcode: idBarcode,
+          },
+          data: {
+            stock: {
+              increment: quantity,
+            },
+          },
+        });
       }
 
       await tx.prd.updateMany({
@@ -789,6 +1035,10 @@ export class PurchaseReturnRepository {
         },
         data: {
           id_return_status: idReturnStatus,
+          cancellation_reason:
+            cancellationReason,
+          cancelled_at: cancelledAt,
+          cancelled_by: cancelledBy,
         },
       });
 
@@ -803,11 +1053,34 @@ export class PurchaseReturnRepository {
         });
       }
 
+      if (auditLog) {
+        await tx.purchase_return_audit_logs.create({
+          data: {
+            id_purchase_return:
+              updatedReturn.id_purchase_return,
+            id_user:
+              auditLog.idUser,
+            action:
+              auditLog.action,
+            previous_return_status:
+              auditLog.previousReturnStatus,
+            new_return_status:
+              auditLog.newReturnStatus,
+            reason:
+              auditLog.reason,
+            metadata:
+              auditLog.metadata,
+            created_at:
+              cancelledAt,
+          },
+        });
+      }
+
       return updatedReturn;
     });
 
     return {
-      ...(await this.findById(cancelled.id_purchase_return)),
+      ...(await this.findAnnulledById(cancelled.id_purchase_return)),
       cancellationReason,
     };
   }
@@ -839,6 +1112,89 @@ export class PurchaseReturnRepository {
       total,
       byStatus,
     };
+  }
+
+  static async getListProgressByReturnIds(idPurchaseReturns) {
+    const uniqueIds = [
+      ...new Set(
+        (idPurchaseReturns ?? [])
+          .map((id) => Number(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+
+    const [totals, completedTotals] =
+      await Promise.all([
+        prisma.prd.groupBy({
+          by: ["id_purchase_return"],
+          where: {
+            id_purchase_return: {
+              in: uniqueIds,
+            },
+          },
+          _count: {
+            id_purchase_return_details: true,
+          },
+        }),
+        prisma.prd.groupBy({
+          by: ["id_purchase_return"],
+          where: {
+            id_purchase_return: {
+              in: uniqueIds,
+            },
+            id_return_status:
+              RETURN_DETAIL_STATUS_IDS.READY,
+          },
+          _count: {
+            id_purchase_return_details: true,
+          },
+        }),
+      ]);
+
+    const progressByReturn = uniqueIds.reduce((progress, id) => {
+      progress.set(id, {
+        completed: 0,
+        total: 0,
+        label: "0/0",
+      });
+      return progress;
+    }, new Map());
+
+    for (const total of totals) {
+      const id = Number(total.id_purchase_return);
+      const progress =
+        progressByReturn.get(id) ?? {
+          completed: 0,
+          total: 0,
+          label: "0/0",
+        };
+
+      progress.total =
+        total._count.id_purchase_return_details;
+      progress.label = `${progress.completed}/${progress.total}`;
+      progressByReturn.set(id, progress);
+    }
+
+    for (const completed of completedTotals) {
+      const id = Number(completed.id_purchase_return);
+      const progress =
+        progressByReturn.get(id) ?? {
+          completed: 0,
+          total: 0,
+          label: "0/0",
+        };
+
+      progress.completed =
+        completed._count.id_purchase_return_details;
+      progress.label = `${progress.completed}/${progress.total}`;
+      progressByReturn.set(id, progress);
+    }
+
+    return progressByReturn;
   }
 
   static getRawReturnSelect() {
@@ -942,10 +1298,20 @@ export class PurchaseReturnRepository {
       id_purchase: true,
       creation_date: true,
       id_return_status: true,
+      cancellation_reason: true,
+      cancelled_at: true,
+      cancelled_by: true,
       return_statuses: {
         select: {
           id_return_status: true,
           name_status: true,
+        },
+      },
+      users: {
+        select: {
+          id_user: true,
+          full_name: true,
+          email: true,
         },
       },
       purchases: {
@@ -955,7 +1321,6 @@ export class PurchaseReturnRepository {
           purchase_date: true,
           max_return_date: true,
           total_amount: true,
-          id_provider: true,
           id_purchase_status: true,
           providers: {
             select: {
@@ -966,7 +1331,6 @@ export class PurchaseReturnRepository {
           },
           purchase_statuses: {
             select: {
-              id_purchase_status: true,
               name_puchase_status: true,
             },
           },
@@ -983,22 +1347,18 @@ export class PurchaseReturnRepository {
           id_return_reason: true,
           id_return_method: true,
           id_return_status: true,
-          id_product: true,
           return_reasons: {
             select: {
-              id_return_reason: true,
               description: true,
             },
           },
           return_methods: {
             select: {
-              id_return_method: true,
               description: true,
             },
           },
           return_statuses: {
             select: {
-              id_return_status: true,
               name_status: true,
             },
           },
@@ -1011,11 +1371,9 @@ export class PurchaseReturnRepository {
           },
           purchase_details: {
             select: {
-              id_purchase_detail: true,
               id_barcode: true,
               barcodes: {
                 select: {
-                  id_barcode: true,
                   stock: true,
                 },
               },
@@ -1040,7 +1398,59 @@ export class PurchaseReturnRepository {
           status_date: true,
         },
       },
+      purchase_return_audit_logs: {
+        orderBy: {
+          created_at: "desc",
+        },
+        select: {
+          id_purchase_return_audit_log: true,
+          id_purchase_return: true,
+          id_user: true,
+          action: true,
+          previous_return_status: true,
+          new_return_status: true,
+          reason: true,
+          metadata: true,
+          created_at: true,
+          users: {
+            select: {
+              id_user: true,
+              full_name: true,
+              email: true,
+            },
+          },
+        },
+      },
     };
+  }
+
+  static getCreateResponseSelect() {
+    const select = this.getByIdSelect();
+
+    delete select.purchases.select.id_provider;
+    delete select.purchases.select.purchase_statuses.select
+      .id_purchase_status;
+    delete select.prd.select.id_product;
+    delete select.prd.select.return_reasons.select
+      .id_return_reason;
+    delete select.prd.select.return_methods.select
+      .id_return_method;
+    delete select.prd.select.return_statuses.select
+      .id_return_status;
+    delete select.prd.select.purchase_details.select
+      .id_purchase_detail;
+    delete select.prd.select.purchase_details.select
+      .barcodes.select.id_barcode;
+
+    return select;
+  }
+
+  static getUpdateResponseSelect() {
+    return this.getCreateResponseSelect();
+  }
+
+  static getAnnulResponseSelect() {
+    return this.getUpdateResponseSelect();
   }
 
   static getListInclude() {
@@ -1060,11 +1470,6 @@ export class PurchaseReturnRepository {
               name_provider: true,
             },
           },
-        },
-      },
-      prd: {
-        select: {
-          id_return_status: true,
         },
       },
     };

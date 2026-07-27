@@ -7,6 +7,8 @@ import {
   normalizeDeliveryType,
 } from '../../shared/deliveryTypes.js';
 
+const ORDER_SALE_TYPES = ['manual', 'direct', 'web'];
+
 export class CreateOrderDto {
   constructor(data) {
     const deliveryType = normalizeDeliveryType(
@@ -42,6 +44,15 @@ export class CreateOrderDto {
       data.paymentStatus ??
       data.payment_status ??
       PAYMENT_STATUSES[1].name;
+    this.saleType = String(
+      data.saleType ??
+      data.sale_type ??
+      data.origin ??
+      data.origen ??
+      'manual'
+    )
+      .trim()
+      .toLowerCase();
     this.deliveryType = deliveryType;
     this.deliveryAddress = deliveryAddress;
 
@@ -54,6 +65,10 @@ export class CreateOrderDto {
 
     if (!this.idClient) {
       throw new Error('El cliente es obligatorio.');
+    }
+
+    if (!ORDER_SALE_TYPES.includes(this.saleType)) {
+      throw new Error(`El tipo de pedido debe ser uno de: ${ORDER_SALE_TYPES.join(', ')}.`);
     }
 
     if (!Array.isArray(this.items) || this.items.length === 0) {
