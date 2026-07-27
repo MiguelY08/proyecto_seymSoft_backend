@@ -183,9 +183,7 @@ export class RoleRepository {
   static async hasAssociatedEmployees(id_role) {
     const employeeRole = await prisma.employee_roles.findFirst({
       where: {
-        assigned_permissions: {
-          id_role,
-        },
+        id_role,
       },
       select: {
         id_employee_role: true,
@@ -413,16 +411,14 @@ static async createManyAssignedPermissions(permissions) {
     });
   }
 
-  /**
+/**
  * Eliminar employee_roles relacionados a un rol
- * Evita errores de FK antes de borrar permisos
+ * Usado solo cuando el flujo necesita desasignar empleados de un rol
  */
 static async deleteEmployeeRolesByRole(id_role) {
   return await prisma.employee_roles.deleteMany({
     where: {
-      assigned_permissions: {
-        id_role,
-      },
+      id_role,
     },
   });
 }
@@ -445,17 +441,7 @@ static async updateRolePermissionsTransaction(
         description: roleData.description || null,
       },
     });
-
-    // Primero eliminar employee_roles dependientes
-    await tx.employee_roles.deleteMany({
-      where: {
-        assigned_permissions: {
-          id_role,
-        },
-      },
-    });
-
-    // Después eliminar permisos
+    // Reemplazar permisos sin desasignar usuarios del rol.
     await tx.assigned_permissions.deleteMany({
       where: {
         id_role,
@@ -517,3 +503,4 @@ static async updateRolePermissionsTransaction(
   });
 }
 }
+

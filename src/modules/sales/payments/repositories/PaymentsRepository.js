@@ -571,14 +571,10 @@ export class PaymentsRepository {
                   select: {
                     employee_roles: {
                       select: {
-                        assigned_permissions: {
+                        roles: {
                           select: {
-                            roles: {
-                              select: {
-                                id_role: true,
-                                name_role: true,
-                              },
-                            },
+                            id_role: true,
+                            name_role: true,
                           },
                         },
                       },
@@ -594,10 +590,8 @@ export class PaymentsRepository {
             id_status: 1,
             employees: {
               employee_roles: {
-                assigned_permissions: {
-                  roles: {
-                    name_role: "Administrator",
-                  },
+                roles: {
+                  name_role: "Administrator",
                 },
               },
             },
@@ -613,7 +607,6 @@ export class PaymentsRepository {
       actorUser
         ?.employees
         ?.employee_roles
-        ?.assigned_permissions
         ?.roles || null;
 
     return {

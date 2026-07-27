@@ -9,10 +9,8 @@ export const findAdminUsers = async () => {
       id_status: 1,
       employees: {
         employee_roles: {
-          assigned_permissions: {
-            roles: {
-              name_role: ADMIN_ROLE_NAME,
-            },
+          roles: {
+            name_role: ADMIN_ROLE_NAME,
           },
         },
       },

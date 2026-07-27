@@ -37,7 +37,12 @@ const sendWelcomeEmailInBackground = ({
     } catch (emailError) {
       console.error(
         "[CreateUserUseCase] Email error:",
-        emailError.message
+        {
+          message: emailError.message,
+          code: emailError.code,
+          command: emailError.command,
+          responseCode: emailError.responseCode,
+        }
       );
     }
   });
