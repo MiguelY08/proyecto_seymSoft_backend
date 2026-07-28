@@ -31,7 +31,8 @@ export const cancelReturnController = async (req, res) => {
 
     const result = await cancelReturnUseCase(
       validation.data.idReturn,
-      validation.data.cancellationReason
+      validation.data.cancellationReason,
+      req.user?.id_user
     );
 
     if (!result.success) {
