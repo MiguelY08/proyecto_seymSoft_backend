@@ -38,7 +38,8 @@ export const updateReturnController = async (req, res) => {
     const result = await updateReturnUseCase(
       validation.data.id,
       validation.data,
-      req.files || []
+      req.files || [],
+      req.user?.id_user
     );
 
     if (!result.success) {

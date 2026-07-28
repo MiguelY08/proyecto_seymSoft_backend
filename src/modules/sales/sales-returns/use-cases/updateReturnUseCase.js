@@ -6,8 +6,9 @@ import {
   RETURN_STATUS,
   calculateGeneralStatus
 } from '../helpers/returnHelpers.js';
+import { salesReturnNotificationService } from '../helpers/salesReturnNotificationService.js';
 
-export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) => {
+export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], actorUserId = null) => {
   try {
     // 1. Verificar que la devolución existe
     const existingReturn = await ReturnRepository.findRawById(id);
@@ -131,6 +132,13 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = []) =>
       id,
       updateData.details || []
     );
+
+    if (creditEvents.length > 0) {
+      await salesReturnNotificationService.notifyCreditApplied({
+        events: creditEvents,
+        actorUserId,
+      });
+    }
 
     return {
       success: true,

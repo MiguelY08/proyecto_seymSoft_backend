@@ -9,6 +9,8 @@ export class DashboardIndicatorsController {
         dashboardTopModeSchema.safeParse({
           topMode:
             req.query.topMode ?? "quantity",
+          startDate: req.query.startDate,
+          endDate: req.query.endDate,
         });
 
       if (!validationResult.success) {
@@ -18,12 +20,13 @@ export class DashboardIndicatorsController {
         );
       }
 
-      const { topMode } =
+      const { topMode, startDate, endDate } =
         validationResult.data;
 
       const result =
         await GetDashboardIndicatorsUseCase.execute(
-          topMode
+          topMode,
+          { startDate, endDate }
         );
 
       res.status(200).json({

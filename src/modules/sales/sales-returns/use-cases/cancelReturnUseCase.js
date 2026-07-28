@@ -2,10 +2,11 @@
 
 import { ReturnRepository } from '../repositories/returnRepository.js';
 import { RETURN_STATUS } from '../helpers/returnHelpers.js';
+import { salesReturnNotificationService } from '../helpers/salesReturnNotificationService.js';
 
 const CANCELLED_STATUS_NAME = RETURN_STATUS.CANCELLED;
 
-export const cancelReturnUseCase = async (idReturn, cancellationReason) => {
+export const cancelReturnUseCase = async (idReturn, cancellationReason, actorUserId = null) => {
   try {
     // 1. Validar motivo
     if (!cancellationReason?.trim() || cancellationReason.trim().length < 10) {
@@ -61,6 +62,14 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason) => {
       cancellationReason: cancellationReason.trim()
     });
 
+    if (cancelled.creditReversalEvents?.length > 0) {
+      await salesReturnNotificationService.notifyCreditReversed({
+        events: cancelled.creditReversalEvents,
+        actorUserId,
+        cancellationReason: cancellationReason.trim(),
+      });
+    }
+
     return {
       success: true,
       data: {
@@ -69,6 +78,11 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason) => {
         status: CANCELLED_STATUS_NAME,
         cancellationReason: cancellationReason.trim(),
         cancelledAt: cancelled.cancelled_at,
+        creditReversed: (cancelled.creditReversalEvents || []).reduce(
+          (total, event) => total + Number(event.amount || 0),
+          0
+        ),
+        creditReversalEvents: cancelled.creditReversalEvents || [],
       },
       error: null,
       errorCode: null,
