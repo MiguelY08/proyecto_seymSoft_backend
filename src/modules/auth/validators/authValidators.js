@@ -244,6 +244,36 @@ export const forgotPasswordSchema = z.object({
   email: emailSchema("Email inválido"),
 });
 
+export const checkEmailSchema = z.object({
+  email: emailSchema("Email inválido"),
+});
+
+export const checkPhoneSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => isNumericString(value),
+      "El telefono solo debe contener numeros"
+    ),
+  context: z
+    .enum(["user", "client"])
+    .optional()
+    .default("client"),
+}).superRefine((data, ctx) => {
+  if (
+    data.context === "client" &&
+    !/^\d{7,10}$/.test(data.phone)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone"],
+      message:
+        "El telefono debe contener entre 7 y 10 digitos numericos",
+    });
+  }
+});
+
 /**
  * RESET PASSWORD SCHEMA
  * Validación para restablecer contraseña

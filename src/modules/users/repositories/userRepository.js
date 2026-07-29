@@ -358,6 +358,14 @@ export class UserRepository {
     });
   }
 
+  static async findByPhone(phone) {
+    return await prisma.users.findFirst({
+      where: {
+        phone: BigInt(phone),
+      },
+    });
+  }
+
   static async update(
     id,
     data
