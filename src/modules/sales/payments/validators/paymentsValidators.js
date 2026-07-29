@@ -27,8 +27,9 @@ export const createInstallmentSchema = z.object({
       required_error:
         "El monto es obligatorio",
     })
-    .positive(
-      "El monto debe ser mayor a cero"
+    .min(
+      PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT,
+      "El valor minimo permitido para un abono es de $1.000."
     ),
 
   observations: z
@@ -103,13 +104,16 @@ export const generateInterestSchema =
         required_error:
           "El porcentaje es obligatorio",
       })
+      .int(
+        "El porcentaje de interes debe estar entre 1% y 99%."
+      )
       .min(
         PAYMENT_BUSINESS_RULES.MIN_INTEREST_PERCENTAGE,
-        `El porcentaje mínimo es ${PAYMENT_BUSINESS_RULES.MIN_INTEREST_PERCENTAGE}%`
+        "El porcentaje de interes debe estar entre 1% y 99%."
       )
       .max(
         PAYMENT_BUSINESS_RULES.MAX_INTEREST_PERCENTAGE,
-        `El porcentaje máximo es ${PAYMENT_BUSINESS_RULES.MAX_INTEREST_PERCENTAGE}%`
+        "El porcentaje de interes debe estar entre 1% y 99%."
       ),
   });
 

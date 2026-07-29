@@ -1,5 +1,10 @@
 import { UserRepository } from "../repositories/userRepository.js";
 import { prisma } from "../../../config/prisma.js";
+import {
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from "../../../shared/utils/textNormalizer.js";
 
 const SYSTEM_ID_USER = 999999999;
 
@@ -54,6 +59,20 @@ export const updateUserUseCase = async (params) => {
       };
     }
 
+    const normalizedUpdateData = {
+      ...updateData,
+      ...(updateData.fullName !== undefined && {
+        fullName: normalizeName(updateData.fullName),
+      }),
+      ...(updateData.email !== undefined && {
+        email: normalizeEmail(updateData.email),
+      }),
+      ...(updateData.phone !== undefined &&
+        updateData.phone !== null && {
+          phone: BigInt(normalizeNumericString(updateData.phone)),
+        }),
+    };
+
     // Buscar usuario existente
     const existingUser = await UserRepository.findById(parsedIdUser);
 
@@ -77,8 +96,10 @@ export const updateUserUseCase = async (params) => {
     }
 
     // Validar email único (si se está actualizando)
-    if (updateData.email) {
-      const existingEmail = await UserRepository.findByEmail(updateData.email);
+    if (normalizedUpdateData.email) {
+      const existingEmail = await UserRepository.findByEmail(
+        normalizedUpdateData.email
+      );
 
       if (existingEmail && existingEmail.id_user !== parsedIdUser) {
         return {
@@ -91,7 +112,7 @@ export const updateUserUseCase = async (params) => {
     }
 
     // Separar datos de usuario y rol
-    const { idRole, ...userUpdateData } = updateData;
+    const { idRole, ...userUpdateData } = normalizedUpdateData;
 
     // Actualizar datos del usuario
     const updatedUser = await UserRepository.update(parsedIdUser, userUpdateData);

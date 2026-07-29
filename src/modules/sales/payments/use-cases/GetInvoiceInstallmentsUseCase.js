@@ -15,9 +15,11 @@ export default class GetInvoiceInstallmentsUseCase {
       );
     }
 
-    // ✅ DIRECTAMENTE AL MAPPER - SIN MAPEO MANUAL
     return credit.installments.map(
-      (installment) => InstallmentMapper.toDto(installment)
+      (installment, index) => ({
+        ...InstallmentMapper.toDto(installment),
+        displayId: index + 1,
+      })
     );
   }
 }
