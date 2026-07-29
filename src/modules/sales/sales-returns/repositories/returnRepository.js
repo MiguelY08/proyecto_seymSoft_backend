@@ -593,6 +593,9 @@ static async findAll(filters = {}) {
       const saleData = returnForCredit?.returnable_sale_data || {};
       const snapshotDetails = Array.isArray(saleData.details) ? [...saleData.details] : [];
       const creditEvents = Array.isArray(saleData.creditEvents) ? [...saleData.creditEvents] : [];
+      const defectiveResolutions = Array.isArray(saleData.defectiveResolutions)
+        ? [...saleData.defectiveResolutions]
+        : [];
       const appliedDetails = snapshotDetails.filter(
         detail => detail.creditApplied && !detail.creditReversed
       );
@@ -674,6 +677,47 @@ static async findAll(filters = {}) {
         };
       }
 
+      const nonConformingResolutionIds = [
+        ...new Set(
+          defectiveResolutions
+            .filter(resolution =>
+              resolution?.type === 'NON_CONFORMING' &&
+              resolution?.referenceId &&
+              !resolution?.cancelledBySaleReturnCancellation
+            )
+            .map(resolution => Number(resolution.referenceId))
+            .filter(Number.isFinite)
+        )
+      ];
+      const nonConformingCancelledAt = new Date().toISOString();
+
+      if (nonConformingResolutionIds.length > 0) {
+        await tx.non_conforming_products.updateMany({
+          where: {
+            id_ncp: { in: nonConformingResolutionIds },
+            id_status: { not: 2 }
+          },
+          data: { id_status: 2 }
+        });
+      }
+
+      const nextDefectiveResolutions = defectiveResolutions.map((resolution) => {
+        const referenceId = Number(resolution?.referenceId);
+        if (
+          resolution?.type !== 'NON_CONFORMING' ||
+          !nonConformingResolutionIds.includes(referenceId)
+        ) {
+          return resolution;
+        }
+
+        return {
+          ...resolution,
+          cancelledBySaleReturnCancellation: true,
+          cancelledAt: nonConformingCancelledAt,
+          cancellationReason: `Producto no conforme anulado porque se anuló la devolución de venta ${returnForCredit.return_number}.`
+        };
+      });
+
       const updatedReturn = await tx.sales_returns.update({
         where: {
           id_sales_return: Number(idReturn),
@@ -685,7 +729,8 @@ static async findAll(filters = {}) {
           returnable_sale_data: {
             ...saleData,
             details: snapshotDetails,
-            creditEvents
+            creditEvents,
+            defectiveResolutions: nextDefectiveResolutions
           }
         },
       });
