@@ -13,6 +13,11 @@ import { prisma } from "../../../config/prisma.js";
 import { AuthRepository } from "../repositories/authRepository.js";
 import { EmailService } from "../../../shared/services/emailService.js";
 import { notificationService } from "../../notifications/services/index.js";
+import {
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from "../../../shared/utils/textNormalizer.js";
 
 const sameText = (currentValue, nextValue) =>
   String(currentValue ?? "").trim() === String(nextValue ?? "").trim();
@@ -39,6 +44,20 @@ const buildNoChangesMessage = (unchangedFields) => {
 
 export class UpdateProfileUseCase {
   static async execute(idUser, updateData) {
+    const normalizedUpdateData = {
+      ...updateData,
+      ...(updateData.email !== undefined && {
+        email: normalizeEmail(updateData.email),
+      }),
+      ...(updateData.full_name !== undefined && {
+        full_name: normalizeName(updateData.full_name),
+      }),
+      ...(updateData.phone !== undefined &&
+        updateData.phone !== null && {
+          phone: BigInt(normalizeNumericString(updateData.phone)),
+        }),
+    };
+
     // Verificar que el usuario existe
     const existingUser = await prisma.users.findUnique({
       where: { id_user: idUser },
@@ -55,30 +74,30 @@ export class UpdateProfileUseCase {
     let oldEmail = null;       // ← AGREGAR ESTO
 
     // Validar email único si se quiere cambiar
-    if (updateData.email) {
+    if (normalizedUpdateData.email) {
       const emailExists = await prisma.users.findUnique({
-        where: { email: updateData.email },
+        where: { email: normalizedUpdateData.email },
       });
       if (emailExists && emailExists.id_user !== idUser) {
         throw new ConflictError("Email already in use");
       }
       
       // ← AGREGAR ESTO
-      if (updateData.email !== existingUser.email) {
+      if (normalizedUpdateData.email !== existingUser.email) {
         oldEmail = existingUser.email;
         emailChanged = true;
-        dataToUpdate.email = updateData.email;
+        dataToUpdate.email = normalizedUpdateData.email;
         invalidateSession = true;
       } else {
         unchangedFields.email = unchangedMessages.email;
       }
     }
 
-    if (updateData.full_name) {
-      if (sameText(existingUser.full_name, updateData.full_name)) {
+    if (normalizedUpdateData.full_name) {
+      if (sameText(existingUser.full_name, normalizedUpdateData.full_name)) {
         unchangedFields.full_name = unchangedMessages.full_name;
       } else {
-        dataToUpdate.full_name = updateData.full_name;
+        dataToUpdate.full_name = normalizedUpdateData.full_name;
       }
     }
 
@@ -116,11 +135,14 @@ export class UpdateProfileUseCase {
     }
 
     // Actualizar teléfono si se proporciona
-    if (updateData.phone !== undefined && updateData.phone !== null) {
-      if (samePhone(existingUser.phone, updateData.phone)) {
+    if (
+      normalizedUpdateData.phone !== undefined &&
+      normalizedUpdateData.phone !== null
+    ) {
+      if (samePhone(existingUser.phone, normalizedUpdateData.phone)) {
         unchangedFields.phone = unchangedMessages.phone;
       } else {
-        dataToUpdate.phone = updateData.phone;
+        dataToUpdate.phone = normalizedUpdateData.phone;
       }
     }
 

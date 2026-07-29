@@ -5,6 +5,7 @@ import { RefreshTokenController } from "../controllers/refreshTokenController.js
 import { LogoutController } from "../controllers/logoutController.js";
 import { RegisterController } from "../controllers/registerController.js";
 import { ProfileController } from "../controllers/profileController.js";
+import { ProfileSummaryController } from "../controllers/profileSummaryController.js";
 import { UpdateProfileController } from "../controllers/updateProfileController.js";
 import { ForgotPasswordController } from "../controllers/forgotPasswordController.js";
 import { ResetPasswordController } from "../controllers/resetPasswordController.js";
@@ -30,6 +31,9 @@ router.post("/logout", LogoutController.logout);
 
 // GET /auth/me (protected)
 router.get("/me", authMiddleware, ProfileController.getProfile);
+
+// GET /auth/profile (protected)
+router.get("/profile", authMiddleware, ProfileSummaryController.getSummary);
 
 // PUT /auth/profile (protected)
 router.put("/profile", authMiddleware, UpdateProfileController.updateProfile);

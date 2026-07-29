@@ -1,7 +1,38 @@
 import { z } from "zod";
+import {
+  isNumericString,
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from "../../../shared/utils/textNormalizer.js";
 
 export const getZodIssues = (error) =>
   error?.issues || error?.errors || [];
+
+const emailSchema = (message = "Email invÃ¡lido") =>
+  z.preprocess(
+    normalizeEmail,
+    z.string().email(message)
+  );
+
+const nameSchema = (requiredMessage, maxMessage) =>
+  z.preprocess(
+    normalizeName,
+    z
+      .string()
+      .min(1, requiredMessage)
+      .max(255, maxMessage)
+  );
+
+const phoneSchema = z
+  .union([z.string(), z.number().int()])
+  .refine(
+    (value) => isNumericString(value),
+    "El telefono solo debe contener numeros"
+  )
+  .transform((value) =>
+    BigInt(normalizeNumericString(value))
+  );
 
 /**
  * LOGIN SCHEMA
@@ -9,7 +40,7 @@ export const getZodIssues = (error) =>
  */
 export const loginSchema = z
   .object({
-    email: z.string().email("Email inválido").toLowerCase().trim(),
+    email: emailSchema("Email inválido"),
     pass_word: z
       .string()
       .min(1, "La contraseña es requerida")
@@ -37,12 +68,11 @@ export const loginSchema = z
  */
 export const registerSchema = z
   .object({
-    full_name: z
-      .string()
-      .min(1, "El nombre completo es requerido")
-      .max(255, "El nombre no puede exceder 255 caracteres")
-      .trim(),
-    email: z.string().email("Email inválido").toLowerCase().trim(),
+    full_name: nameSchema(
+      "El nombre completo es requerido",
+      "El nombre no puede exceder 255 caracteres"
+    ),
+    email: emailSchema("Email inválido"),
     pass_word: z
       .string()
       .min(6, "La contraseña debe tener al menos 6 caracteres")
@@ -55,10 +85,7 @@ export const registerSchema = z
       .regex(/[A-Z]/, "La contraseña debe contener al menos una mayúscula")
       .trim()
       .optional(),
-    phone: z
-      .union([z.string().min(1), z.number().int()])
-      .optional()
-      .transform((val) => (val ? BigInt(val.toString().trim()) : null)),
+    phone: phoneSchema.optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (!data.pass_word && !data.password) {
@@ -116,7 +143,7 @@ export const logoutSchema = refreshTokenSchema;
  */
 export const updateProfileSchema = z
   .object({
-    email: z.string().email("Email inválido").toLowerCase().trim().optional(),
+    email: emailSchema("Email inválido").optional(),
     pass_word: z
       .string()
       .min(6, "La contraseña debe tener al menos 6 caracteres")
@@ -129,18 +156,14 @@ export const updateProfileSchema = z
       .regex(/[A-Z]/, "La contraseña debe contener al menos una mayúscula")
       .trim()
       .optional(),
-    full_name: z
-      .string()
-      .min(1, "El nombre completo es requerido")
-      .max(255, "El nombre no puede exceder 255 caracteres")
-      .trim()
-      .optional(),
-    fullName: z
-      .string()
-      .min(1, "El nombre completo es requerido")
-      .max(255, "El nombre no puede exceder 255 caracteres")
-      .trim()
-      .optional(),
+    full_name: nameSchema(
+      "El nombre completo es requerido",
+      "El nombre no puede exceder 255 caracteres"
+    ).optional(),
+    fullName: nameSchema(
+      "El nombre completo es requerido",
+      "El nombre no puede exceder 255 caracteres"
+    ).optional(),
     current_password: z
       .string()
       .min(1, "La contraseña actual es requerida para cambiar la contraseña")
@@ -156,10 +179,7 @@ export const updateProfileSchema = z
       .max(255, "La dirección no puede exceder 255 caracteres")
       .trim()
       .optional(),
-    phone: z
-      .union([z.string().min(1), z.number().int()])
-      .optional()
-      .transform((val) => (val ? BigInt(val.toString().trim()) : null)),
+    phone: phoneSchema.optional().nullable(),
   })
   .superRefine((data, ctx) => {
     const hasProfileChange =
@@ -221,7 +241,7 @@ export const updateProfileSchema = z
  * Validación para solicitar recuperación de contraseña
  */
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Email inválido").toLowerCase().trim(),
+  email: emailSchema("Email inválido"),
 });
 
 /**

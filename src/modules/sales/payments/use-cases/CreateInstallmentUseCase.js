@@ -4,6 +4,7 @@ import calculateTotalDebt from "../helpers/calculateTotalDebt.js";
 import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
 import InstallmentMapper from "../mappers/InstallmentMapper.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
+import { PAYMENT_BUSINESS_RULES } from "../constants/paymentBusinessRules.constants.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
 
 export class CreateInstallmentUseCase {
@@ -31,7 +32,8 @@ export class CreateInstallmentUseCase {
     }
 
     if (
-      Number(installment_amount) <= 0
+      Number(installment_amount) <
+      PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT
     ) {
       throw new Error(
         PAYMENT_MESSAGES.INVALID_INSTALLMENT_AMOUNT

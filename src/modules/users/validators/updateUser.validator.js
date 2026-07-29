@@ -1,52 +1,61 @@
 import { z } from "zod";
+import {
+  isNumericString,
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from "../../../shared/utils/textNormalizer.js";
 
+const numericPhoneSchema = z
+  .union([z.string(), z.number().int()])
+  .refine(
+    (value) => isNumericString(value),
+    "El telefono solo debe contener numeros"
+  )
+  .transform((value) =>
+    BigInt(normalizeNumericString(value))
+  );
 
 export const updateUserSchema = z.object({
-  fullName: z
-    .string()
-    .trim()
-    .min(1, "El nombre completo no puede estar vacío")
-    .max(255, "El nombre completo no puede exceder 255 caracteres")
-    .optional(),
+  fullName: z.preprocess(
+    normalizeName,
+    z
+      .string()
+      .min(1, "El nombre completo no puede estar vacio")
+      .max(255, "El nombre completo no puede exceder 255 caracteres")
+  ).optional(),
 
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email("El email debe ser válido")
-    .max(255, "El email no puede exceder 255 caracteres")
-    .optional(),
+  email: z.preprocess(
+    normalizeEmail,
+    z
+      .string()
+      .email("El email debe ser valido")
+      .max(255, "El email no puede exceder 255 caracteres")
+  ).optional(),
 
-  phone: z
-    .number()
-    .int()
-    .positive("El teléfono debe ser un número positivo")
+  phone: numericPhoneSchema
     .optional()
     .nullable(),
 
   idRole: z
     .number()
     .int()
-    .positive("El ID del rol debe ser un número positivo")
+    .positive("El ID del rol debe ser un numero positivo")
     .optional()
     .nullable(),
 }).strict();
-
 
 export const validateUpdateUser = (data) => {
   try {
     const validatedData = updateUserSchema.parse(data);
 
-    // Filtrar campos undefined para solo enviar lo que se actualizó
-    // PERO permitir null (especialmente para idRole)
     const cleanData = Object.entries(validatedData)
-      .filter(([, value]) => value !== undefined)  // ← Permitir null
+      .filter(([, value]) => value !== undefined)
       .reduce((acc, [key, value]) => {
         acc[key] = value;
         return acc;
       }, {});
 
-    // Validar que al menos se envió un campo
     if (Object.keys(cleanData).length === 0) {
       return {
         success: false,
@@ -64,7 +73,8 @@ export const validateUpdateUser = (data) => {
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const formattedErrors = error.errors.reduce((acc, err) => {
+      const issues = error.issues || error.errors || [];
+      const formattedErrors = issues.reduce((acc, err) => {
         const path = err.path.join(".");
         acc[path] = err.message;
         return acc;
@@ -77,11 +87,10 @@ export const validateUpdateUser = (data) => {
       };
     }
 
-    // Error inesperado
     return {
       success: false,
       data: null,
-      errors: { general: "Error en validación" },
+      errors: { general: "Error en validacion" },
     };
   }
 };

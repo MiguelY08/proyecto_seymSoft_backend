@@ -1,6 +1,7 @@
 import calculateInterestAmount from "../helpers/calculateInterestAmount.js";
 import calculateOverdueDays from "../helpers/calculateOverdueDays.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
+import { PAYMENT_BUSINESS_RULES } from "../constants/paymentBusinessRules.constants.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
 
 export class GenerateInterestUseCase {
@@ -14,6 +15,18 @@ export class GenerateInterestUseCase {
     percentage,
     userId,
   }) {
+    if (
+      !Number.isInteger(Number(percentage)) ||
+      Number(percentage) <
+        PAYMENT_BUSINESS_RULES.MIN_INTEREST_PERCENTAGE ||
+      Number(percentage) >
+        PAYMENT_BUSINESS_RULES.MAX_INTEREST_PERCENTAGE
+    ) {
+      throw new Error(
+        PAYMENT_MESSAGES.INVALID_INTEREST_PERCENTAGE
+      );
+    }
+
     const credit =
       await this.paymentsRepository.getCreditById(
         id_credit
