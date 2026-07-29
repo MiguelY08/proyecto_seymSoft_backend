@@ -9,6 +9,7 @@ export class DashboardIndicatorsMapper {
     categoryDemand,
     topClients,
     activeClients,
+    meta,
   }) {
     return new DashboardIndicatorsDto({
       monthlySales,
@@ -18,6 +19,7 @@ export class DashboardIndicatorsMapper {
       categoryDemand,
       topClients,
       activeClients,
+      meta,
     });
   }
 }

@@ -10,6 +10,7 @@ import {
 } from '../use-cases/createOrderUseCase.js';
 import {
   UpdateOrderUseCase,
+  notifyOrderShippingAssigned,
   notifyOrderUpdated,
   notifyOrderStatusChanged,
 } from '../use-cases/updateOrderUseCase.js';
@@ -140,6 +141,14 @@ export const updateOrder = async (req, res, next) => {
       });
     }
 
+    if (result.shippingNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyOrderShippingAssigned(result.shippingNotification);
+        });
+      });
+    }
+
     res.status(httpCodes.OK).json({
       success: true,
       message: 'Pedido actualizado exitosamente.',
@@ -163,10 +172,19 @@ export const updateOrderShipping = async (req, res, next) => {
       });
     }
 
-    const data = await new UpdateOrderShippingUseCase(repo).execute(
+    const result = await new UpdateOrderShippingUseCase(repo).execute(
       paramsValidation.data.id,
       req.body
     );
+    const data = result.order;
+
+    if (result.shippingNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyOrderShippingAssigned(result.shippingNotification);
+        });
+      });
+    }
 
     res.status(httpCodes.OK).json({
       success: true,

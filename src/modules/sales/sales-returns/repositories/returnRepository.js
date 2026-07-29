@@ -593,6 +593,7 @@ static async findAll(filters = {}) {
       const saleData = returnForCredit?.returnable_sale_data || {};
       const snapshotDetails = Array.isArray(saleData.details) ? [...saleData.details] : [];
       const creditEvents = Array.isArray(saleData.creditEvents) ? [...saleData.creditEvents] : [];
+      const reversedCreditEvents = [];
       const defectiveResolutions = Array.isArray(saleData.defectiveResolutions)
         ? [...saleData.defectiveResolutions]
         : [];
@@ -630,7 +631,7 @@ static async findAll(filters = {}) {
             creditReversed: true,
             creditReversedAt: reversedAt
           };
-          creditEvents.push({
+          const reversalEvent = {
             id: `return-${idReturn}-detail-${appliedDetail.idSaleReturnDetail}-reversal`,
             type: 'REVERSAL',
             clientId: Number(clientId),
@@ -645,7 +646,9 @@ static async findAll(filters = {}) {
             reason: 'Reversión de saldo por anulación de devolución',
             processedBy: saleData.employeeName || 'Sistema',
             createdAt: reversedAt
-          });
+          };
+          creditEvents.push(reversalEvent);
+          reversedCreditEvents.push(reversalEvent);
         });
       }
 
@@ -740,7 +743,10 @@ static async findAll(filters = {}) {
         data: { id_return_status: idReturnStatus }
       });
 
-      return updatedReturn;
+      return {
+        ...updatedReturn,
+        creditReversalEvents: reversedCreditEvents
+      };
     });
   }
 

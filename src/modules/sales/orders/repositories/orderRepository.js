@@ -122,6 +122,7 @@ const orderSummarySelect = {
   id_order_status: true,
   delivery_adress: true,
   delivery_recipient_name: true,
+  delivery_recipient_phone: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -259,6 +260,7 @@ const orderPaymentResultSelect = {
   id_order_status: true,
   delivery_adress: true,
   delivery_recipient_name: true,
+  delivery_recipient_phone: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -345,6 +347,7 @@ const orderListSelect = {
   id_order_status: true,
   delivery_adress: true,
   delivery_recipient_name: true,
+  delivery_recipient_phone: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -660,6 +663,8 @@ export class OrderRepository {
         id_order_status: true,
         id_payment_status: true,
         sale_type: true,
+        subtotal: true,
+        iva_amount: true,
         shipping_amount: true,
         order_statuses: {
           select: {
@@ -676,6 +681,9 @@ export class OrderRepository {
             id_product: true,
             barcode: true,
             quantity: true,
+            unit_price: true,
+            subtotal: true,
+            iva_amount: true,
           },
         },
       },
@@ -772,6 +780,7 @@ export class OrderRepository {
           delivery_city_code: data.deliveryCityCode,
           delivery_city_name: data.deliveryCityName,
           delivery_recipient_name: data.deliveryRecipientName,
+          delivery_recipient_phone: data.deliveryRecipientPhone,
           sale_type: data.saleType || 'manual',
           payment_status: paymentStatus.name,
           payment_statuses: {
@@ -885,6 +894,7 @@ export class OrderRepository {
           delivery_city_code: data.deliveryCityCode,
           delivery_city_name: data.deliveryCityName,
           delivery_recipient_name: data.deliveryRecipientName,
+          delivery_recipient_phone: data.deliveryRecipientPhone,
           payment_status: paymentStatus.name,
           payment_statuses: {
             connect: {
@@ -981,6 +991,8 @@ export class OrderRepository {
         id_order: true,
         id_order_status: true,
         id_payment_status: true,
+        delivery_type: true,
+        shipping_amount: true,
         clients: {
           select: {
             id_user: true,

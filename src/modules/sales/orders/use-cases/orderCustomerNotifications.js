@@ -50,6 +50,45 @@ const isPickupOrder = (order) => {
   return normalizeText(deliveryType) === normalizeText(DELIVERY_TYPES.PICKUP);
 };
 
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
+export const notifyCustomerShippingAmountAssigned = async ({ order }) => {
+  const idUser = getCustomerUserId(order);
+  const orderId = getOrderId(order);
+  const shippingAmount = Number(
+    order?.shipping_amount ?? order?.shippingAmount ?? 0
+  );
+  const total = Number(order?.total ?? 0);
+
+  if (!idUser || !orderId || shippingAmount <= 0) {
+    return null;
+  }
+
+  try {
+    return await notificationService.create({
+      idUser,
+      title: 'Valor de envio asignado',
+      message: `El envio de tu pedido #${orderId} fue asignado por ${formatCurrency(shippingAmount)}. El total a transferir es ${formatCurrency(total)}; ya puedes enviar un unico comprobante.`,
+      type: 'payment',
+      actionUrl: createOrderActionUrl(order),
+      metadata: {
+        orderId,
+        shippingAmount,
+        total,
+        event: 'order_shipping_amount_assigned',
+      },
+    });
+  } catch (error) {
+    console.error('[OrderCustomerNotifications] Shipping assignment notification error:', error.message);
+    return null;
+  }
+};
+
 export const notifyCustomerOrderUpdated = async ({ order }) => {
   const idUser = getCustomerUserId(order);
   const orderId = getOrderId(order);

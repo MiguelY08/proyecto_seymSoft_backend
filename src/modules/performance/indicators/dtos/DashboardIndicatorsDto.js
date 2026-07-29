@@ -7,6 +7,7 @@ export class DashboardIndicatorsDto {
     categoryDemand,
     topClients,
     activeClients,
+    meta,
   }) {
     this.monthlySales = monthlySales;
     this.stock = stock;
@@ -15,5 +16,6 @@ export class DashboardIndicatorsDto {
     this.categoryDemand = categoryDemand;
     this.topClients = topClients;
     this.activeClients = activeClients;
+    this.meta = meta;
   }
 }

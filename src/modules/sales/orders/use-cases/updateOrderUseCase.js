@@ -11,6 +11,7 @@ import {
 } from '../helpers/orderHelpers.js';
 import {
   notifyCustomerOrderReadyForPickup,
+  notifyCustomerShippingAmountAssigned,
   notifyCustomerOrderUpdated,
 } from './orderCustomerNotifications.js';
 import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
@@ -51,13 +52,19 @@ const validateShippingAmountForUpdate = ({ order, dto }) => {
 };
 
 const validateDeliveryRecipientForUpdate = ({ order, dto }) => {
-  if (getOrderSaleType(order) === 'direct') {
+  if (dto.deliveryType !== DELIVERY_TYPES.DELIVERY || getOrderSaleType(order) === 'direct') {
     return;
   }
 
   if (!dto.deliveryRecipientName) {
     throw new AppError(
       'El nombre de quien recibe el pedido es obligatorio.',
+      400
+    );
+  }
+  if (!dto.deliveryRecipientPhone) {
+    throw new AppError(
+      'El telefono de quien recibe el pedido es obligatorio.',
       400
     );
   }
@@ -202,6 +209,10 @@ export const notifyOrderUpdated = async ({ order }) => {
   await notifyCustomerOrderUpdated({ order });
 };
 
+export const notifyOrderShippingAssigned = async ({ order }) => {
+  await notifyCustomerShippingAmountAssigned({ order });
+};
+
 export class UpdateOrderUseCase {
   constructor(repo) {
     this.repo = repo;
@@ -236,9 +247,17 @@ export class UpdateOrderUseCase {
     }
 
 
+    const itemsWereProvided = dto.items !== undefined;
+    const effectiveItems =
+      dto.items ??
+      order.order_details.map((item) => ({
+        idProduct: item.id_product,
+        barcode: item.barcode,
+        quantity: Number(item.quantity),
+      }));
     const hasContentChanges = hasOrderContentChanges(
       order.order_details,
-      dto.items
+      effectiveItems
     );
     const hasShippingAmountChanges =
       roundMoney(order.shipping_amount) !== roundMoney(dto.shippingAmount);
@@ -271,14 +290,35 @@ export class UpdateOrderUseCase {
       throw new AppError('Cliente no encontrado.', 404);
     }
 
-    const enrichedItems = await getEnrichedOrderItems({
-      repo: this.repo,
-      items: dto.items,
-      client,
-    });
-    const calculated = calculateOrderTotals(enrichedItems, {
-      shippingAmount: dto.shippingAmount,
-    });
+    const calculated = itemsWereProvided
+      ? calculateOrderTotals(
+          await getEnrichedOrderItems({
+            repo: this.repo,
+            items: effectiveItems,
+            client,
+          }),
+          {
+            shippingAmount: dto.shippingAmount,
+          }
+        )
+      : {
+          items: order.order_details.map((item) => ({
+            idProduct: item.id_product,
+            barcode: item.barcode,
+            quantity: Number(item.quantity),
+            unitPrice: roundMoney(item.unit_price),
+            subtotal: roundMoney(item.subtotal),
+            ivaAmount: roundMoney(item.iva_amount),
+          })),
+          subtotal: roundMoney(order.subtotal),
+          ivaAmount: roundMoney(order.iva_amount),
+          shippingAmount: roundMoney(dto.shippingAmount),
+          total: roundMoney(
+            Number(order.subtotal) +
+            Number(order.iva_amount) +
+            Number(dto.shippingAmount)
+          ),
+        };
 
 
     const nextOrderStatusId =
@@ -309,6 +349,7 @@ export class UpdateOrderUseCase {
       deliveryCityCode: dto.deliveryCityCode,
       deliveryCityName: dto.deliveryCityName,
       deliveryRecipientName: dto.deliveryRecipientName,
+      deliveryRecipientPhone: dto.deliveryRecipientPhone,
       idOrderStatus: nextOrderStatusId,
       idPaymentStatus: dto.idPaymentStatus || order.id_payment_status || PAYMENT_STATUSES[1].id,
       paymentStatus: dto.paymentStatus,
@@ -323,15 +364,28 @@ export class UpdateOrderUseCase {
     const mappedOrder = mapOrder(updated);
     const statusChanged =
       order.id_order_status !== updated.id_order_status;
+    const shippingAmountAssigned =
+      dto.deliveryType === DELIVERY_TYPES.DELIVERY &&
+      roundMoney(order.shipping_amount) <= 0 &&
+      roundMoney(calculated.shippingAmount) > 0;
 
     return {
       order:
         mappedOrder,
       updateNotification:
-        {
-          order:
-            updated,
-        },
+        shippingAmountAssigned
+          ? null
+          : {
+              order:
+                updated,
+            },
+      shippingNotification:
+        shippingAmountAssigned
+          ? {
+              order:
+                updated,
+            }
+          : null,
       statusNotification:
         statusChanged
           ? {

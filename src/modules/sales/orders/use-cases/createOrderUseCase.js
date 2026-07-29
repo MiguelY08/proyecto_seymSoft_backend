@@ -316,6 +316,7 @@ export class CreateOrderUseCase {
       deliveryCityCode: dto.deliveryCityCode,
       deliveryCityName: dto.deliveryCityName,
       deliveryRecipientName: dto.deliveryRecipientName,
+      deliveryRecipientPhone: dto.deliveryRecipientPhone,
       saleType: dto.saleType,
       idOrderStatus,
       idPaymentStatus: paymentStatus.id,
