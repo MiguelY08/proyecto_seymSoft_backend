@@ -1,26 +1,62 @@
 import { ClientRepository } from '../repositories/clientRepository.js';
 import { UserRepository } from '../../../users/repositories/userRepository.js';
 import { prisma } from '../../../../config/prisma.js';
+import {
+  isNumericString,
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from '../../../../shared/utils/textNormalizer.js';
+
+const normalizeUpdatePayload = (updateData) => ({
+  ...updateData,
+  ...(updateData.email !== undefined && {
+    email: normalizeEmail(updateData.email),
+  }),
+  ...(updateData.phone !== undefined && {
+    phone: normalizeNumericString(updateData.phone),
+  }),
+  ...(updateData.contactName !== undefined && {
+    contactName: updateData.contactName
+      ? normalizeName(updateData.contactName)
+      : updateData.contactName,
+  }),
+  ...(updateData.contactPhone !== undefined && {
+    contactPhone: updateData.contactPhone
+      ? normalizeNumericString(updateData.contactPhone)
+      : updateData.contactPhone,
+  }),
+});
 
 export const updateClientUseCase = async (id, updateData) => {
   try {
+    const normalizedUpdateData = normalizeUpdatePayload(updateData);
+
+    if (
+      normalizedUpdateData.phone !== undefined &&
+      !isNumericString(normalizedUpdateData.phone)
+    ) {
+      return {
+        success: false,
+        error: 'El telefono solo debe contener numeros',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
     const client = await ClientRepository.findById(id);
     if (!client) return { success: false, error: 'Cliente no encontrado', errorCode: 'CLIENT_NOT_FOUND' };
 
-    // ✅ VALIDACIÓN: Si se está aumentando el crédito
-    if (updateData.clientCredit !== undefined) {
-      const newCredit = parseFloat(updateData.clientCredit);
+    if (normalizedUpdateData.clientCredit !== undefined) {
+      const newCredit = parseFloat(normalizedUpdateData.clientCredit);
       const currentCredit = parseFloat(client.clientCredit || 0);
-      
-      // Solo validar si el nuevo crédito es MAYOR al actual
+
       if (newCredit > currentCredit) {
-        // 1. Verificar si el cliente tiene créditos vencidos (estado del crédito)
         const hasOverdueCredits = await prisma.credits.count({
           where: {
             id_customer: id,
             remaining_balance: { gt: 0 },
             credit_statuses: {
-              name_credit_status: 'Vencido'  // ← Este es el estado correcto
+              name_credit_status: 'Vencido'
             }
           }
         });
@@ -28,12 +64,11 @@ export const updateClientUseCase = async (id, updateData) => {
         if (hasOverdueCredits > 0) {
           return {
             success: false,
-            error: 'NO SE PUEDE AUMENTAR EL CRÉDITO: El cliente tiene créditos vencidos. Regularice su situación antes de aumentar el cupo.',
+            error: 'NO SE PUEDE AUMENTAR EL CREDITO: El cliente tiene creditos vencidos. Regularice su situacion antes de aumentar el cupo.',
             errorCode: 'CLIENT_HAS_OVERDUE_CREDITS'
           };
         }
 
-        // 2. Verificar si el cliente tiene créditos pendientes con deuda (opcional)
         const hasPendingCredits = await prisma.credits.count({
           where: {
             id_customer: id,
@@ -47,33 +82,30 @@ export const updateClientUseCase = async (id, updateData) => {
         if (hasPendingCredits > 0) {
           return {
             success: false,
-            error: 'NO SE PUEDE AUMENTAR EL CRÉDITO: El cliente tiene créditos pendientes. Regularice su situación antes de aumentar el cupo.',
+            error: 'NO SE PUEDE AUMENTAR EL CREDITO: El cliente tiene creditos pendientes. Regularice su situacion antes de aumentar el cupo.',
             errorCode: 'CLIENT_HAS_PENDING_CREDITS'
           };
         }
       }
     }
 
-    // Validar email único si se está actualizando
-    if (updateData.email) {
-      const existingUser = await UserRepository.findByEmail(updateData.email);
+    if (normalizedUpdateData.email) {
+      const existingUser = await UserRepository.findByEmail(normalizedUpdateData.email);
       if (existingUser && existingUser.id_user !== client.idUser) {
-        return { 
-          success: false, 
-          error: 'El email ya está registrado por otro usuario', 
-          errorCode: 'DUPLICATE_EMAIL' 
+        return {
+          success: false,
+          error: 'El email ya esta registrado por otro usuario',
+          errorCode: 'DUPLICATE_EMAIL'
         };
       }
     }
 
-    // Actualizar datos del cliente
-    await ClientRepository.update(id, updateData);
+    await ClientRepository.update(id, normalizedUpdateData);
 
-    // Actualizar datos del usuario asociado (SOLO email y phone)
     const userUpdate = {};
-    if (updateData.email !== undefined) userUpdate.email = updateData.email;
-    if (updateData.phone !== undefined) userUpdate.phone = parseInt(updateData.phone) || null;
-    
+    if (normalizedUpdateData.email !== undefined) userUpdate.email = normalizedUpdateData.email;
+    if (normalizedUpdateData.phone !== undefined) userUpdate.phone = normalizedUpdateData.phone || null;
+
     if (Object.keys(userUpdate).length > 0) {
       await UserRepository.update(client.idUser, userUpdate);
     }

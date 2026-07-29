@@ -7,9 +7,17 @@ export default function calculateOverdueDays({
   dueDate,
   currentDate = new Date(),
 }) {
-  const dueDateValue = new Date(dueDate);
+  if (!dueDate) {
+    return 0;
+  }
 
-  if (currentDate <= dueDateValue) {
+  const dueDateValue = new Date(dueDate);
+  dueDateValue.setHours(0, 0, 0, 0);
+
+  const currentDateValue = new Date(currentDate);
+  currentDateValue.setHours(0, 0, 0, 0);
+
+  if (currentDateValue <= dueDateValue) {
     return 0;
   }
 
@@ -17,7 +25,7 @@ export default function calculateOverdueDays({
     1000 * 60 * 60 * 24;
 
   return Math.floor(
-    (currentDate - dueDateValue) /
+    (currentDateValue - dueDateValue) /
       millisecondsPerDay
   );
 }
