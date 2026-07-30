@@ -26,6 +26,12 @@ export const PAYMENT_MESSAGES = {
   AMOUNT_EXCEEDS_DEBT:
     "El monto supera la deuda pendiente",
 
+  INVALID_INSTALLMENT_AMOUNT:
+    "El valor minimo permitido para un abono es de $1.000.",
+
+  INVALID_INTEREST_PERCENTAGE:
+    "El porcentaje de interes debe estar entre 1% y 99%.",
+
   INSTALLMENT_CREATED:
     "Abono registrado exitosamente",
 

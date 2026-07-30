@@ -61,6 +61,13 @@ export class UploadOrderPaymentReceiptUseCase {
       );
     }
 
+    if (order.order_payment_receipts?.length) {
+      throw new AppError(
+        'Ya existe un comprobante pendiente de revision para este pedido.',
+        409
+      );
+    }
+
     if (
       order.delivery_type === DELIVERY_TYPES.DELIVERY &&
       Number(order.shipping_amount || 0) <= 0

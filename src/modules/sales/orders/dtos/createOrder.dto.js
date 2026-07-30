@@ -87,6 +87,20 @@ const normalizeShippingAmount = ({
   return Math.round(amount * 100) / 100;
 };
 
+const normalizeOptionalMoney = (value, fieldName) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0;
+  }
+
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error(`${fieldName} debe ser un numero mayor o igual a 0.`);
+  }
+
+  return Math.round(amount * 100) / 100;
+};
+
 export class CreateOrderDto {
   constructor(data) {
     const deliveryType = normalizeDeliveryType(
@@ -208,6 +222,15 @@ export class CreateOrderDto {
       deliveryType,
       saleType: this.saleType,
     });
+    this.favorBalanceAmount = normalizeOptionalMoney(
+      data.favorBalanceAmount ??
+      data.favor_balance_amount ??
+      data.creditBalanceAmount ??
+      data.credit_balance_amount ??
+      data.saldoFavorUsado ??
+      data.saldo_favor_usado,
+      'El saldo a favor aplicado'
+    );
 
     this.items = data.items ?? [];
     this.initialPayments =

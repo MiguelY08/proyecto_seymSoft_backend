@@ -33,6 +33,10 @@ export const runOverdueCreditNotificationJob = async () => {
     const result = await useCase.execute();
 
     console.log("[OverdueCreditNotificationJob] Finished:", {
+      checkedReminderCredits:
+        result.checkedReminderCredits,
+      notifiedReminderCredits:
+        result.notifiedReminderCredits,
       checkedCredits:
         result.checkedCredits,
       notifiedCredits:
@@ -90,4 +94,3 @@ export const stopOverdueCreditNotificationJob = () => {
 
   console.log("[OverdueCreditNotificationJob] Stopped");
 };
-

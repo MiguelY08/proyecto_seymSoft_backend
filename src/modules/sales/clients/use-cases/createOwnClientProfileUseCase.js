@@ -1,7 +1,39 @@
 import { prisma } from '../../../../config/prisma.js';
 import { ClientMapper } from '../mappers/clientMapper.js';
+import {
+  isNumericString,
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from '../../../../shared/utils/textNormalizer.js';
 
 export const createOwnClientProfileUseCase = async (userId, profileData) => {
+  const normalizedProfileData = {
+    ...profileData,
+    firstName: normalizeName(profileData.firstName),
+    lastName: normalizeName(profileData.lastName),
+    email: normalizeEmail(profileData.email),
+    phone: normalizeNumericString(profileData.phone),
+    document: normalizeNumericString(profileData.document),
+    contactName: profileData.contactName
+      ? normalizeName(profileData.contactName)
+      : profileData.contactName,
+    contactPhone: profileData.contactPhone
+      ? normalizeNumericString(profileData.contactPhone)
+      : profileData.contactPhone,
+  };
+
+  if (
+    !isNumericString(normalizedProfileData.document) ||
+    !isNumericString(normalizedProfileData.phone)
+  ) {
+    return {
+      success: false,
+      errorCode: 'VALIDATION_ERROR',
+      error: 'Documento y telefono solo deben contener numeros',
+    };
+  }
+
   const user = await prisma.users.findUnique({
     where: { id_user: userId },
     include: { clients: true },
@@ -19,7 +51,7 @@ export const createOwnClientProfileUseCase = async (userId, profileData) => {
     };
   }
 
-  const email = profileData.email.trim().toLowerCase();
+  const email = normalizedProfileData.email;
   if (email !== user.email.toLowerCase()) {
     const duplicatedEmail = await prisma.users.findUnique({ where: { email } });
     if (duplicatedEmail) {
@@ -35,24 +67,24 @@ export const createOwnClientProfileUseCase = async (userId, profileData) => {
     await tx.users.update({
       where: { id_user: userId },
       data: {
-        full_name: `${profileData.firstName.trim()} ${profileData.lastName.trim()}`,
+        full_name: `${normalizedProfileData.firstName} ${normalizedProfileData.lastName}`,
         email,
-        phone: BigInt(profileData.phone),
+        phone: BigInt(normalizedProfileData.phone),
       },
     });
 
     return tx.clients.create({
       data: {
-        person_type: profileData.personType,
-        doc_type: profileData.documentType,
-        doc_number: profileData.document.trim(),
-        address: profileData.address.trim(),
-        contact_person_name: profileData.contactName?.trim() || null,
-        contact_person_number: profileData.contactPhone
-          ? BigInt(profileData.contactPhone)
+        person_type: normalizedProfileData.personType,
+        doc_type: normalizedProfileData.documentType,
+        doc_number: normalizedProfileData.document,
+        address: normalizedProfileData.address.trim(),
+        contact_person_name: normalizedProfileData.contactName || null,
+        contact_person_number: normalizedProfileData.contactPhone
+          ? BigInt(normalizedProfileData.contactPhone)
           : null,
-        rut: profileData.rut === 'si',
-        codigo_ciu: profileData.rut === 'si' ? profileData.ciuCode.trim() : null,
+        rut: normalizedProfileData.rut === 'si',
+        codigo_ciu: normalizedProfileData.rut === 'si' ? normalizedProfileData.ciuCode.trim() : null,
         client_type: 'Detal',
         credit: 0,
         credit_balance: 0,

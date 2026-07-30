@@ -295,6 +295,50 @@ export const paymentNotificationService = {
     }
   },
 
+  async notifyCreditDueReminder({
+    paymentsRepository,
+    idCredit,
+    dueDate,
+    remainingBalance,
+    daysBeforeDue,
+  }) {
+    try {
+      const context =
+        await paymentsRepository.getPaymentNotificationContext({
+          id_credit: idCredit,
+        });
+
+      const recipients = new Map();
+      const remainingText =
+        formatMoney(remainingBalance ?? context.credit?.remaining_balance);
+      const dueDateText = dueDate
+        ? new Intl.DateTimeFormat("es-CO").format(new Date(dueDate))
+        : "la fecha pactada";
+
+      addRecipient(recipients, context.clientUser, {
+        title: "Credito proximo a vencer",
+        message: `Tu credito vence el ${dueDateText}. Tienes un saldo pendiente de ${remainingText}.`,
+        type: "credit",
+        actionUrl: "/orders",
+        metadata: {
+          module: "payments",
+          idCredit,
+          daysBeforeDue,
+          event: "credit_due_reminder",
+        },
+      });
+
+      await sendNotifications(recipients);
+    } catch (error) {
+      console.error(
+        "[PaymentNotificationService] Credit due reminder notification error:",
+        error.message
+      );
+
+      throw error;
+    }
+  },
+
   async notifyCreditOverdue({
     paymentsRepository,
     idCredit,

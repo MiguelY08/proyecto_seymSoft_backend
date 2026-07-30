@@ -3,6 +3,11 @@ import { hashPassword } from "../../../shared/utils/hashPassword.js";
 import { EmailService } from "../../../shared/services/emailService.js";
 import { RoleRepository } from "../../settings/roles/repositories/roleRepository.js";
 import { env } from "../../../config/env.js";
+import {
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from "../../../shared/utils/textNormalizer.js";
 
 const generateRandomPassword = () => {
   const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -51,11 +56,16 @@ const sendWelcomeEmailInBackground = ({
 export const createUserUseCase = async (userData) => {
   try {
     const {
-      fullName,
-      email,
       phone,
       idRole,
     } = userData;
+
+    const fullName = normalizeName(userData.fullName);
+    const email = normalizeEmail(userData.email);
+    const normalizedPhone =
+      phone !== undefined && phone !== null
+        ? BigInt(normalizeNumericString(phone))
+        : null;
 
     if (!fullName || !email) {
       return {
@@ -97,7 +107,7 @@ export const createUserUseCase = async (userData) => {
       fullName,
       email,
       password: hashedPassword,
-      phone: phone || null,
+      phone: normalizedPhone,
       idStatus: 1,
     });
 
