@@ -36,6 +36,19 @@ const normalizeDeliveryRecipientName = (value) => {
   return recipientName;
 };
 
+const normalizeDeliveryRecipientPhone = (value) => {
+  const recipientPhone = String(value || '').trim();
+  if (!recipientPhone) return null;
+  if (recipientPhone.length > 30) {
+    throw new Error('El telefono de quien recibe el pedido no puede exceder 30 caracteres.');
+  }
+  const digits = recipientPhone.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) {
+    throw new Error('El telefono de quien recibe el pedido debe tener entre 7 y 15 digitos.');
+  }
+  return recipientPhone;
+};
+
 export class UpdateOrderDto {
   constructor(data) {
     const deliveryType = normalizeDeliveryType(
@@ -95,14 +108,26 @@ export class UpdateOrderDto {
       deliveryLocation.deliveryCityCode;
     this.deliveryCityName =
       deliveryLocation.deliveryCityName;
-    this.deliveryRecipientName = normalizeDeliveryRecipientName(
-      data.deliveryRecipientName ??
-      data.delivery_recipient_name ??
-      data.recipientName ??
-      data.recipient_name ??
-      data.receiverName ??
-      data.receiver_name
-    );
+    this.deliveryRecipientName = deliveryType === DELIVERY_TYPES.DELIVERY
+      ? normalizeDeliveryRecipientName(
+          data.deliveryRecipientName ??
+          data.delivery_recipient_name ??
+          data.recipientName ??
+          data.recipient_name ??
+          data.receiverName ??
+          data.receiver_name
+        )
+      : null;
+    this.deliveryRecipientPhone = deliveryType === DELIVERY_TYPES.DELIVERY
+      ? normalizeDeliveryRecipientPhone(
+          data.deliveryRecipientPhone ??
+          data.delivery_recipient_phone ??
+          data.recipientPhone ??
+          data.recipient_phone ??
+          data.receiverPhone ??
+          data.receiver_phone
+        )
+      : null;
     this.shippingAmount = normalizeShippingAmount({
       value:
         data.shippingAmount ??
@@ -112,34 +137,36 @@ export class UpdateOrderDto {
         data.envio,
       deliveryType,
     });
-    this.items = data.items ?? [];
+    this.items = data.items;
 
     if (!this.idClient) {
       throw new Error('El cliente es obligatorio.');
     }
 
-    if (!Array.isArray(this.items) || this.items.length === 0) {
-      throw new Error('El pedido debe tener al menos un producto.');
-    }
-
-    // Normalizar productos recibidos desde frontend o API externa.
-    this.items = this.items.map((item) => ({
-      idProduct: item.idProduct ?? item.id_product,
-      barcode: item.barcode,
-      quantity: Number(item.quantity),
-    }));
-
-    for (const item of this.items) {
-      if (!item.idProduct) {
-        throw new Error('Cada item debe tener producto.');
+    if (this.items !== undefined) {
+      if (!Array.isArray(this.items) || this.items.length === 0) {
+        throw new Error('El pedido debe tener al menos un producto.');
       }
 
-      if (!item.barcode) {
-        throw new Error('Cada item debe tener codigo de barras.');
-      }
+      // Normalizar productos recibidos desde frontend o API externa.
+      this.items = this.items.map((item) => ({
+        idProduct: item.idProduct ?? item.id_product,
+        barcode: item.barcode,
+        quantity: Number(item.quantity),
+      }));
 
-      if (!item.quantity || item.quantity <= 0) {
-        throw new Error('La cantidad debe ser mayor a 0.');
+      for (const item of this.items) {
+        if (!item.idProduct) {
+          throw new Error('Cada item debe tener producto.');
+        }
+
+        if (!item.barcode) {
+          throw new Error('Cada item debe tener codigo de barras.');
+        }
+
+        if (!item.quantity || item.quantity <= 0) {
+          throw new Error('La cantidad debe ser mayor a 0.');
+        }
       }
     }
   }

@@ -1,5 +1,6 @@
 ﻿import { prisma } from '../../../../config/prisma.js';
 import {
+  PAYMENT_METHODS,
   ORDER_STATUSES,
   PAYMENT_RECEIPT_STATUSES,
   PAYMENT_STATUSES,
@@ -24,6 +25,18 @@ const resolvePaymentStatus = (data = {}) => {
   }
 
   return PAYMENT_STATUSES[1];
+};
+
+const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
+
+const getRefundableFavorBalanceAmount = (order) => {
+  if (!order || order.sales) {
+    return 0;
+  }
+
+  return (order.order_payments || [])
+    .filter((payment) => Number(payment.id_payment_method) === FAVOR_BALANCE_PAYMENT_METHOD_ID)
+    .reduce((total, payment) => total + Number(payment.amount || 0), 0);
 };
 
 const normalizeDeliveryTypeFilter = (value) => {
@@ -122,6 +135,7 @@ const orderSummarySelect = {
   id_order_status: true,
   delivery_adress: true,
   delivery_recipient_name: true,
+  delivery_recipient_phone: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -259,6 +273,7 @@ const orderPaymentResultSelect = {
   id_order_status: true,
   delivery_adress: true,
   delivery_recipient_name: true,
+  delivery_recipient_phone: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -345,6 +360,7 @@ const orderListSelect = {
   id_order_status: true,
   delivery_adress: true,
   delivery_recipient_name: true,
+  delivery_recipient_phone: true,
   delivery_department_code: true,
   delivery_department_name: true,
   delivery_city_code: true,
@@ -660,6 +676,8 @@ export class OrderRepository {
         id_order_status: true,
         id_payment_status: true,
         sale_type: true,
+        subtotal: true,
+        iva_amount: true,
         shipping_amount: true,
         order_statuses: {
           select: {
@@ -676,6 +694,9 @@ export class OrderRepository {
             id_product: true,
             barcode: true,
             quantity: true,
+            unit_price: true,
+            subtotal: true,
+            iva_amount: true,
           },
         },
       },
@@ -772,6 +793,7 @@ export class OrderRepository {
           delivery_city_code: data.deliveryCityCode,
           delivery_city_name: data.deliveryCityName,
           delivery_recipient_name: data.deliveryRecipientName,
+          delivery_recipient_phone: data.deliveryRecipientPhone,
           sale_type: data.saleType || 'manual',
           payment_status: paymentStatus.name,
           payment_statuses: {
@@ -822,6 +844,26 @@ export class OrderRepository {
         });
       }
 
+      if (Number(data.favorBalanceAmount || 0) > 0) {
+        const updatedBalance = await tx.clients.updateMany({
+          where: {
+            id_client: Number(data.idClient),
+            credit_balance: {
+              gte: Number(data.favorBalanceAmount),
+            },
+          },
+          data: {
+            credit_balance: {
+              decrement: Number(data.favorBalanceAmount),
+            },
+          },
+        });
+
+        if (updatedBalance.count === 0) {
+          throw new Error('Saldo a favor insuficiente para completar el pedido.');
+        }
+      }
+
       return order.id_order;
     });
 
@@ -858,6 +900,25 @@ export class OrderRepository {
     });
   }
 
+  async restoreClientFavorBalance(idClient, amount) {
+    const value = Number(amount || 0);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return;
+    }
+
+    await prisma.clients.update({
+      where: {
+        id_client: Number(idClient),
+      },
+      data: {
+        credit_balance: {
+          increment: value,
+        },
+      },
+    });
+  }
+
   async update(id, data) {
     const paymentStatus = resolvePaymentStatus(data);
     const idOrder = Number(id);
@@ -885,6 +946,7 @@ export class OrderRepository {
           delivery_city_code: data.deliveryCityCode,
           delivery_city_name: data.deliveryCityName,
           delivery_recipient_name: data.deliveryRecipientName,
+          delivery_recipient_phone: data.deliveryRecipientPhone,
           payment_status: paymentStatus.name,
           payment_statuses: {
             connect: {
@@ -938,22 +1000,61 @@ export class OrderRepository {
   }
 
   async cancel(id, reason = 'Pedido cancelado.') {
-    return prisma.sales_orders.update({
-      where: {
-        id_order: Number(id),
-      },
-      data: {
-        order_statuses: {
-          connect: {
-            id_order_status: ORDER_STATUSES[4].id,
+    const orderId = Number(id);
+
+    await prisma.$transaction(async (tx) => {
+      const order = await tx.sales_orders.findUnique({
+        where: {
+          id_order: orderId,
+        },
+        select: {
+          id_customer: true,
+          sales: {
+            select: {
+              id_sale: true,
+            },
+          },
+          order_payments: {
+            select: {
+              id_payment_method: true,
+              amount: true,
+            },
           },
         },
-        cancellation_reason: reason,
-        cancelled_at: new Date(),
-      },
-      select:
-        orderSummarySelect,
+      });
+
+      const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
+
+      await tx.sales_orders.update({
+        where: {
+          id_order: orderId,
+        },
+        data: {
+          order_statuses: {
+            connect: {
+              id_order_status: ORDER_STATUSES[4].id,
+            },
+          },
+          cancellation_reason: reason,
+          cancelled_at: new Date(),
+        },
+      });
+
+      if (refundableFavorBalance > 0) {
+        await tx.clients.update({
+          where: {
+            id_client: Number(order.id_customer),
+          },
+          data: {
+            credit_balance: {
+              increment: refundableFavorBalance,
+            },
+          },
+        });
+      }
     });
+
+    return this.findSummaryById(orderId);
   }
 
   async createPayment(idOrder, data) {
@@ -981,6 +1082,17 @@ export class OrderRepository {
         id_order: true,
         id_order_status: true,
         id_payment_status: true,
+        delivery_type: true,
+        shipping_amount: true,
+        order_payment_receipts: {
+          where: {
+            verification_status: PAYMENT_RECEIPT_STATUSES.PENDING,
+          },
+          select: {
+            id_order_payment_receipt: true,
+          },
+          take: 1,
+        },
         clients: {
           select: {
             id_user: true,
@@ -1175,24 +1287,63 @@ export class OrderRepository {
   }
 
   async expirePendingOrder(idOrder, reason = 'Pedido cancelado por vencimiento de pago.') {
-    return prisma.sales_orders.update({
-      where: {
-        id_order: Number(idOrder),
-      },
-      data: {
-        order_statuses: {
-          connect: {
-            id_order_status: ORDER_STATUSES[4].id,
+    const orderId = Number(idOrder);
+
+    await prisma.$transaction(async (tx) => {
+      const order = await tx.sales_orders.findUnique({
+        where: {
+          id_order: orderId,
+        },
+        select: {
+          id_customer: true,
+          sales: {
+            select: {
+              id_sale: true,
+            },
+          },
+          order_payments: {
+            select: {
+              id_payment_method: true,
+              amount: true,
+            },
           },
         },
-        payment_expired_at: new Date(),
-        payment_expiration_reason: reason,
-        cancellation_reason: reason,
-        cancelled_at: new Date(),
-      },
-      select:
-        orderSummarySelect,
+      });
+
+      const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
+
+      await tx.sales_orders.update({
+        where: {
+          id_order: orderId,
+        },
+        data: {
+          order_statuses: {
+            connect: {
+              id_order_status: ORDER_STATUSES[4].id,
+            },
+          },
+          payment_expired_at: new Date(),
+          payment_expiration_reason: reason,
+          cancellation_reason: reason,
+          cancelled_at: new Date(),
+        },
+      });
+
+      if (refundableFavorBalance > 0) {
+        await tx.clients.update({
+          where: {
+            id_client: Number(order.id_customer),
+          },
+          data: {
+            credit_balance: {
+              increment: refundableFavorBalance,
+            },
+          },
+        });
+      }
     });
+
+    return this.findSummaryById(orderId);
   }
 
   async findPaymentMethodById(idPaymentMethod) {

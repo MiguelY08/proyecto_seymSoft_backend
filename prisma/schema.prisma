@@ -717,6 +717,7 @@ model sales_orders {
   delivery_city_name        String?                  @db.VarChar(100)
   shipping_amount           Decimal?                 @default(0) @db.Decimal(12, 2)
   delivery_recipient_name   String?                  @db.VarChar(255)
+  delivery_recipient_phone  String?                  @db.VarChar(30)
   hev                       hev?
   order_details             order_details[]
   order_payment_receipts    order_payment_receipts[]
