@@ -1,15 +1,19 @@
 import { httpCodes } from '../../../../shared/constants/httpCodes.js';
+import { AppError } from '../../../../shared/errors/appError.js';
 import { OrderRepository } from '../repositories/orderRepository.js';
 import { CreateOrderDto } from '../dtos/createOrder.dto.js';
 import { UpdateOrderDto } from '../dtos/updateOrder.dto.js';
 import {
   CreateOrderUseCase,
+  notifyAdminsNewWebOrder,
   notifyOrderCreated,
 } from '../use-cases/createOrderUseCase.js';
 import {
   UpdateOrderUseCase,
+  notifyOrderUpdated,
   notifyOrderStatusChanged,
 } from '../use-cases/updateOrderUseCase.js';
+import { UpdateOrderShippingUseCase } from '../use-cases/updateOrderShippingUseCase.js';
 import { GetAllOrdersUseCase } from '../use-cases/getAllOrdersUseCase.js';
 import { GetOrderByIdUseCase } from '../use-cases/getOrderByIdUseCase.js';
 import {
@@ -34,11 +38,23 @@ import {
 
 const repo = new OrderRepository();
 
+const buildDto = (DtoClass, data) => {
+  try {
+    return new DtoClass(data);
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError(error.message || 'Errores de validacion.', 400);
+  }
+};
+
 // Crear pedido con los datos recibidos desde el cliente.
 export const createOrder = async (req, res, next) => {
   try {
     // Normalizar y validar datos de entrada con DTO.
-    const dto = new CreateOrderDto(req.body);
+    const dto = buildDto(CreateOrderDto, req.body);
 
     const data = await new CreateOrderUseCase(repo).execute(dto);
     const message = data.hasSale
@@ -48,6 +64,7 @@ export const createOrder = async (req, res, next) => {
     res.once('finish', () => {
       setImmediate(() => {
         void notifyOrderCreated(data);
+        void notifyAdminsNewWebOrder(data);
       });
     });
 
@@ -103,7 +120,7 @@ export const getOrderById = async (req, res, next) => {
 export const updateOrder = async (req, res, next) => {
   try {
     // Normalizar y validar datos modificables del pedido.
-    const dto = new UpdateOrderDto(req.body);
+    const dto = buildDto(UpdateOrderDto, req.body);
     const result = await new UpdateOrderUseCase(repo).execute(req.params.id, dto);
     const data = result.order;
 
@@ -115,9 +132,45 @@ export const updateOrder = async (req, res, next) => {
       });
     }
 
+    if (result.updateNotification) {
+      res.once('finish', () => {
+        setImmediate(() => {
+          void notifyOrderUpdated(result.updateNotification);
+        });
+      });
+    }
+
     res.status(httpCodes.OK).json({
       success: true,
       message: 'Pedido actualizado exitosamente.',
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Registrar o actualizar solo el valor del envio de un pedido.
+export const updateOrderShipping = async (req, res, next) => {
+  try {
+    const paramsValidation = validateOrderIdParams(req.params);
+
+    if (!paramsValidation.success) {
+      return res.status(httpCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Errores de validacion en parametros.',
+        errors: paramsValidation.errors,
+      });
+    }
+
+    const data = await new UpdateOrderShippingUseCase(repo).execute(
+      paramsValidation.data.id,
+      req.body
+    );
+
+    res.status(httpCodes.OK).json({
+      success: true,
+      message: 'Valor de envio actualizado exitosamente.',
       data,
     });
   } catch (err) {
@@ -309,7 +362,7 @@ export const reviewOrderPaymentReceipt = async (req, res, next) => {
     return res.status(httpCodes.OK).json({
       success: true,
       message: responseData.paymentResult
-        ? 'Comprobante aprobado y abono registrado exitosamente.'
+        ? 'Comprobante aprobado y pago pendiente registrado exitosamente.'
         : 'Comprobante revisado exitosamente.',
       data: responseData,
     });

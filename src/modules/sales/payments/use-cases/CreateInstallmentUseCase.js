@@ -4,6 +4,7 @@ import calculateTotalDebt from "../helpers/calculateTotalDebt.js";
 import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
 import InstallmentMapper from "../mappers/InstallmentMapper.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
+import { paymentNotificationService } from "../services/paymentNotificationService.js";
 
 export class CreateInstallmentUseCase {
   constructor(paymentsRepository) {
@@ -160,6 +161,21 @@ const installment =
       credit_balance:
         newClientBalance,
     });
+
+await paymentNotificationService.notifyInstallmentCreated({
+  paymentsRepository:
+    this.paymentsRepository,
+  idCredit:
+    id_credit,
+  actorUserId:
+    userId,
+  amount:
+    installment_amount,
+  idInstallment:
+    installment.id_installment,
+  remainingBalance:
+    newRemainingBalance,
+});
 
     return {
       message:

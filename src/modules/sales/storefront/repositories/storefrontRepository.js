@@ -166,10 +166,7 @@ export const storefrontRepository = {
           select: { quantity: true },
         });
 
-        const quantity = Math.min(
-          (existing?.quantity || 0) + item.quantity,
-          stock,
-        );
+        const quantity = (existing?.quantity || 0) + item.quantity;
 
         await tx.shopping_cart_items.upsert({
           where: {

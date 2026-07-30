@@ -94,6 +94,46 @@ const orderSchema = z.object({
     .max(255, "La direccion de entrega no puede exceder 255 caracteres")
     .optional(),
 
+  deliveryRecipientName: z
+    .string()
+    .trim()
+    .max(255, "El nombre de quien recibe el pedido no puede exceder 255 caracteres")
+    .nullable()
+    .optional(),
+
+  shippingAmount: z
+    .number()
+    .nonnegative("El valor del envio no puede ser negativo")
+    .optional(),
+
+  deliveryDepartmentCode: z
+    .string()
+    .trim()
+    .max(10, "El codigo del departamento de entrega no puede exceder 10 caracteres")
+    .nullable()
+    .optional(),
+
+  deliveryDepartmentName: z
+    .string()
+    .trim()
+    .max(100, "El nombre del departamento de entrega no puede exceder 100 caracteres")
+    .nullable()
+    .optional(),
+
+  deliveryCityCode: z
+    .string()
+    .trim()
+    .max(20, "El codigo del municipio o ciudad de entrega no puede exceder 20 caracteres")
+    .nullable()
+    .optional(),
+
+  deliveryCityName: z
+    .string()
+    .trim()
+    .max(100, "El nombre del municipio o ciudad de entrega no puede exceder 100 caracteres")
+    .nullable()
+    .optional(),
+
   items: z
     .array(orderItemSchema, {
       error: "El pedido debe tener al menos un producto",
@@ -106,6 +146,39 @@ const orderSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ["deliveryAddress"],
         message: "La direccion de entrega es obligatoria para Domicilio",
+      });
+    }
+
+    if (
+      data.deliveryType === DELIVERY_TYPES.DELIVERY &&
+      Number(data.shippingAmount || 0) <= 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["shippingAmount"],
+        message: "El valor del envio debe ser mayor a cero para Domicilio",
+      });
+    }
+
+    if (
+      data.deliveryType === DELIVERY_TYPES.DELIVERY &&
+      (!data.deliveryDepartmentCode || !data.deliveryDepartmentName)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryDepartmentCode"],
+        message: "El departamento de entrega es obligatorio para Domicilio",
+      });
+    }
+
+    if (
+      data.deliveryType === DELIVERY_TYPES.DELIVERY &&
+      (!data.deliveryCityCode || !data.deliveryCityName)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deliveryCityCode"],
+        message: "El municipio o ciudad de entrega es obligatorio para Domicilio",
       });
     }
   });

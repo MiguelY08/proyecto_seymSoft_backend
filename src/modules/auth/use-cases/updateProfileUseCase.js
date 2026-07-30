@@ -12,6 +12,7 @@ import {
 import { prisma } from "../../../config/prisma.js";
 import { AuthRepository } from "../repositories/authRepository.js";
 import { EmailService } from "../../../shared/services/emailService.js";
+import { notificationService } from "../../notifications/services/index.js";
 
 const sameText = (currentValue, nextValue) =>
   String(currentValue ?? "").trim() === String(nextValue ?? "").trim();
@@ -208,6 +209,22 @@ export class UpdateProfileUseCase {
       } catch (error) {
         console.error("Error enviando notificación de cambio de email:", error);
         // No lanzar error, solo loguear. El cambio ya se hizo.
+      }
+
+      try {
+        await notificationService.create({
+          idUser,
+          title: "Correo actualizado",
+          message: "El correo de tu cuenta fue actualizado correctamente.",
+          type: "security",
+          actionUrl: "/login",
+          metadata: {
+            module: "auth",
+            event: "email_changed",
+          },
+        });
+      } catch (error) {
+        console.error("Error creando notificacion de cambio de email:", error);
       }
     }
 

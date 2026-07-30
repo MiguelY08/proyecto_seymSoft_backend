@@ -1,4 +1,5 @@
 import {
+  ORDER_PAYMENT_EXPIRATION,
   ORDER_STATUSES,
   PAYMENT_RECEIPT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
@@ -6,11 +7,36 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { RegisterOrderPaymentUseCase } from './registerOrderPaymentUseCase.js';
+import { notifyCustomerPaymentReceiptReviewed } from './orderCustomerNotifications.js';
 
 const REVIEWABLE_RECEIPT_STATUSES = [
   PAYMENT_RECEIPT_STATUSES.APPROVED,
   PAYMENT_RECEIPT_STATUSES.REJECTED,
 ];
+
+const buildPaymentDeadline = () => {
+  const now = new Date();
+  return new Date(
+    now.getTime() + ORDER_PAYMENT_EXPIRATION.HOURS_TO_PAY * 60 * 60 * 1000
+  );
+};
+
+const roundMoney = (value) =>
+  Math.round((Number(value) || 0) * 100) / 100;
+
+const getPaidAmountFromOrderPayments = (payments = []) =>
+  roundMoney(
+    payments.reduce(
+      (total, payment) => total + Number(payment.amount || 0),
+      0
+    )
+  );
+
+const getPendingAmountFromOrder = (order = {}) =>
+  roundMoney(
+    roundMoney(order.total) -
+    getPaidAmountFromOrderPayments(order.order_payments)
+  );
 
 const mapReceipt = (receipt) => ({
   id: receipt.id_order_payment_receipt,
@@ -58,8 +84,13 @@ export const notifyPaymentReceiptReviewed = async ({
         pendingAmount: paymentSummary?.pendingAfter || 0,
         isPaid: Boolean(paymentSummary?.isPaid),
         reviewObservations: receipt.reviewObservations,
+        shippingAmount: mappedOrder.shippingAmount,
+        deliveryType: mappedOrder.deliveryType,
+        deliveryAddress: mappedOrder.deliveryAddress,
+        deliveryRecipientName: mappedOrder.deliveryRecipientName,
+        deliveryDepartment: mappedOrder.deliveryDepartment,
+        deliveryCity: mappedOrder.deliveryCity,
       });
-      return;
     }
 
     if (receipt.status === PAYMENT_RECEIPT_STATUSES.REJECTED) {
@@ -68,11 +99,23 @@ export const notifyPaymentReceiptReviewed = async ({
         fullName: customer.name,
         orderId: mappedOrder.id,
         reason: receipt.reviewObservations,
+        shippingAmount: mappedOrder.shippingAmount,
+        deliveryType: mappedOrder.deliveryType,
+        deliveryAddress: mappedOrder.deliveryAddress,
+        deliveryRecipientName: mappedOrder.deliveryRecipientName,
+        deliveryDepartment: mappedOrder.deliveryDepartment,
+        deliveryCity: mappedOrder.deliveryCity,
       });
     }
   } catch (error) {
     console.error('[NotifyPaymentReceiptReviewed] Email error:', error.message);
   }
+
+  await notifyCustomerPaymentReceiptReviewed({
+    order: mappedOrder,
+    receipt,
+    paymentSummary,
+  });
 };
 
 export class ReviewOrderPaymentReceiptUseCase {
@@ -133,13 +176,23 @@ export class ReviewOrderPaymentReceiptUseCase {
     }
 
     let paymentResult = null;
+    let deadlineResetOrder = null;
 
     if (data.status === PAYMENT_RECEIPT_STATUSES.APPROVED) {
+      const pendingAmount = getPendingAmountFromOrder(order);
+
+      if (pendingAmount <= 0) {
+        throw new AppError(
+          'El pedido no tiene saldo pendiente para registrar al aprobar el comprobante.',
+          400
+        );
+      }
+
       const registeredPayment = await new RegisterOrderPaymentUseCase(this.repo).execute(
         idOrder,
         {
           idPaymentMethod: data.idPaymentMethod,
-          amount: data.amount,
+          amount: pendingAmount,
           paymentDate: data.paymentDate,
           reference: data.reference,
           observations:
@@ -154,6 +207,13 @@ export class ReviewOrderPaymentReceiptUseCase {
       delete paymentResult.paymentNotification;
     }
 
+    if (data.status === PAYMENT_RECEIPT_STATUSES.REJECTED) {
+      deadlineResetOrder = await this.repo.resetPaymentDeadline(
+        idOrder,
+        buildPaymentDeadline()
+      );
+    }
+
     const updatedReceipt = await this.repo.updatePaymentReceiptReview(
       receipt.id_order_payment_receipt,
       {
@@ -164,12 +224,14 @@ export class ReviewOrderPaymentReceiptUseCase {
     );
 
     const mappedReceipt = mapReceipt(updatedReceipt);
+    const responseOrder = paymentResult?.order || deadlineResetOrder || null;
 
     return {
       paymentReceipt: mappedReceipt,
       paymentResult,
+      order: responseOrder?.id_order ? mapOrder(responseOrder) : responseOrder,
       receiptNotification: {
-        order: paymentResult?.order || order,
+        order: responseOrder || order,
         receipt: mappedReceipt,
         paymentSummary: paymentResult?.paymentSummary || null,
       },

@@ -166,25 +166,11 @@ export const updateUserUseCase = async (params) => {
             where: { id_employee: employee.id_employee },
           });
 
-          // Obtener el primer permiso del rol
-          const rolePermission = await prisma.assigned_permissions.findFirst({
-            where: { id_role: idRole },
-          });
-
-          if (!rolePermission) {
-            return {
-              success: false,
-              data: null,
-              error: `El rol con ID ${idRole} no tiene permisos asignados`,
-              errorCode: "ROLE_NO_PERMISSIONS",
-            };
-          }
-
           // Crear employee_role
           await prisma.employee_roles.create({
             data: {
               id_employee: employee.id_employee,
-              id_assigned_permission: rolePermission.id_permission,
+              id_role: idRole,
             },
           });
         }

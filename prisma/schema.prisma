@@ -209,7 +209,7 @@ model installments {
   cancelled_by                            Int?
   registered_by                           Int?
   payment_methods                         payment_methods @relation(fields: [id_payment_method], references: [id_payment_method], onDelete: NoAction, onUpdate: NoAction, map: "abonos_id_metodo_pago_fkey")
-  users                                   users?          @relation(fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_cancelled_by")
+  users_installments_cancelled_byTousers  users?          @relation("installments_cancelled_byTousers", fields: [cancelled_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_cancelled_by")
   credits                                 credits         @relation(fields: [id_credit], references: [id_credit], onDelete: Cascade, map: "fk_abonos_credito")
   users_installments_registered_byTousers users?          @relation("installments_registered_byTousers", fields: [registered_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_abonos_registered_by")
 }
@@ -232,6 +232,24 @@ model non_conforming_products {
   barcodes          barcodes         @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "producto_no_conforme_id_codigo_producto_fkey")
 }
 
+model notifications {
+  id_notification Int      @id @default(autoincrement())
+  id_user         Int
+  title           String   @db.VarChar(120)
+  message         String   @db.VarChar(500)
+  type            String   @default("info") @db.VarChar(30)
+  action_url      String?  @db.VarChar(500)
+  is_read         Boolean  @default(false)
+  metadata        Json?
+  created_at      DateTime @default(now()) @db.Timestamp(6)
+  updated_at      DateTime @default(now()) @db.Timestamp(6)
+  users           users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user")
+
+  @@index([created_at], map: "idx_notifications_created_at")
+  @@index([id_user, is_read, created_at], map: "idx_notifications_user_read_created")
+  @@index([id_user, type], map: "idx_notifications_user_type")
+}
+
 model order_details {
   id_order_detail Int          @id(map: "detalles_pedidos_pkey") @default(autoincrement())
   id_order        Int
@@ -243,6 +261,25 @@ model order_details {
   id_product      Int
   sales_orders    sales_orders @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "detalles_pedidos_id_pedido_fkey")
   products        products     @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_producto")
+}
+
+model order_payment_receipts {
+  id_order_payment_receipt Int          @id @default(autoincrement())
+  id_order                 Int
+  image_url                String       @db.VarChar(500)
+  file_name                String?      @db.VarChar(255)
+  observations             String?      @db.VarChar(255)
+  verification_status      String       @default("Pendiente") @db.VarChar(20)
+  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
+  review_observations      String?      @db.VarChar(255)
+  reviewed_at              DateTime?    @db.Timestamp(6)
+  reviewed_by              Int?
+  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
+  users                    users?       @relation(fields: [reviewed_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payment_receipts_reviewed_by")
+
+  @@index([id_order], map: "idx_order_payment_receipts_id_order")
+  @@index([id_order, verification_status], map: "idx_order_payment_receipts_order_status")
+  @@index([verification_status, reviewed_at], map: "idx_order_payment_receipts_review_status")
 }
 
 model order_payments {
@@ -472,6 +509,24 @@ model purchase_details {
   purchases           purchases @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_compra_fkey")
 }
 
+model purchase_return_audit_logs {
+  id_purchase_return_audit_log Int               @id @default(autoincrement())
+  id_purchase_return           Int
+  id_user                      Int?
+  action                       String            @db.VarChar(50)
+  previous_return_status       Int?
+  new_return_status            Int?
+  reason                       String?           @db.VarChar(250)
+  metadata                     Json?
+  created_at                   DateTime          @default(now()) @db.Timestamp(6)
+  purchases_returns            purchases_returns @relation(fields: [id_purchase_return], references: [id_purchase_return], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_return")
+  users                        users?            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_user")
+
+  @@index([action], map: "idx_purchase_return_audit_logs_action")
+  @@index([created_at], map: "idx_purchase_return_audit_logs_created_at")
+  @@index([id_purchase_return], map: "idx_purchase_return_audit_logs_return")
+}
+
 model purchase_statuses {
   id_purchase_status  Int         @id(map: "estados_compras_pkey") @default(autoincrement())
   name_puchase_status String      @unique(map: "estados_compras_nombre_key") @db.VarChar(50)
@@ -662,6 +717,7 @@ model sales_orders {
   delivery_city_name        String?                  @db.VarChar(100)
   shipping_amount           Decimal?                 @default(0) @db.Decimal(12, 2)
   delivery_recipient_name   String?                  @db.VarChar(255)
+  delivery_recipient_phone  String?                  @db.VarChar(30)
   hev                       hev?
   order_details             order_details[]
   order_payment_receipts    order_payment_receipts[]
@@ -674,13 +730,13 @@ model sales_orders {
 
   @@index([delivery_city_code], map: "idx_sales_orders_delivery_city")
   @@index([delivery_department_code], map: "idx_sales_orders_delivery_department")
+  @@index([delivery_recipient_name], map: "idx_sales_orders_delivery_recipient_name")
   @@index([delivery_type, order_date, id_order], map: "idx_sales_orders_delivery_type_date_id")
   @@index([order_date, id_order], map: "idx_sales_orders_order_date_id")
   @@index([id_payment_status, payment_deadline], map: "idx_sales_orders_payment_deadline")
   @@index([id_payment_status, order_date, id_order], map: "idx_sales_orders_payment_status_date_id")
   @@index([payment_status, order_date, id_order], map: "idx_sales_orders_payment_status_text_date_id")
   @@index([id_order_status, order_date, id_order], map: "idx_sales_orders_status_date_id")
-  @@index([delivery_recipient_name], map: "idx_sales_orders_delivery_recipient_name")
 }
 
 model sales_returns {
@@ -701,6 +757,22 @@ model sales_returns {
   sale_return_evidence sale_return_evidence[]
   return_statuses      return_statuses        @relation(fields: [id_return_status], references: [id_return_status], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_estado_devolucion_fkey")
   sales                sales                  @relation(fields: [id_sale], references: [id_sale], onDelete: NoAction, onUpdate: NoAction, map: "devoluciones_ventas_id_venta_fkey")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shopping_cart_items {
+  id_cart_item Int      @id @default(autoincrement())
+  id_client    Int
+  id_product   Int
+  quantity     Int
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @default(now()) @db.Timestamp(6)
+  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
+  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
+
+  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
+  @@index([id_client], map: "idx_shopping_cart_items_client")
+  @@index([id_product], map: "idx_shopping_cart_items_product")
 }
 
 model subcategories {
@@ -735,82 +807,11 @@ model users {
   access                                         access[]
   clients                                        clients?
   employees                                      employees?
-  installments                                   installments[]
+  installments_installments_cancelled_byTousers  installments[]               @relation("installments_cancelled_byTousers")
   installments_installments_registered_byTousers installments[]               @relation("installments_registered_byTousers")
   notifications                                  notifications[]
   order_payment_receipts                         order_payment_receipts[]
   purchase_return_audit_logs                     purchase_return_audit_logs[]
   purchases_returns                              purchases_returns[]
   general_statuses                               general_statuses?            @relation(fields: [id_status], references: [id_status], onDelete: NoAction, onUpdate: NoAction, map: "usuarios_id_estado_fkey")
-}
-
-model order_payment_receipts {
-  id_order_payment_receipt Int          @id @default(autoincrement())
-  id_order                 Int
-  image_url                String       @db.VarChar(500)
-  file_name                String?      @db.VarChar(255)
-  observations             String?      @db.VarChar(255)
-  verification_status      String       @default("Pendiente") @db.VarChar(20)
-  uploaded_at              DateTime     @default(now()) @db.Timestamp(6)
-  review_observations      String?      @db.VarChar(255)
-  reviewed_at              DateTime?    @db.Timestamp(6)
-  reviewed_by              Int?
-  sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
-  users                    users?       @relation(fields: [reviewed_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payment_receipts_reviewed_by")
-
-  @@index([id_order], map: "idx_order_payment_receipts_id_order")
-  @@index([id_order, verification_status], map: "idx_order_payment_receipts_order_status")
-  @@index([verification_status, reviewed_at], map: "idx_order_payment_receipts_review_status")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model shopping_cart_items {
-  id_cart_item Int      @id @default(autoincrement())
-  id_client    Int
-  id_product   Int
-  quantity     Int
-  created_at   DateTime @default(now()) @db.Timestamp(6)
-  updated_at   DateTime @default(now()) @db.Timestamp(6)
-  clients      clients  @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
-  products     products @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
-
-  @@unique([id_client, id_product], map: "uq_shopping_cart_items_client_product")
-  @@index([id_client], map: "idx_shopping_cart_items_client")
-  @@index([id_product], map: "idx_shopping_cart_items_product")
-}
-
-model notifications {
-  id_notification Int      @id @default(autoincrement())
-  id_user         Int
-  title           String   @db.VarChar(120)
-  message         String   @db.VarChar(500)
-  type            String   @default("info") @db.VarChar(30)
-  action_url      String?  @db.VarChar(500)
-  is_read         Boolean  @default(false)
-  metadata        Json?
-  created_at      DateTime @default(now()) @db.Timestamp(6)
-  updated_at      DateTime @default(now()) @db.Timestamp(6)
-  users           users    @relation(fields: [id_user], references: [id_user], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user")
-
-  @@index([created_at], map: "idx_notifications_created_at")
-  @@index([id_user, is_read, created_at], map: "idx_notifications_user_read_created")
-  @@index([id_user, type], map: "idx_notifications_user_type")
-}
-
-model purchase_return_audit_logs {
-  id_purchase_return_audit_log Int               @id @default(autoincrement())
-  id_purchase_return           Int
-  id_user                      Int?
-  action                       String            @db.VarChar(50)
-  previous_return_status       Int?
-  new_return_status            Int?
-  reason                       String?           @db.VarChar(250)
-  metadata                     Json?
-  created_at                   DateTime          @default(now()) @db.Timestamp(6)
-  purchases_returns            purchases_returns @relation(fields: [id_purchase_return], references: [id_purchase_return], onDelete: Cascade, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_return")
-  users                        users?            @relation(fields: [id_user], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_purchase_return_audit_logs_user")
-
-  @@index([action], map: "idx_purchase_return_audit_logs_action")
-  @@index([created_at], map: "idx_purchase_return_audit_logs_created_at")
-  @@index([id_purchase_return], map: "idx_purchase_return_audit_logs_return")
 }

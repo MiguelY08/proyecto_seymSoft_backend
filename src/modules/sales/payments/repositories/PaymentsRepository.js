@@ -165,14 +165,14 @@ export class PaymentsRepository {
           },
         },
 
-        registered_by_user: {
+        users_installments_registered_byTousers: {
           select: {
             id_user: true,
             full_name: true,
           },
         },
 
-        cancelled_by_user: {
+        users_installments_cancelled_byTousers: {
           select: {
             id_user: true,
             full_name: true,
@@ -282,6 +282,12 @@ export class PaymentsRepository {
       select: {
         id_client: true,
         credit_balance: true,
+        users: {
+          select: {
+            id_user: true,
+            full_name: true,
+          },
+        },
       },
     });
   }
@@ -318,14 +324,14 @@ export class PaymentsRepository {
               },
             },
 
-            registered_by_user: {
+            users_installments_registered_byTousers: {
               select: {
                 id_user: true,
                 full_name: true,
               },
             },
 
-            cancelled_by_user: {
+            users_installments_cancelled_byTousers: {
               select: {
                 id_user: true,
                 full_name: true,
@@ -401,13 +407,13 @@ export class PaymentsRepository {
         data: installmentData,
         include: {
           payment_methods: true,
-          registered_by_user: {
+          users_installments_registered_byTousers: {
             select: {
               id_user: true,
               full_name: true,
             },
           },
-          cancelled_by_user: {
+          users_installments_cancelled_byTousers: {
             select: {
               id_user: true,
               full_name: true,
@@ -521,6 +527,135 @@ export class PaymentsRepository {
         id_user: true,
         full_name: true,
         pass_word: true,
+      },
+    });
+  }
+
+  async getPaymentNotificationContext({
+    id_credit,
+    actorUserId,
+  }) {
+    const [credit, actorUser, adminUsers] =
+      await Promise.all([
+        this.prisma.credits.findUnique({
+          where: {
+            id_credit,
+          },
+          select: {
+            id_credit: true,
+            remaining_balance: true,
+            due_date: true,
+            clients: {
+              select: {
+                id_client: true,
+                users: {
+                  select: {
+                    id_user: true,
+                    full_name: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+
+        actorUserId
+          ? this.prisma.users.findUnique({
+              where: {
+                id_user: actorUserId,
+              },
+              select: {
+                id_user: true,
+                full_name: true,
+                employees: {
+                  select: {
+                    employee_roles: {
+                      select: {
+                        roles: {
+                          select: {
+                            id_role: true,
+                            name_role: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            })
+          : null,
+
+        this.prisma.users.findMany({
+          where: {
+            id_status: 1,
+            employees: {
+              employee_roles: {
+                roles: {
+                  name_role: "Administrator",
+                },
+              },
+            },
+          },
+          select: {
+            id_user: true,
+            full_name: true,
+          },
+        }),
+      ]);
+
+    const actorRole =
+      actorUser
+        ?.employees
+        ?.employee_roles
+        ?.roles || null;
+
+    return {
+      credit,
+      clientUser: credit?.clients?.users || null,
+      actorUser: actorUser
+        ? {
+            id_user: actorUser.id_user,
+            full_name: actorUser.full_name,
+            role: actorRole,
+          }
+        : null,
+      adminUsers,
+    };
+  }
+
+  async findOverdueCreditsPendingNotification(currentDate) {
+    return this.prisma.credits.findMany({
+      where: {
+        remaining_balance: {
+          gt: 0,
+        },
+        due_date: {
+          lt: currentDate,
+        },
+        overdue_notification_sent_at: null,
+      },
+      select: {
+        id_credit: true,
+        due_date: true,
+        remaining_balance: true,
+      },
+      orderBy: {
+        due_date: "asc",
+      },
+    });
+  }
+
+  async markOverdueCreditNotificationSent(id_credit, sentAt) {
+    return this.prisma.credits.update({
+      where: {
+        id_credit,
+      },
+      data: {
+        overdue_notification_sent_at: sentAt,
+      },
+      select: {
+        id_credit: true,
+        overdue_notification_sent_at: true,
       },
     });
   }

@@ -11,6 +11,9 @@ const getOptionalList = (value) =>
         .filter(Boolean)
     : [];
 
+const normalizeUrl = (value, fallback) =>
+  (value || fallback).trim().replace(/\/+$/, "");
+
 const requiredEnv = [
   "DATABASE_URL",
   "JWT_ACCESS_SECRET",
@@ -40,6 +43,17 @@ export const env = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
   JWT_ACCESS_EXPIRES: process.env.JWT_ACCESS_EXPIRES || "15m",
   JWT_REFRESH_EXPIRES: process.env.JWT_REFRESH_EXPIRES || "7d",
-  FRONTEND_URL: process.env.FRONTEND_URL,
+  FRONTEND_URL: normalizeUrl(process.env.FRONTEND_URL, "http://localhost:5173"),
   CORS_ORIGIN: getOptionalList(process.env.CORS_ORIGIN || process.env.FRONTEND_URL),
+  LOCATION_CACHE_TTL_MINUTES:
+    Number(process.env.LOCATION_CACHE_TTL_MINUTES) || 1440,
+  EMAIL_HOST: process.env.EMAIL_HOST,
+  EMAIL_PORT: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined,
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  EMAIL_SECURE:
+    process.env.EMAIL_SECURE === "true" ||
+    process.env.EMAIL_PORT === "465",
 };

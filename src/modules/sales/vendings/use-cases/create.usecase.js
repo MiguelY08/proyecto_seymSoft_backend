@@ -6,6 +6,7 @@ import {
 } from "../../../../shared/constants/generalStatuses.js";
 import { VendingRepository } from "../repositories/vendingRepository.js";
 import { EmailService } from "../../../../shared/services/emailService.js";
+import { notifyStockAlertsForProducts } from "../../../notifications/services/stockNotificationService.js";
 import { CreateOrderDto } from "../../orders/dtos/createOrder.dto.js";
 import { CreateOrderUseCase } from "../../orders/use-cases/createOrderUseCase.js";
 import { OrderRepository } from "../../orders/repositories/orderRepository.js";
@@ -146,16 +147,20 @@ const calculateOrderTotals = (order) => {
           )
         );
 
+  const shippingAmount =
+    roundMoney(order?.shipping_amount ?? order?.shippingAmount ?? 0);
+
   const total =
     order?.total !== undefined && order?.total !== null
       ? Number(order.total)
-      : roundMoney(subtotal + ivaAmount);
+      : roundMoney(subtotal + ivaAmount + shippingAmount);
 
   return {
     subtotal:
       roundMoney(subtotal),
     ivaAmount:
       roundMoney(ivaAmount),
+    shippingAmount,
     total:
       roundMoney(total),
   };
@@ -318,6 +323,30 @@ export const notifySaleCreated = async (saleSummary) => {
   }
 };
 
+const getOrderDetailProductIds = (orderDetails = []) => (
+  [
+    ...new Set(
+      orderDetails
+        .map((detail) => Number(
+          detail.idProduct ??
+          detail.id_product ??
+          detail.productId
+        ))
+        .filter((idProduct) => Number.isInteger(idProduct) && idProduct > 0)
+    ),
+  ]
+);
+
+const notifyLowStockProductsInCarts = async (orderDetails = []) => {
+  const productIds = getOrderDetailProductIds(orderDetails);
+
+  if (!productIds.length) {
+    return;
+  }
+
+  await notifyStockAlertsForProducts(productIds);
+};
+
 const buildPaymentMethodsFromOrderPayments = (orderPayments = []) => {
   const grouped = new Map();
 
@@ -478,6 +507,7 @@ export const createVendingUseCase = async (params) => {
       try {
         const orderDataForPreparation = {
           ...data.order,
+          saleType: data.order.saleType ?? normalizedType,
           idEmployee: data.order.idEmployee ?? resolvedEmployeeId,
           idUser: data.order.idUser ?? idUser,
           ...(directSaleOrderStatus && {
@@ -494,6 +524,8 @@ export const createVendingUseCase = async (params) => {
             roundMoney(preparedOrder.orderData.subtotal),
           ivaAmount:
             roundMoney(preparedOrder.orderData.ivaAmount),
+          shippingAmount:
+            roundMoney(preparedOrder.orderData.shippingAmount),
           total:
             roundMoney(preparedOrder.orderData.total),
         };
@@ -820,6 +852,8 @@ export const createVendingUseCase = async (params) => {
         markOrderAsPaid:
           createsOrderFromSale,
       });
+
+    await notifyLowStockProductsInCarts(orderDetails);
 
     return {
       success: true,

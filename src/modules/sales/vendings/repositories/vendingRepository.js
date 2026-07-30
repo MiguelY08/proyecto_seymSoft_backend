@@ -5,6 +5,10 @@ import {
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
+import {
+  getShippingStatus,
+  requiresShippingQuote,
+} from "../../orders/helpers/orderShippingStatus.js";
 import { VendingMapper } from "../mappers/vendingMapper.js";
 
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
@@ -38,6 +42,8 @@ const saleInclude = {
           person_type: true,
           client_type: true,
           credit: true,
+          doc_type: true,
+          doc_number: true,
           users: {
             select: {
               id_user: true,
@@ -105,8 +111,15 @@ const saleSummarySelect = {
       id_order_status: true,
       delivery_type: true,
       delivery_adress: true,
+      delivery_recipient_name: true,
+      delivery_department_code: true,
+      delivery_department_name: true,
+      delivery_city_code: true,
+      delivery_city_name: true,
+      sale_type: true,
       subtotal: true,
       iva_amount: true,
+      shipping_amount: true,
       total: true,
       payment_status: true,
       id_payment_status: true,
@@ -165,15 +178,24 @@ const saleListSelect = {
       order_date: true,
       id_order_status: true,
       delivery_adress: true,
+      delivery_recipient_name: true,
       delivery_type: true,
+      delivery_department_code: true,
+      delivery_department_name: true,
+      delivery_city_code: true,
+      delivery_city_name: true,
+      sale_type: true,
       payment_status: true,
       subtotal: true,
       iva_amount: true,
+      shipping_amount: true,
       total: true,
       clients: {
         select: {
           id_client: true,
           client_type: true,
+          doc_type: true,
+          doc_number: true,
           users: {
             select: {
               id_user: true,
@@ -203,6 +225,25 @@ const saleListSelect = {
 const mapSaleSummary = (sale) => {
   if (!sale) return null;
 
+  const orderShippingAmount =
+    Number(sale.sales_orders?.shipping_amount || 0);
+  const orderShippingStatus =
+    getShippingStatus({
+      deliveryType:
+        sale.sales_orders?.delivery_type,
+      shippingAmount:
+        orderShippingAmount,
+    });
+  const orderRequiresShippingQuote =
+    requiresShippingQuote({
+      deliveryType:
+        sale.sales_orders?.delivery_type,
+      saleType:
+        sale.sales_orders?.sale_type,
+      shippingAmount:
+        orderShippingAmount,
+    });
+
   return {
     idSale: sale.id_sale,
     idOrder: sale.id_order,
@@ -210,6 +251,7 @@ const mapSaleSummary = (sale) => {
     idSaleStatus: sale.id_sale_status,
     idSaleType: sale.id_sale_type,
     subtotal: Number(sale.subtotal || 0),
+    shippingAmount: orderShippingAmount,
     saleDate: sale.sale_date || null,
     paymentMethods: (sale.sale_payment_methods || []).map((paymentMethod) => ({
       idPaymentMethod: paymentMethod.id_payment_method,
@@ -230,8 +272,31 @@ const mapSaleSummary = (sale) => {
       idOrderStatus: sale.sales_orders?.id_order_status || null,
       deliveryType: sale.sales_orders?.delivery_type || null,
       deliveryAddress: sale.sales_orders?.delivery_adress || null,
+      deliveryRecipientName: sale.sales_orders?.delivery_recipient_name || null,
+      deliveryDepartment: {
+        code: sale.sales_orders?.delivery_department_code || null,
+        name: sale.sales_orders?.delivery_department_name || null,
+      },
+      deliveryCity: {
+        code: sale.sales_orders?.delivery_city_code || null,
+        name: sale.sales_orders?.delivery_city_name || null,
+      },
+      deliveryLocation: {
+        department: {
+          code: sale.sales_orders?.delivery_department_code || null,
+          name: sale.sales_orders?.delivery_department_name || null,
+        },
+        city: {
+          code: sale.sales_orders?.delivery_city_code || null,
+          name: sale.sales_orders?.delivery_city_name || null,
+        },
+      },
+      saleType: sale.sales_orders?.sale_type || null,
       subtotal: Number(sale.sales_orders?.subtotal || sale.subtotal || 0),
       ivaAmount: Number(sale.sales_orders?.iva_amount || 0),
+      shippingAmount: orderShippingAmount,
+      shippingStatus: orderShippingStatus,
+      requiresShippingQuote: orderRequiresShippingQuote,
       total: Number(sale.sales_orders?.total || sale.subtotal || 0),
       paymentStatus: sale.sales_orders?.payment_status || null,
       idPaymentStatus: sale.sales_orders?.id_payment_status || null,
@@ -1123,6 +1188,16 @@ export class VendingRepository {
                     searchTerm,
                   mode:
                     "insensitive",
+                },
+              },
+            },
+          },
+          {
+            sales_orders: {
+              clients: {
+                doc_number: {
+                  contains:
+                    searchTerm,
                 },
               },
             },
