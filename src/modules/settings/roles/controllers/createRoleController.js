@@ -28,7 +28,7 @@ export class CreateRoleController {
       if (!validationResult.success) {
         throw new ValidationError(
           "Validación fallida",
-          validationResult.error.errors
+          validationResult.error.issues || validationResult.error.errors
         );
       }
 

@@ -10,8 +10,6 @@ import { validateRolePermissions }
 
 export class UpdateRoleUseCase {
   static async execute(id_role, roleData) {
-
-    // Obtener rol actual
     const currentRole =
       await RoleRepository.findRoleById(id_role);
 
@@ -21,7 +19,6 @@ export class UpdateRoleUseCase {
       );
     }
 
-    // Bloquear Administrator
     if (
       currentRole.name_role.toLowerCase() ===
       "administrator"
@@ -31,45 +28,38 @@ export class UpdateRoleUseCase {
       );
     }
 
-    // Validar nombre duplicado
-    if (
-      roleData.name_role !==
-      currentRole.name_role
-    ) {
+    const requestedName = String(roleData.name_role || "").trim();
+    const currentName = String(currentRole.name_role || "").trim();
 
+    if (
+      requestedName.toLowerCase() !==
+      currentName.toLowerCase()
+    ) {
       const existingRole =
-        await RoleRepository.findRoleByName(
-          roleData.name_role
+        await RoleRepository.findRoleByNameInsensitive(
+          requestedName,
+          id_role
         );
 
-      if (
-        existingRole &&
-        existingRole.id_role !== id_role
-      ) {
+      if (existingRole) {
         throw new ConflictError(
           "Ya existe un rol con este nombre"
         );
       }
     }
 
-    // Obtener ids únicos
     const moduleIds = [
       ...new Set(
-        roleData.permissions.map(
-          p => p.id_module
-        )
-      )
+        roleData.permissions.map((permission) => permission.id_module)
+      ),
     ];
 
     const privilegeIds = [
       ...new Set(
-        roleData.permissions.map(
-          p => p.id_privilege
-        )
-      )
+        roleData.permissions.map((permission) => permission.id_privilege)
+      ),
     ];
 
-    // Consultas optimizadas
     const modules =
       await RoleRepository.findModulesByIds(
         moduleIds
@@ -86,20 +76,27 @@ export class UpdateRoleUseCase {
       privileges
     );
 
-    // Ejecutar actualización completa
+    const permissionConflicts =
+      await RoleRepository.findPermissionConflicts(
+        roleData.permissions,
+        id_role
+      );
+
+    if (permissionConflicts.length > 0) {
+      throw new ConflictError(
+        "Uno o mas permisos ya estan asignados a otro rol"
+      );
+    }
+
     const role =
       await RoleRepository.updateRolePermissionsTransaction(
         id_role,
         roleData,
-        roleData.permissions.map(
-          permission => ({
-            id_role,
-            id_module:
-              permission.id_module,
-            id_privilege:
-              permission.id_privilege,
-          })
-        )
+        roleData.permissions.map((permission) => ({
+          id_role,
+          id_module: permission.id_module,
+          id_privilege: permission.id_privilege,
+        }))
       );
 
     return new RoleResponseDto(role);
