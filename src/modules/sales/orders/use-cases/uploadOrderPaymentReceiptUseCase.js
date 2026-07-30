@@ -3,6 +3,7 @@ import {
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
+import { DELIVERY_TYPES } from '../../shared/deliveryTypes.js';
 import {
   deleteImage,
   PAYMENT_RECEIPT_IMAGE_CONFIG,
@@ -56,6 +57,23 @@ export class UploadOrderPaymentReceiptUseCase {
     if (Number(order.id_payment_status) === PAYMENT_STATUSES[2].id) {
       throw new AppError(
         'El pedido ya se encuentra pagado y no requiere comprobantes.',
+        400
+      );
+    }
+
+    if (order.order_payment_receipts?.length) {
+      throw new AppError(
+        'Ya existe un comprobante pendiente de revision para este pedido.',
+        409
+      );
+    }
+
+    if (
+      order.delivery_type === DELIVERY_TYPES.DELIVERY &&
+      Number(order.shipping_amount || 0) <= 0
+    ) {
+      throw new AppError(
+        'Debes esperar a que el administrador asigne el valor del envio antes de adjuntar el comprobante.',
         400
       );
     }

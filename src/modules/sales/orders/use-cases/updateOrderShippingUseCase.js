@@ -92,6 +92,12 @@ export class UpdateOrderShippingUseCase {
       total,
     });
 
-    return mapOrder(updatedOrder);
+    return {
+      order: mapOrder(updatedOrder),
+      shippingNotification:
+        roundMoney(order.shipping_amount) <= 0
+          ? { order: updatedOrder }
+          : null,
+    };
   }
 }

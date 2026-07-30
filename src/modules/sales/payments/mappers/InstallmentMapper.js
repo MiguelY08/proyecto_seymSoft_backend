@@ -4,21 +4,18 @@ import calculateCanCancelInstallment from "../helpers/calculateCanCancelInstallm
 
 export default class InstallmentMapper {
   static toDto(data) {
-    const createdAt =
-      data.created_at ??
-      data.installment_date ??
-      null;
+    const createdAtRaw = data.created_at ?? data.installment_date ?? null;
 
-    const isCancelled =
-      Boolean(data.is_cancelled);
+    // Return raw date value (will be serialized to ISO string by Express)
+    const createdAt = createdAtRaw;
+
+    const isCancelled = Boolean(data.is_cancelled);
 
     const registeredByUser =
-      data.registered_by_user ??
-      data.users_installments_registered_byTousers;
+      data.registered_by_user ?? data.users_installments_registered_byTousers;
 
     const cancelledByUser =
-      data.cancelled_by_user ??
-      data.users_installments_cancelled_byTousers;
+      data.cancelled_by_user ?? data.users_installments_cancelled_byTousers;
 
     return new InstallmentDto({
       idInstallment: data.id_installment,
@@ -40,29 +37,29 @@ export default class InstallmentMapper {
       canCancel:
         !isCancelled &&
         calculateCanCancelInstallment({
-          createdAt,
+          createdAt: createdAtRaw,
         }),
 
       cancellationLimitHours:
         PAYMENT_BUSINESS_RULES.INSTALLMENT_CANCELLATION_HOURS,
 
       registeredBy: registeredByUser
-      ? {
-          id: registeredByUser.id_user,
-          nombre: registeredByUser.full_name,
-        }
-      : null,
+        ? {
+            id: registeredByUser.id_user,
+            nombre: registeredByUser.full_name,
+          }
+        : null,
 
       cancelledAt: data.cancelled_at,
 
       cancellationReason: data.cancellation_reason,
 
       cancelledBy: cancelledByUser
-      ? {
-          id: cancelledByUser.id_user,
-          nombre: cancelledByUser.full_name,
-        }
-      : null,
+        ? {
+            id: cancelledByUser.id_user,
+            nombre: cancelledByUser.full_name,
+          }
+        : null,
 
       paymentMethod: data.payment_methods
         ? {

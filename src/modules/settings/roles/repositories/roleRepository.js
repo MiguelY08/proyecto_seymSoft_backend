@@ -66,6 +66,34 @@ export class RoleRepository {
     });
   }
 
+  static async findRoleByNameInsensitive(name_role, excludeRoleId = null) {
+    const trimmedName = String(name_role || "").trim();
+
+    if (!trimmedName) {
+      return null;
+    }
+
+    return await prisma.roles.findFirst({
+      where: {
+        name_role: {
+          equals: trimmedName,
+          mode: "insensitive",
+        },
+        ...(excludeRoleId
+          ? {
+              NOT: {
+                id_role: Number(excludeRoleId),
+              },
+            }
+          : {}),
+      },
+      select: {
+        id_role: true,
+        name_role: true,
+      },
+    });
+  }
+
   /**
    * Listar todos los roles (excepto Admin si se especifica)
    */
@@ -267,6 +295,63 @@ static async createManyAssignedPermissions(permissions) {
   return await prisma.assigned_permissions.createMany({
     data: permissions,
     skipDuplicates: true,
+  });
+}
+
+static async findPermissionConflicts(permissions, excludeRoleId = null) {
+  const normalizedPermissions = (permissions || [])
+    .map((permission) => ({
+      id_module: Number(permission.id_module),
+      id_privilege: Number(permission.id_privilege),
+    }))
+    .filter(
+      (permission) =>
+        Number.isInteger(permission.id_module) &&
+        Number.isInteger(permission.id_privilege)
+    );
+
+  if (!normalizedPermissions.length) {
+    return [];
+  }
+
+  return await prisma.assigned_permissions.findMany({
+    where: {
+      OR: normalizedPermissions.map((permission) => ({
+        id_module: permission.id_module,
+        id_privilege: permission.id_privilege,
+      })),
+      ...(excludeRoleId
+        ? {
+            NOT: {
+              id_role: Number(excludeRoleId),
+            },
+          }
+        : {}),
+    },
+    select: {
+      id_permission: true,
+      id_role: true,
+      id_module: true,
+      id_privilege: true,
+      roles: {
+        select: {
+          id_role: true,
+          name_role: true,
+        },
+      },
+      modules: {
+        select: {
+          id_module: true,
+          name_module: true,
+        },
+      },
+      privileges: {
+        select: {
+          id_privilege: true,
+          name_privilege: true,
+        },
+      },
+    },
   });
 }
 
