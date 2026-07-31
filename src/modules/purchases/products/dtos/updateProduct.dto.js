@@ -20,6 +20,12 @@ export class UpdateProductDto {
     this.wholesalePrice = firstDefined(data.wholesalePrice, data.precioMayorista, data.wholesale_price);
     this.partnerPrice = firstDefined(data.partnerPrice, data.precioColegas, data.partner_price);
     this.bulkPrice = firstDefined(data.bulkPrice, data.precioPacas, data.bulk_price);
+    this.supplierPrice = firstDefined(
+      data.supplierPrice,
+      data.precioProveedor,
+      data.precio_proveedor,
+      data.supplier_price
+    );
     this.retailDiscountPct = firstDefined(data.retailDiscountPct, data.retail_discount_pct);
     this.wholesaleDiscountPct = firstDefined(data.wholesaleDiscountPct, data.wholesale_discount_pct);
     this.partnerDiscountPct = firstDefined(data.partnerDiscountPct, data.partner_discount_pct);

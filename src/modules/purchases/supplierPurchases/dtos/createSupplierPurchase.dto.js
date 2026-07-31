@@ -2,8 +2,8 @@
 /**
  * CreateSupplierPurchaseDto
  *
- * El frontend solo manda idProduct, quantity y extraBarcodes (opcionales).
- * Los precios e impuestos se toman del producto en la BD — no del frontend.
+ * El frontend manda idProduct, quantity, supplierPrice (opcional) y extraBarcodes.
+ * Si supplierPrice viene, se usa ese precio; si no, se toma el precio_proveedor o wholesale_price del producto.
  */
 export class CreateSupplierPurchaseDto {
   constructor(data) {
@@ -14,6 +14,7 @@ export class CreateSupplierPurchaseDto {
     this.details       = (data.details || []).map((d) => ({
       idProduct:     Number(d.idProduct),
       quantity:      Number(d.quantity),
+      supplierPrice: d.supplierPrice ? Number(d.supplierPrice) : null, // ← Precio de compra desde frontend
       extraBarcodes: (d.extraBarcodes || []).map((b) => b.trim()).filter(Boolean),
     }));
   }

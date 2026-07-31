@@ -15,7 +15,9 @@ export const getClientFinancialSummaryController = async (req, res, next) => {
     const result = await getClientFinancialSummaryUseCase(clientId);
     
     if (!result.success) {
-      return res.status(500).json({
+      const statusCode = result.error === 'Cliente no encontrado' ? 404 : 500;
+
+      return res.status(statusCode).json({
         success: false,
         message: result.error || 'Error al obtener el resumen financiero del cliente'
       });

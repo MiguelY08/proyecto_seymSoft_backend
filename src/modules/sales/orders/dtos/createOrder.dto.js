@@ -38,6 +38,19 @@ const normalizeDeliveryRecipientName = (value) => {
   return recipientName;
 };
 
+const normalizeDeliveryRecipientPhone = (value) => {
+  const recipientPhone = String(value || '').trim();
+  if (!recipientPhone) return null;
+  if (recipientPhone.length > 30) {
+    throw new Error('El telefono de quien recibe el pedido no puede exceder 30 caracteres.');
+  }
+  const digits = recipientPhone.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) {
+    throw new Error('El telefono de quien recibe el pedido debe tener entre 7 y 15 digitos.');
+  }
+  return recipientPhone;
+};
+
 const normalizeShippingAmount = ({
   value,
   deliveryType,
@@ -69,6 +82,20 @@ const normalizeShippingAmount = ({
     amount <= 0
   ) {
     throw new Error('El valor del envio debe ser mayor a 0 para pedidos a domicilio registrados por asesor.');
+  }
+
+  return Math.round(amount * 100) / 100;
+};
+
+const normalizeOptionalMoney = (value, fieldName) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0;
+  }
+
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error(`${fieldName} debe ser un numero mayor o igual a 0.`);
   }
 
   return Math.round(amount * 100) / 100;
@@ -162,17 +189,32 @@ export class CreateOrderDto {
       deliveryLocation.deliveryCityCode;
     this.deliveryCityName =
       deliveryLocation.deliveryCityName;
-    this.deliveryRecipientName = normalizeDeliveryRecipientName(
-      data.deliveryRecipientName ??
-      data.delivery_recipient_name ??
-      data.recipientName ??
-      data.recipient_name ??
-      data.receiverName ??
-      data.receiver_name
-    );
+    this.deliveryRecipientName = deliveryType === DELIVERY_TYPES.DELIVERY
+      ? normalizeDeliveryRecipientName(
+          data.deliveryRecipientName ??
+          data.delivery_recipient_name ??
+          data.recipientName ??
+          data.recipient_name ??
+          data.receiverName ??
+          data.receiver_name
+        )
+      : null;
+    this.deliveryRecipientPhone = deliveryType === DELIVERY_TYPES.DELIVERY
+      ? normalizeDeliveryRecipientPhone(
+          data.deliveryRecipientPhone ??
+          data.delivery_recipient_phone ??
+          data.recipientPhone ??
+          data.recipient_phone ??
+          data.receiverPhone ??
+          data.receiver_phone
+        )
+      : null;
 
-    if (this.saleType !== 'direct' && !this.deliveryRecipientName) {
+    if (deliveryType === DELIVERY_TYPES.DELIVERY && !this.deliveryRecipientName) {
       throw new Error('El nombre de quien recibe el pedido es obligatorio.');
+    }
+    if (deliveryType === DELIVERY_TYPES.DELIVERY && !this.deliveryRecipientPhone) {
+      throw new Error('El telefono de quien recibe el pedido es obligatorio.');
     }
 
     this.shippingAmount = normalizeShippingAmount({
@@ -180,6 +222,15 @@ export class CreateOrderDto {
       deliveryType,
       saleType: this.saleType,
     });
+    this.favorBalanceAmount = normalizeOptionalMoney(
+      data.favorBalanceAmount ??
+      data.favor_balance_amount ??
+      data.creditBalanceAmount ??
+      data.credit_balance_amount ??
+      data.saldoFavorUsado ??
+      data.saldo_favor_usado,
+      'El saldo a favor aplicado'
+    );
 
     this.items = data.items ?? [];
     this.initialPayments =

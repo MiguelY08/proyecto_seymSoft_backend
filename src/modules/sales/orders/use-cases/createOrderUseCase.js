@@ -18,6 +18,7 @@ import {
 import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
 
 const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
 const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
 const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
@@ -26,6 +27,7 @@ const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
 const APPROVED_SALE_STATUS_ID = SALE_STATUSES[1].id;
 const DIRECT_SALE_TYPE_NAME = 'DIRECTA';
 const WEB_SALE_TYPE_NAME = 'WEB';
+const SYSTEM_EMPLOYEE_ID = 7;
 const PAID_ORDER_ALLOWED_STATUS_IDS = [
   READY_ORDER_STATUS_ID,
   DELIVERED_ORDER_STATUS_ID,
@@ -61,6 +63,14 @@ const getOrderItemProductIds = (items = []) => [
       .filter((idProduct) => Number.isInteger(idProduct) && idProduct > 0)
   ),
 ];
+
+const getWebEmployeeId = () => {
+  const idEmployee = Number(process.env.WEB_SALES_EMPLOYEE_ID);
+
+  return Number.isInteger(idEmployee) && idEmployee > 0
+    ? idEmployee
+    : SYSTEM_EMPLOYEE_ID;
+};
 
 const getEnrichedOrderItems = async ({ repo, items, client }) => {
   const barcodeRecords =
@@ -234,7 +244,59 @@ export class CreateOrderUseCase {
     const calculated = calculateOrderTotals(enrichedItems, {
       shippingAmount: dto.shippingAmount,
     });
-    const initialPayments = dto.initialPayments || [];
+    const requestedFavorBalanceAmount = roundMoney(dto.favorBalanceAmount);
+    const clientFavorBalance = roundMoney(client.credit_balance);
+
+    if (requestedFavorBalanceAmount > 0) {
+      if (requestedFavorBalanceAmount > clientFavorBalance) {
+        throw new AppError(
+          `El saldo a favor aplicado supera el saldo disponible del cliente. Disponible: ${clientFavorBalance}.`,
+          400
+        );
+      }
+
+      if (requestedFavorBalanceAmount > calculated.total) {
+        throw new AppError(
+          'El saldo a favor aplicado no puede superar el total del pedido.',
+          400
+        );
+      }
+    }
+
+    const initialPayments = [
+      ...(dto.initialPayments || []),
+      ...(requestedFavorBalanceAmount > 0
+        ? [
+            {
+              idPaymentMethod: FAVOR_BALANCE_PAYMENT_METHOD_ID,
+              amount: requestedFavorBalanceAmount,
+              observations: 'Saldo a favor aplicado desde la tienda web.',
+              reference: `SALDO-FAVOR-${Date.now()}`,
+            },
+          ]
+        : []),
+    ];
+    const favorBalanceAmount = roundMoney(
+      initialPayments
+        .filter((payment) => Number(payment.idPaymentMethod) === FAVOR_BALANCE_PAYMENT_METHOD_ID)
+        .reduce((total, payment) => total + Number(payment.amount || 0), 0)
+    );
+
+    if (favorBalanceAmount > 0) {
+      if (favorBalanceAmount > clientFavorBalance) {
+        throw new AppError(
+          `El saldo a favor aplicado supera el saldo disponible del cliente. Disponible: ${clientFavorBalance}.`,
+          400
+        );
+      }
+
+      if (favorBalanceAmount > calculated.total) {
+        throw new AppError(
+          'El saldo a favor aplicado no puede superar el total del pedido.',
+          400
+        );
+      }
+    }
 
     for (const payment of initialPayments) {
       if (Number(payment.idPaymentMethod) === CREDIT_PAYMENT_METHOD_ID) {
@@ -266,12 +328,20 @@ export class CreateOrderUseCase {
     }
 
     const isPaid = paidAmount >= calculated.total && calculated.total > 0;
+    const isPaidWithFavorBalanceOnly =
+      isPaid &&
+      favorBalanceAmount >= calculated.total &&
+      paidAmount === favorBalanceAmount;
     const paymentStatus = isPaid
       ? PAYMENT_STATUSES[2]
       : PAYMENT_STATUSES[1];
     const idOrderStatus = Number(dto.idOrderStatus || IN_PROCESS_ORDER_STATUS_ID);
 
-    if (isPaid && !PAID_ORDER_ALLOWED_STATUS_IDS.includes(idOrderStatus)) {
+    if (
+      isPaid &&
+      !isPaidWithFavorBalanceOnly &&
+      !PAID_ORDER_ALLOWED_STATUS_IDS.includes(idOrderStatus)
+    ) {
       throw new AppError(
         'Un pedido pagado al registrarse solo puede quedar en estado Listo o Entregado.',
         400
@@ -316,12 +386,15 @@ export class CreateOrderUseCase {
       deliveryCityCode: dto.deliveryCityCode,
       deliveryCityName: dto.deliveryCityName,
       deliveryRecipientName: dto.deliveryRecipientName,
+      deliveryRecipientPhone: dto.deliveryRecipientPhone,
       saleType: dto.saleType,
       idOrderStatus,
       idPaymentStatus: paymentStatus.id,
       paymentStatus: paymentStatus.name,
       paymentDeadline: isPaid ? null : dto.paymentDeadline || buildPaymentDeadline(),
       initialPayments,
+      favorBalanceAmount,
+      isPaidWithFavorBalanceOnly,
       items: calculated.items,
       subtotal: calculated.subtotal,
       ivaAmount: calculated.ivaAmount,
@@ -337,6 +410,10 @@ export class CreateOrderUseCase {
   }
 
   async createPaidOrderWithDirectSale(orderData) {
+    if (!orderData.idEmployee && orderData.saleType === 'web') {
+      orderData.idEmployee = getWebEmployeeId();
+    }
+
     if (!orderData.idEmployee) {
       throw new AppError(
         'Debe asociar un empleado para registrar una venta directa desde un pedido pagado.',
@@ -378,6 +455,10 @@ export class CreateOrderUseCase {
       );
     } catch (error) {
       await this.repo.deleteCreatedOrder(order.id_order);
+      await this.repo.restoreClientFavorBalance(
+        orderData.idClient,
+        orderData.favorBalanceAmount
+      );
 
       if (
         error.code === 'P2002' ||
@@ -407,7 +488,10 @@ export class CreateOrderUseCase {
   async execute(dto) {
     const orderData = await this.prepare(dto);
 
-    if (orderData.idPaymentStatus === PAID_PAYMENT_STATUS_ID) {
+    if (
+      orderData.idPaymentStatus === PAID_PAYMENT_STATUS_ID &&
+      !orderData.isPaidWithFavorBalanceOnly
+    ) {
       return this.createPaidOrderWithDirectSale(orderData);
     }
 

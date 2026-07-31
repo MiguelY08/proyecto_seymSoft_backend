@@ -7,6 +7,7 @@ export const PAYMENT_METHODS = {
   1: { id: 1, name: "Transferencia" },
   2: { id: 2, name: "Efectivo" },
   3: { id: 3, name: "Credito" },
+  4: { id: 4, name: "Saldo a favor" },
 };
 
 export const PAYMENT_STATUSES = {

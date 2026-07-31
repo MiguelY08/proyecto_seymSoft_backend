@@ -8,6 +8,11 @@ import { hashPassword } from "../../../shared/utils/hashPassword.js";
 import { ConflictError } from "../../../shared/errors/index.js";
 import { prisma } from "../../../config/prisma.js";
 import { EmailService } from "../../../shared/services/emailService.js";
+import {
+  normalizeEmail,
+  normalizeName,
+  normalizeNumericString,
+} from "../../../shared/utils/textNormalizer.js";
 
 const sendLandingWelcomeEmailInBackground = ({
   email,
@@ -39,8 +44,15 @@ const sendLandingWelcomeEmailInBackground = ({
 
 export class RegisterUseCase {
   static async execute(userData) {
+    const email = normalizeEmail(userData.email);
+    const fullName = normalizeName(userData.fullName);
+    const phone =
+      userData.phone !== undefined && userData.phone !== null
+        ? BigInt(normalizeNumericString(userData.phone))
+        : null;
+
     const existingUser = await AuthRepository.findUserByEmail(
-      userData.email,
+      email,
     );
 
     if (existingUser) {
@@ -55,10 +67,10 @@ export class RegisterUseCase {
 
     const newUser = await prisma.users.create({
       data: {
-        full_name: userData.fullName,
-        email: userData.email,
+        full_name: fullName,
+        email,
         pass_word: hashedPassword,
-        phone: userData.phone || null,
+        phone,
         id_status: 1,
       },
     });

@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Schema reutilizable para permisos
  */
-const permissionSchema = z.object({
+export const permissionSchema = z.object({
   id_module: z
     .number({
       required_error: "id_module es requerido",
@@ -27,7 +27,7 @@ const permissionSchema = z.object({
 /**
  * Validar permisos duplicados
  */
-const permissionsSchema = z
+export const permissionsSchema = z
   .array(permissionSchema)
   .min(
     1,

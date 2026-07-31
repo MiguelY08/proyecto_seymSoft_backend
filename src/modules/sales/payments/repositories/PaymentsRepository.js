@@ -659,4 +659,48 @@ export class PaymentsRepository {
       },
     });
   }
+
+  async findCreditsDueOnDate(targetDate) {
+    return this.prisma.credits.findMany({
+      where: {
+        remaining_balance: {
+          gt: 0,
+        },
+        due_date: targetDate,
+      },
+      select: {
+        id_credit: true,
+        due_date: true,
+        remaining_balance: true,
+      },
+      orderBy: {
+        due_date: "asc",
+      },
+    });
+  }
+
+  async hasCreditDueReminderNotification(id_credit) {
+    return this.prisma.notifications.findFirst({
+      where: {
+        type: "credit",
+        AND: [
+          {
+            metadata: {
+              path: ["idCredit"],
+              equals: Number(id_credit),
+            },
+          },
+          {
+            metadata: {
+              path: ["event"],
+              equals: "credit_due_reminder",
+            },
+          },
+        ],
+      },
+      select: {
+        id_notification: true,
+      },
+    });
+  }
 }
