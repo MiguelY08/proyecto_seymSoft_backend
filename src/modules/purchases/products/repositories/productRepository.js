@@ -8,6 +8,7 @@ const productSelect = {
   wholesale_price: true,
   partner_price: true,
   bulk_price: true,
+  precio_proveedor: true,
   iva_percentage: true,
   description: true,
   quantity_per_pack: true,
@@ -160,6 +161,7 @@ export class ProductRepository {
           wholesale_price: parseNumber(data.wholesalePrice),
           partner_price: parseNumberOrNull(data.partnerPrice),
           bulk_price: parseNumberOrNull(data.bulkPrice),
+          precio_proveedor: parseNumberOrNull(data.supplierPrice),
           iva_percentage: parseNumber(data.ivaPercentage),
           retail_discount_pct: parseNumber(data.retailDiscountPct),
           wholesale_discount_pct: parseNumber(data.wholesaleDiscountPct),
@@ -226,6 +228,7 @@ export class ProductRepository {
       if (data.wholesalePrice !== undefined) updateData.wholesale_price = parseNumber(data.wholesalePrice);
       if (data.partnerPrice !== undefined) updateData.partner_price = parseNumberOrNull(data.partnerPrice);
       if (data.bulkPrice !== undefined) updateData.bulk_price = parseNumberOrNull(data.bulkPrice);
+      if (data.supplierPrice !== undefined) updateData.precio_proveedor = parseNumberOrNull(data.supplierPrice);
       if (data.retailDiscountPct !== undefined) updateData.retail_discount_pct = parseNumber(data.retailDiscountPct);
       if (data.wholesaleDiscountPct !== undefined) updateData.wholesale_discount_pct = parseNumber(data.wholesaleDiscountPct);
       if (data.partnerDiscountPct !== undefined) updateData.partner_discount_pct = parseNumber(data.partnerDiscountPct);

@@ -142,21 +142,23 @@ export class SupplierPurchaseRepository {
     });
   }
 
-  async findProductById(id) {
-    return prisma.products.findUnique({
-      where:  { id_product: parseInt(id) },
-      select: {
-        id_product:      true,
-        name:            true,
-        wholesale_price: true,
-        iva_percentage:  true,
-        barcodes: {
-          select:  { id_barcode: true, barcode: true },
-          orderBy: { id_barcode: 'asc' },
-        },
+
+async findProductById(id) {
+  return prisma.products.findUnique({
+    where:  { id_product: parseInt(id) },
+    select: {
+      id_product:      true,
+      name:            true,
+      wholesale_price: true,
+      precio_proveedor: true, // ← AGREGAR: precio de compra al proveedor
+      iva_percentage:  true,
+      barcodes: {
+        select:  { id_barcode: true, barcode: true },
+        orderBy: { id_barcode: 'asc' },
       },
-    });
-  }
+    },
+  });
+}
 
   async findBarcodeByCode(barcode) {
     return prisma.barcodes.findUnique({
