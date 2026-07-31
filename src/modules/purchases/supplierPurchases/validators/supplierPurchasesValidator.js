@@ -1,3 +1,4 @@
+// backend/src/modules/supplier-purchases/validators/supplierPurchasesValidator.js
 import { z } from 'zod';
 
 // ─── Statuses ─────────────────────────────────────────────────────────────────
@@ -25,7 +26,6 @@ export const createSupplierPurchaseValidator = z.object({
     details: z
       .array(
         z.object({
-          // Solo necesita el id del producto y la cantidad
           idProduct: z.coerce
             .number({ required_error: 'El ID del producto es obligatorio.' })
             .int()
@@ -36,7 +36,13 @@ export const createSupplierPurchaseValidator = z.object({
             .int()
             .positive('La cantidad debe ser un entero positivo.'),
 
-          // Códigos de barras extra opcionales — el usuario los escribe manualmente
+          // ← NUEVO: supplierPrice (opcional, viene del frontend)
+          supplierPrice: z.coerce
+            .number()
+            .positive('El precio de compra debe ser un número positivo.')
+            .optional()
+            .nullable(),
+
           extraBarcodes: z
             .array(
               z.string()

@@ -62,7 +62,12 @@ export class CreateSupplierPurchaseUseCase {
       }
 
       // 4d — Tomar precios del producto
-      const grossUnitPrice = Number(product.wholesale_price);
+      // ========== MODIFICACIÓN: usar supplierPrice si viene del frontend ==========
+      // Prioridad: 1. supplierPrice del frontend | 2. precio_proveedor | 3. wholesale_price
+      const grossUnitPrice = detail.supplierPrice ?? 
+                             Number(product.precio_proveedor) ?? 
+                             Number(product.wholesale_price);
+      
       const taxPercentage  = Number(product.iva_percentage ?? 0);
       const quantity       = Number(detail.quantity);
       const taxUnitPrice   = +(grossUnitPrice * (taxPercentage / 100)).toFixed(2);

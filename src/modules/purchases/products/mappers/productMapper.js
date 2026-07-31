@@ -15,6 +15,7 @@ export const mapProduct = (product) => {
     wholesalePrice: product.wholesale_price,
     partnerPrice: product.partner_price,
     bulkPrice: product.bulk_price,
+    supplierPrice: product.precio_proveedor,
     retailDiscountPct: product.retail_discount_pct,
     wholesaleDiscountPct: product.wholesale_discount_pct,
     partnerDiscountPct: product.partner_discount_pct,

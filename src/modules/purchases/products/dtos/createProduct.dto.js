@@ -8,6 +8,13 @@ const parsePositiveInt = (value) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+const parseOptionalDecimal = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 const normalizeBarcode = (barcode) => ({
   barcode: barcode?.barcode ?? barcode?.codBarras ?? barcode?.code,
   barcode_type: barcode?.barcode_type ?? barcode?.barcodeType ?? "EAN13",
@@ -22,6 +29,12 @@ export class CreateProductDto {
     this.wholesalePrice = parseFloat(data.precioMayorista ?? data.wholesalePrice);
     this.partnerPrice = data.precioColegas ? parseFloat(data.precioColegas) : null;
     this.bulkPrice = data.precioPacas ? parseFloat(data.precioPacas) : null;
+    this.supplierPrice = parseOptionalDecimal(firstDefined(
+      data.supplierPrice,
+      data.precioProveedor,
+      data.precio_proveedor,
+      data.supplier_price
+    ));
     this.retailDiscountPct = parseFloat(data.retailDiscountPct) || 0;
     this.wholesaleDiscountPct = parseFloat(data.wholesaleDiscountPct) || 0;
     this.partnerDiscountPct = parseFloat(data.partnerDiscountPct) || 0;
