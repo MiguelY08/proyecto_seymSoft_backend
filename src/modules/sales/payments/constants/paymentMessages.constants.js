@@ -27,7 +27,22 @@ export const PAYMENT_MESSAGES = {
     "El monto supera la deuda pendiente",
 
   INVALID_INSTALLMENT_AMOUNT:
-    "El valor minimo permitido para un abono es de $1.000.",
+    "El valor minimo permitido para un abono es de $10.000.",
+
+  INVALID_POSITIVE_INSTALLMENT_AMOUNT:
+    "El monto del abono debe ser mayor a cero.",
+
+  INVALID_LOW_DEBT_INSTALLMENT_AMOUNT:
+    "Cuando la deuda pendiente es inferior a $10.000, el abono debe cubrir el valor total pendiente.",
+
+  INSUFFICIENT_FAVOR_BALANCE:
+    "Saldo a favor insuficiente para registrar el abono.",
+
+  PAYMENT_METHOD_NOT_FOUND:
+    "Metodo de pago no encontrado.",
+
+  INVALID_INSTALLMENT_PAYMENT_METHOD:
+    "El metodo Credito no es valido para registrar abonos.",
 
   INVALID_INTEREST_PERCENTAGE:
     "El porcentaje de interes debe estar entre 1% y 99%.",

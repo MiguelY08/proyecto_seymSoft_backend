@@ -5,6 +5,9 @@ import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 
 import { comparePassword } from "../../../../shared/utils/hashPassword.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
+import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+
+const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
 
 export class CancelInstallmentUseCase {
   constructor(paymentsRepository) {
@@ -84,15 +87,19 @@ const restoredCapital =
     installment.capital_paid
   );
 
+const isFavorBalancePayment =
+  Number(installment.id_payment_method) ===
+  FAVOR_BALANCE_PAYMENT_METHOD_ID;
+
+const restoredFavorBalance =
+  isFavorBalancePayment
+    ? Number(installment.installment_amount)
+    : 0;
+
 const newRemainingBalance =
   Number(
     credit.remaining_balance
   ) + restoredCapital;
-
-const newClientBalance =
-  Number(
-    client.credit_balance ?? 0
-  ) - restoredCapital;
 
     const statuses =
       await this.paymentsRepository.getCreditStatusesMap();
@@ -140,8 +147,8 @@ const newClientBalance =
     id_customer:
       client.id_client,
 
-    credit_balance:
-      newClientBalance,
+    favor_balance_amount:
+      restoredFavorBalance,
   });
 
     await paymentNotificationService.notifyInstallmentCancelled({

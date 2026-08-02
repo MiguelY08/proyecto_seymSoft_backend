@@ -7,6 +7,7 @@ export default class CreditCustomerDto {
     doc_number,
     phone,
     assignedCredit,
+    favorBalance,
     availableCredit,
     usedCredit,
     activeCredits,
@@ -18,6 +19,7 @@ export default class CreditCustomerDto {
     this.doc_number = doc_number;
     this.phone = serializeBigInt(phone);
     this.assignedCredit = assignedCredit;
+    this.favorBalance = Number(favorBalance ?? 0);
     this.availableCredit = availableCredit;
     this.usedCredit = usedCredit;
     this.activeCredits = activeCredits;
