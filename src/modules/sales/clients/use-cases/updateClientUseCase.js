@@ -7,6 +7,7 @@ import {
   normalizeName,
   normalizeNumericString,
 } from '../../../../shared/utils/textNormalizer.js';
+import { clientNotificationService } from './clientNotificationService.js';
 
 const normalizeUpdatePayload = (updateData) => ({
   ...updateData,
@@ -28,7 +29,33 @@ const normalizeUpdatePayload = (updateData) => ({
   }),
 });
 
-export const updateClientUseCase = async (id, updateData) => {
+const toMoneyNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatMoney = (value) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+  }).format(Number(value || 0));
+
+const getUsedCredit = async (clientId) => {
+  const result = await prisma.credits.aggregate({
+    where: {
+      id_customer: clientId,
+      remaining_balance: { gt: 0 },
+    },
+    _sum: {
+      remaining_balance: true,
+    },
+  });
+
+  return Number(result._sum.remaining_balance || 0);
+};
+
+export const updateClientUseCase = async (id, updateData, actorUserId = null) => {
   try {
     const normalizedUpdateData = normalizeUpdatePayload(updateData);
 
@@ -46,11 +73,61 @@ export const updateClientUseCase = async (id, updateData) => {
     const client = await ClientRepository.findById(id);
     if (!client) return { success: false, error: 'Cliente no encontrado', errorCode: 'CLIENT_NOT_FOUND' };
 
-    if (normalizedUpdateData.clientCredit !== undefined) {
-      const newCredit = parseFloat(normalizedUpdateData.clientCredit);
-      const currentCredit = parseFloat(client.clientCredit || 0);
+    if (normalizedUpdateData.credit_balance !== undefined) {
+      const newCreditBalance = toMoneyNumber(normalizedUpdateData.credit_balance);
 
-      if (newCredit > currentCredit) {
+      if (newCreditBalance === null) {
+        return {
+          success: false,
+          error: 'El saldo a favor debe ser un valor numerico valido',
+          errorCode: 'VALIDATION_ERROR',
+        };
+      }
+
+      if (newCreditBalance < 0) {
+        return {
+          success: false,
+          error: 'El saldo a favor no puede quedar negativo',
+          errorCode: 'CREDIT_BALANCE_NEGATIVE',
+        };
+      }
+    }
+
+    if (normalizedUpdateData.clientCredit !== undefined) {
+      const newCredit = toMoneyNumber(normalizedUpdateData.clientCredit);
+      const currentCredit = Number(client.clientCredit || 0);
+
+      if (newCredit === null) {
+        return {
+          success: false,
+          error: 'El crédito del cliente debe ser un valor numérico válido.',
+          errorCode: 'VALIDATION_ERROR',
+        };
+      }
+
+      if (newCredit < 0) {
+        return {
+          success: false,
+          error: 'El crédito del cliente no puede ser negativo.',
+          errorCode: 'CLIENT_CREDIT_NEGATIVE',
+        };
+      }
+
+      const usedCredit = await getUsedCredit(id);
+
+      if (newCredit < usedCredit) {
+        return {
+          success: false,
+          error: `No puedes bajar el crédito por debajo del monto ocupado. Crédito ocupado actual: ${formatMoney(usedCredit)}.`,
+          errorCode: 'CLIENT_CREDIT_BELOW_USED',
+        };
+      }
+
+      const isCorrectingBelowUsedCredit =
+        currentCredit < usedCredit && newCredit <= usedCredit;
+      const isIncreasingAvailableCredit = newCredit > currentCredit && !isCorrectingBelowUsedCredit;
+
+      if (isIncreasingAvailableCredit) {
         const hasOverdueCredits = await prisma.credits.count({
           where: {
             id_customer: id,
@@ -64,7 +141,7 @@ export const updateClientUseCase = async (id, updateData) => {
         if (hasOverdueCredits > 0) {
           return {
             success: false,
-            error: 'NO SE PUEDE AUMENTAR EL CREDITO: El cliente tiene creditos vencidos. Regularice su situacion antes de aumentar el cupo.',
+            error: 'No se puede aumentar el crédito: el cliente tiene créditos vencidos. Regulariza su situación antes de aumentar el cupo.',
             errorCode: 'CLIENT_HAS_OVERDUE_CREDITS'
           };
         }
@@ -82,7 +159,7 @@ export const updateClientUseCase = async (id, updateData) => {
         if (hasPendingCredits > 0) {
           return {
             success: false,
-            error: 'NO SE PUEDE AUMENTAR EL CREDITO: El cliente tiene creditos pendientes. Regularice su situacion antes de aumentar el cupo.',
+            error: 'No se puede aumentar el crédito: el cliente tiene créditos pendientes. Regulariza su situación antes de aumentar el cupo.',
             errorCode: 'CLIENT_HAS_PENDING_CREDITS'
           };
         }
@@ -111,6 +188,12 @@ export const updateClientUseCase = async (id, updateData) => {
     }
 
     const updatedClient = await ClientRepository.findById(id);
+    await clientNotificationService.notifyCommercialChanges({
+      before: client,
+      after: updatedClient,
+      actorUserId,
+    });
+
     return { success: true, data: updatedClient };
   } catch (error) {
     console.error('Error en updateClientUseCase:', error);

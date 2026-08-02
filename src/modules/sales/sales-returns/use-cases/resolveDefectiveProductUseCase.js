@@ -1,5 +1,6 @@
 import { ReturnRepository } from '../repositories/returnRepository.js';
 import { createPurchaseReturnUseCase } from '../../../purchases/purchase-returns/use-cases/create.usecase.js';
+import { salesReturnNotificationService } from '../helpers/salesReturnNotificationService.js';
 
 const RESOLUTION_ACTIONS = {
   PURCHASE_RETURN: 'PURCHASE_RETURN',
@@ -74,6 +75,7 @@ export const resolveDefectiveProductUseCase = async ({
   quantity,
   idReturnReason,
   idReturnMethod,
+  actorUserId = null,
 }) => {
   try {
     const baseValidation = await validateBaseContext(
@@ -153,6 +155,18 @@ export const resolveDefectiveProductUseCase = async ({
         }
       );
 
+      await salesReturnNotificationService.notifyDefectiveResolution({
+        saleReturnId,
+        saleReturnDetailId,
+        actorUserId,
+        action: RESOLUTION_ACTIONS.PURCHASE_RETURN,
+        referenceId: createdPurchaseReturn.data?.id_purchase_return
+          || createdPurchaseReturn.data?.id
+          || createdPurchaseReturn.data?.idPurchaseReturn
+          || null,
+        quantity: requestedQuantity,
+      });
+
       return {
         success: true,
         data: {
@@ -178,7 +192,7 @@ export const resolveDefectiveProductUseCase = async ({
       const ncp = await ReturnRepository.createNonConformingProduct({
         idBarcode: context.detail.id_barcode,
         quantity: detailQuantity,
-        reason: `[SALE_RETURN:${saleReturnId}:DETAIL:${saleReturnDetailId}] Producto defectuoso sin devolución de compra disponible. ${purchaseInfo.reason || ''}`.trim(),
+        reason: `Producto defectuoso proveniente de la devolución de venta #${saleReturnId}. No tiene devolución de compra disponible. ${purchaseInfo.reason || ''}`.trim(),
         idStatus: defaultStatus?.id_status || 1
       });
 
@@ -194,6 +208,15 @@ export const resolveDefectiveProductUseCase = async ({
           createdAt: new Date().toISOString()
         }
       );
+
+      await salesReturnNotificationService.notifyDefectiveResolution({
+        saleReturnId,
+        saleReturnDetailId,
+        actorUserId,
+        action: RESOLUTION_ACTIONS.NON_CONFORMING,
+        referenceId: ncp.id_ncp,
+        quantity: detailQuantity,
+      });
 
       return {
         success: true,
