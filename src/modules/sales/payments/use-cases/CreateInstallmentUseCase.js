@@ -6,6 +6,13 @@ import InstallmentMapper from "../mappers/InstallmentMapper.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 import { PAYMENT_BUSINESS_RULES } from "../constants/paymentBusinessRules.constants.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
+import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+
+const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+
+const roundMoney = (value) =>
+  Math.round((Number(value) || 0) * 100) / 100;
 
 export class CreateInstallmentUseCase {
   constructor(paymentsRepository) {
@@ -31,12 +38,23 @@ export class CreateInstallmentUseCase {
       );
     }
 
+    const paymentMethod =
+      await this.paymentsRepository.getPaymentMethodById(
+        id_payment_method
+      );
+
+    if (!paymentMethod) {
+      throw new Error(
+        PAYMENT_MESSAGES.PAYMENT_METHOD_NOT_FOUND
+      );
+    }
+
     if (
-      Number(installment_amount) <
-      PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT
+      Number(id_payment_method) ===
+      CREDIT_PAYMENT_METHOD_ID
     ) {
       throw new Error(
-        PAYMENT_MESSAGES.INVALID_INSTALLMENT_AMOUNT
+        PAYMENT_MESSAGES.INVALID_INSTALLMENT_PAYMENT_METHOD
       );
     }
 
@@ -83,9 +101,42 @@ export class CreateInstallmentUseCase {
         pendingInterest,
       });
 
+    const installmentAmount =
+      roundMoney(installment_amount);
+
+    const roundedTotalDebt =
+      roundMoney(totalDebt);
+
+    if (installmentAmount <= 0) {
+      throw new Error(
+        PAYMENT_MESSAGES.INVALID_POSITIVE_INSTALLMENT_AMOUNT
+      );
+    }
+
     if (
-      Number(installment_amount) >
-      totalDebt
+      roundedTotalDebt <
+        PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT &&
+      installmentAmount !== roundedTotalDebt
+    ) {
+      throw new Error(
+        PAYMENT_MESSAGES.INVALID_LOW_DEBT_INSTALLMENT_AMOUNT
+      );
+    }
+
+    if (
+      roundedTotalDebt >=
+        PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT &&
+      installmentAmount <
+        PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT
+    ) {
+      throw new Error(
+        PAYMENT_MESSAGES.INVALID_INSTALLMENT_AMOUNT
+      );
+    }
+
+    if (
+      installmentAmount >
+      roundedTotalDebt
     ) {
       throw new Error(
         PAYMENT_MESSAGES.AMOUNT_EXCEEDS_DEBT
@@ -108,12 +159,24 @@ const client =
     credit.id_customer
   );
 
+const isFavorBalancePayment =
+  Number(id_payment_method) ===
+  FAVOR_BALANCE_PAYMENT_METHOD_ID;
+
+const favorBalance =
+  roundMoney(client.credit_balance);
+
+if (
+  isFavorBalancePayment &&
+  installmentAmount > favorBalance
+) {
+  throw new Error(
+    PAYMENT_MESSAGES.INSUFFICIENT_FAVOR_BALANCE
+  );
+}
+
 const newRemainingBalance =
   pendingCapital - capitalPaid;
-
-const newClientBalance =
-  Number(client.credit_balance ?? 0) +
-  capitalPaid;
 
 const statuses =
   await this.paymentsRepository.getCreditStatusesMap();
@@ -160,8 +223,10 @@ const installment =
       id_customer:
         credit.id_customer,
 
-      credit_balance:
-        newClientBalance,
+      favor_balance_amount:
+        isFavorBalancePayment
+          ? installmentAmount
+          : 0,
     });
 
 await paymentNotificationService.notifyInstallmentCreated({

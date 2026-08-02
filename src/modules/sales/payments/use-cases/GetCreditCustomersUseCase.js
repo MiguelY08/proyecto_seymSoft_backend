@@ -63,6 +63,10 @@ export class GetCreditCustomersUseCase {
       customer.credit
     ),
 
+    favorBalance: Number(
+      customer.credit_balance ?? 0
+    ),
+
     // CAMBIAR ESTOS DOS
     availableCredit,
 
