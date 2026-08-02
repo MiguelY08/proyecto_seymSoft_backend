@@ -25,6 +25,7 @@ export class ClientMapper {
       clientType: dbClient.client_type || '',
       clientCredit: dbClient.credit ? String(dbClient.credit) : '0',
       credit_balance: dbClient.credit_balance ? String(dbClient.credit_balance) : '0',
+      favorBalance: Number(dbClient.credit_balance ?? 0),
       rut: dbClient.rut ? 'si' : 'no',
       ciuCode: dbClient.codigo_ciu || '',
       active: user?.id_status === 1,

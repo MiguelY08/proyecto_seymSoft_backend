@@ -27,9 +27,8 @@ export const createInstallmentSchema = z.object({
       required_error:
         "El monto es obligatorio",
     })
-    .min(
-      PAYMENT_BUSINESS_RULES.MIN_INSTALLMENT_AMOUNT,
-      "El valor minimo permitido para un abono es de $1.000."
+    .positive(
+      "El monto del abono debe ser mayor a cero"
     ),
 
   observations: z
