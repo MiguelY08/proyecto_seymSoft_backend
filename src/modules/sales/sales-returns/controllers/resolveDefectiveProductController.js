@@ -25,6 +25,7 @@ export const resolveDefectiveProductController = async (req, res) => {
       quantity,
       idReturnReason,
       idReturnMethod,
+      actorUserId: req.user?.id_user || req.user?.idUser,
     });
 
     if (!result.success) {
