@@ -70,6 +70,12 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason, actorUse
       });
     }
 
+    await salesReturnNotificationService.notifyReturnCancelled({
+      returnId: idReturn,
+      actorUserId,
+      cancellationReason: cancellationReason.trim(),
+    });
+
     return {
       success: true,
       data: {
