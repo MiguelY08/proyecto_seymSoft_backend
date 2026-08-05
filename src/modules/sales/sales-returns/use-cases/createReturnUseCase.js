@@ -9,8 +9,14 @@ import {
   calculateGeneralStatus
 } from '../helpers/returnHelpers.js';
 import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
+import { salesReturnNotificationService } from '../helpers/salesReturnNotificationService.js';
 
-export const createReturnUseCase = async (returnData, evidenceFiles = [], evidenceDescription = '') => {
+export const createReturnUseCase = async (
+  returnData,
+  evidenceFiles = [],
+  evidenceDescription = '',
+  actorUserId = null
+) => {
 
 
 
@@ -38,15 +44,18 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
     }
 
     const existingReturn = await prisma.sales_returns.findFirst({
-      where: { id_sale: returnData.idSale }
+      where: { id_sale: returnData.idSale },
+      select: { return_number: true }
     });
     if (existingReturn) {
+      const existingReturnNumber = existingReturn.return_number || 'registrada';
 
       return {
         success: false,
         data: null,
         error: 'Esta venta ya tiene una devoluciÃ³n registrada',
-        errorCode: 'RETURN_ALREADY_EXISTS'
+        errorCode: 'RETURN_ALREADY_EXISTS',
+        existingReturnNumber
       };
     }
 
@@ -169,13 +178,47 @@ export const createReturnUseCase = async (returnData, evidenceFiles = [], eviden
       evidenceDescription: evidenceDescription
     }, evidenceFiles);
 
+    const createdDetails = await prisma.sale_return_details.findMany({
+      where: { id_sales_return: created.id_sales_return },
+      include: {
+        return_methods: true,
+        return_statuses: true
+      }
+    });
+
+    const readyCreditDetails = createdDetails
+      .filter(detail =>
+        detail.return_statuses?.name_status === 'Listo' &&
+        detail.return_methods?.description === 'Saldo a favor'
+      )
+      .map(detail => ({
+        idSaleReturnDetail: detail.id_sale_return_detail,
+        idReturnStatus: detail.id_return_status
+      }));
+
+    const creditEvents = readyCreditDetails.length > 0
+      ? await ReturnRepository.applyCreditForReadyDetails(
+        created.id_sales_return,
+        readyCreditDetails
+      )
+      : [];
+
+    if (creditEvents.length > 0) {
+      await salesReturnNotificationService.notifyCreditApplied({
+        events: creditEvents,
+        actorUserId,
+      });
+    }
+
     return {
       success: true,
       data: {
         id: created.id_sales_return,
         returnNumber: created.return_number,
         status: generalStatus,
-        nonConformingCreated: 0
+        nonConformingCreated: 0,
+        creditApplied: creditEvents.reduce((total, event) => total + event.amount, 0),
+        creditEvents
       },
       error: null,
       errorCode: null

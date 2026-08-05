@@ -680,47 +680,6 @@ static async findAll(filters = {}) {
         };
       }
 
-      const nonConformingResolutionIds = [
-        ...new Set(
-          defectiveResolutions
-            .filter(resolution =>
-              resolution?.type === 'NON_CONFORMING' &&
-              resolution?.referenceId &&
-              !resolution?.cancelledBySaleReturnCancellation
-            )
-            .map(resolution => Number(resolution.referenceId))
-            .filter(Number.isFinite)
-        )
-      ];
-      const nonConformingCancelledAt = new Date().toISOString();
-
-      if (nonConformingResolutionIds.length > 0) {
-        await tx.non_conforming_products.updateMany({
-          where: {
-            id_ncp: { in: nonConformingResolutionIds },
-            id_status: { not: 2 }
-          },
-          data: { id_status: 2 }
-        });
-      }
-
-      const nextDefectiveResolutions = defectiveResolutions.map((resolution) => {
-        const referenceId = Number(resolution?.referenceId);
-        if (
-          resolution?.type !== 'NON_CONFORMING' ||
-          !nonConformingResolutionIds.includes(referenceId)
-        ) {
-          return resolution;
-        }
-
-        return {
-          ...resolution,
-          cancelledBySaleReturnCancellation: true,
-          cancelledAt: nonConformingCancelledAt,
-          cancellationReason: `Producto no conforme anulado porque se anuló la devolución de venta ${returnForCredit.return_number}.`
-        };
-      });
-
       const updatedReturn = await tx.sales_returns.update({
         where: {
           id_sales_return: Number(idReturn),
@@ -733,7 +692,7 @@ static async findAll(filters = {}) {
             ...saleData,
             details: snapshotDetails,
             creditEvents,
-            defectiveResolutions: nextDefectiveResolutions
+            defectiveResolutions
           }
         },
       });
