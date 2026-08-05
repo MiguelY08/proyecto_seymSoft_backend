@@ -5,7 +5,6 @@ import { RefreshTokenController } from "../controllers/refreshTokenController.js
 import { LogoutController } from "../controllers/logoutController.js";
 import { RegisterController } from "../controllers/registerController.js";
 import { CheckEmailAvailabilityController } from "../controllers/checkEmailAvailabilityController.js";
-import { CheckPhoneValidationController } from "../controllers/checkPhoneValidationController.js";
 import { ProfileController } from "../controllers/profileController.js";
 import { ProfileSummaryController } from "../controllers/profileSummaryController.js";
 import { UpdateProfileController } from "../controllers/updateProfileController.js";
@@ -24,9 +23,6 @@ router.post("/register", RegisterController.register);
 
 // GET /auth/check-email
 router.get("/check-email", CheckEmailAvailabilityController.check);
-
-// GET /auth/validate-phone
-router.get("/validate-phone", CheckPhoneValidationController.check);
 
 // POST /auth/login
 router.post("/login", LoginController.login);

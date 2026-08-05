@@ -1,5 +1,8 @@
 import { prisma } from "../../../../config/prisma.js";
 import { CREDIT_STATUS } from "../constants/creditStatus.constants.js";
+import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
 
 export class PaymentsRepository {
   constructor() {
@@ -25,6 +28,7 @@ export class PaymentsRepository {
         id_client: true,
         doc_number: true,
         credit: true,
+        credit_balance: true,
 
         users: {
           select: {
@@ -207,6 +211,10 @@ export class PaymentsRepository {
   async getPaymentMethods() {
     return this.prisma.payment_methods.findMany({
       where: {
+        id_payment_method: {
+          not: CREDIT_PAYMENT_METHOD_ID,
+        },
+
         NOT: {
           name_payment_method: "Crédito",
         },
@@ -214,6 +222,15 @@ export class PaymentsRepository {
 
       orderBy: {
         name_payment_method: "asc",
+      },
+    });
+  }
+
+  async getPaymentMethodById(id_payment_method) {
+    return this.prisma.payment_methods.findUnique({
+      where: {
+        id_payment_method:
+          Number(id_payment_method),
       },
     });
   }
@@ -361,6 +378,8 @@ export class PaymentsRepository {
         is_cancelled: true,
         created_at: true,
         installment_date: true,
+        installment_amount: true,
+        id_payment_method: true,
         capital_paid: true,
 
         credits: {
@@ -391,7 +410,7 @@ export class PaymentsRepository {
    * - Crea el abono.
    * - Actualiza saldo del credito.
    * - Actualiza estado del credito.
-   * - Libera cupo al cliente.
+   * - Descuenta saldo a favor si ese fue el metodo de pago.
    */
   async processInstallment({
     installmentData,
@@ -400,9 +419,33 @@ export class PaymentsRepository {
     id_credit_status,
 
     id_customer,
-    credit_balance,
+    favor_balance_amount = 0,
   }) {
     return this.prisma.$transaction(async (tx) => {
+      if (Number(favor_balance_amount) > 0) {
+        const updatedBalance = await tx.clients.updateMany({
+          where: {
+            id_client:
+              id_customer,
+            credit_balance: {
+              gte:
+                Number(favor_balance_amount),
+            },
+          },
+
+          data: {
+            credit_balance: {
+              decrement:
+                Number(favor_balance_amount),
+            },
+          },
+        });
+
+        if (updatedBalance.count === 0) {
+          throw new Error("Saldo a favor insuficiente para registrar el abono.");
+        }
+      }
+
       const installment = await tx.installments.create({
         data: installmentData,
         include: {
@@ -433,16 +476,6 @@ export class PaymentsRepository {
         },
       });
 
-      await tx.clients.update({
-        where: {
-          id_client: id_customer,
-        },
-
-        data: {
-          credit_balance,
-        },
-      });
-
       return installment;
     });
   }
@@ -452,7 +485,7 @@ export class PaymentsRepository {
    *
    * - Marca el abono como anulado.
    * - Revierte saldo del credito.
-   * - Revierte cupo liberado.
+   * - Restaura saldo a favor si ese fue el metodo de pago.
    * - Actualiza estado.
    */
   async cancelInstallmentTransaction({
@@ -467,7 +500,7 @@ export class PaymentsRepository {
     id_credit_status,
 
     id_customer,
-    credit_balance,
+    favor_balance_amount = 0,
   }) {
     return this.prisma.$transaction(async (tx) => {
       await tx.installments.update({
@@ -494,15 +527,20 @@ export class PaymentsRepository {
         },
       });
 
-      await tx.clients.update({
-        where: {
-          id_client: id_customer,
-        },
+      if (Number(favor_balance_amount) > 0) {
+        await tx.clients.update({
+          where: {
+            id_client: id_customer,
+          },
 
-        data: {
-          credit_balance,
-        },
-      });
+          data: {
+            credit_balance: {
+              increment:
+                Number(favor_balance_amount),
+            },
+          },
+        });
+      }
     });
   }
 

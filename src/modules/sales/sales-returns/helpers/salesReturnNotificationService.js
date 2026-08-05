@@ -5,6 +5,10 @@ import { findAdminUsers } from '../../../notifications/services/adminNotificatio
 const ADMIN_RETURN_URL = '/admin/sales/returns-s';
 const CUSTOMER_RETURN_URL = '/returnsOnOrders';
 
+const READY_STATUS = 'Listo';
+const ADMIN_PURCHASE_RETURN_URL = '/admin/purchases/returns';
+const ADMIN_NON_CONFORMING_URL = '/admin/purchases/non-conforming-products';
+
 const formatMoney = (value) =>
   new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -31,6 +35,15 @@ const summarizeProducts = (events = []) => {
   if (products.length <= 2) return products.join(', ');
   return `${products.slice(0, 2).join(', ')} y ${products.length - 2} producto(s) más`;
 };
+
+const getProductName = (detail, fallback = 'Producto') =>
+  detail?.barcodes?.products?.name ||
+  detail?.barcodes?.products?.name_product ||
+  detail?.productName ||
+  fallback;
+
+const normalizeReturnNumber = (saleReturn, returnId) =>
+  saleReturn?.return_number || `#${returnId}`;
 
 const getActorUser = async (actorUserId) => {
   if (!actorUserId) return null;
@@ -160,6 +173,232 @@ export const salesReturnNotificationService = {
       return [...recipients.values()];
     } catch (error) {
       console.error('[SalesReturnNotificationService] Credit applied notification error:', error.message);
+      return [];
+    }
+  },
+
+  async notifyReturnCancelled({ returnId, actorUserId = null, cancellationReason = '' }) {
+    try {
+      const context = await getReturnNotificationContext(returnId, actorUserId);
+      if (!context.saleReturn) return [];
+
+      const returnNumber = normalizeReturnNumber(context.saleReturn, returnId);
+      const clientName = context.clientUser?.full_name || 'el cliente';
+      const actorName = context.actorUser?.full_name || 'Un usuario';
+      const adminActionUrl = `${ADMIN_RETURN_URL}?returnId=${returnId}`;
+
+      const metadata = {
+        module: 'sales_returns',
+        event: 'sale_return_cancelled',
+        saleReturnId: Number(returnId),
+        returnNumber,
+        cancellationReason,
+        longMessage: `${actorName} anuló la devolución de venta ${returnNumber} del cliente ${clientName}. Motivo: ${cancellationReason || 'Sin motivo adicional'}.`,
+      };
+
+      const recipients = new Map();
+
+      context.adminUsers.forEach((adminUser) => {
+        addRecipient(recipients, adminUser.id_user, {
+          title: 'Devolución de venta anulada',
+          message: `${actorName} anuló la devolución ${returnNumber} de ${clientName}.`,
+          type: 'warning',
+          actionUrl: adminActionUrl,
+          metadata,
+        });
+      });
+
+      if (context.actorUser) {
+        addRecipient(recipients, context.actorUser.id_user, {
+          title: 'Devolución anulada',
+          message: `Anulaste la devolución ${returnNumber}.`,
+          type: 'warning',
+          actionUrl: adminActionUrl,
+          metadata: {
+            ...metadata,
+            event: 'sale_return_cancelled_by_me',
+          },
+        });
+      }
+
+      if (context.clientUser) {
+        addRecipient(recipients, context.clientUser.id_user, {
+          title: 'Tu devolución fue anulada',
+          message: `La devolución ${returnNumber} fue anulada.`,
+          type: 'warning',
+          actionUrl: CUSTOMER_RETURN_URL,
+          metadata: {
+            ...metadata,
+            event: 'sale_return_cancelled_to_me',
+            longMessage: `La devolución ${returnNumber} fue anulada. Motivo: ${cancellationReason || 'Sin motivo adicional'}.`,
+          },
+        });
+      }
+
+      await sendNotifications(recipients);
+      return [...recipients.values()];
+    } catch (error) {
+      console.error('[SalesReturnNotificationService] Return cancelled notification error:', error.message);
+      return [];
+    }
+  },
+
+  async notifyReadyDetails({ returnId, events = [], actorUserId = null }) {
+    try {
+      if (!events.length) return [];
+
+      const context = await getReturnNotificationContext(returnId, actorUserId);
+      if (!context.saleReturn) return [];
+
+      const returnNumber = normalizeReturnNumber(context.saleReturn, returnId);
+      const clientName = context.clientUser?.full_name || 'el cliente';
+      const actorName = context.actorUser?.full_name || 'Un usuario';
+      const productsText = summarizeProducts(events);
+      const adminActionUrl = `${ADMIN_RETURN_URL}?returnId=${returnId}`;
+
+      const metadata = {
+        module: 'sales_returns',
+        event: 'sale_return_products_ready',
+        saleReturnId: Number(returnId),
+        returnNumber,
+        status: READY_STATUS,
+        products: events,
+        longMessage: `${actorName} marcó como Listo ${productsText} de la devolución ${returnNumber} del cliente ${clientName}.`,
+      };
+
+      const recipients = new Map();
+
+      context.adminUsers.forEach((adminUser) => {
+        addRecipient(recipients, adminUser.id_user, {
+          title: 'Producto listo en devolución',
+          message: `${productsText} quedó en estado Listo en ${returnNumber}.`,
+          type: 'success',
+          actionUrl: adminActionUrl,
+          metadata,
+        });
+      });
+
+      if (context.actorUser) {
+        addRecipient(recipients, context.actorUser.id_user, {
+          title: 'Estado actualizado',
+          message: `Marcaste como Listo ${productsText}.`,
+          type: 'success',
+          actionUrl: adminActionUrl,
+          metadata: {
+            ...metadata,
+            event: 'sale_return_products_ready_by_me',
+          },
+        });
+      }
+
+      if (context.clientUser) {
+        addRecipient(recipients, context.clientUser.id_user, {
+          title: 'Producto listo',
+          message: `${productsText} ya está listo en tu devolución ${returnNumber}.`,
+          type: 'success',
+          actionUrl: CUSTOMER_RETURN_URL,
+          metadata: {
+            ...metadata,
+            event: 'sale_return_products_ready_to_me',
+            longMessage: `${productsText} ya está listo en tu devolución ${returnNumber}. Puedes revisar el seguimiento desde tus devoluciones.`,
+          },
+        });
+      }
+
+      await sendNotifications(recipients);
+      return [...recipients.values()];
+    } catch (error) {
+      console.error('[SalesReturnNotificationService] Ready details notification error:', error.message);
+      return [];
+    }
+  },
+
+  async notifyDefectiveResolution({
+    saleReturnId,
+    saleReturnDetailId,
+    actorUserId = null,
+    action,
+    referenceId = null,
+    quantity = 0,
+    productName = '',
+  }) {
+    try {
+      const context = await getReturnNotificationContext(saleReturnId, actorUserId);
+      if (!context.saleReturn) return [];
+
+      const detail = await prisma.sale_return_details.findUnique({
+        where: { id_sale_return_detail: Number(saleReturnDetailId) },
+        include: {
+          barcodes: {
+            include: {
+              products: {
+                select: { name: true },
+              },
+            },
+          },
+        },
+      });
+
+      const returnNumber = normalizeReturnNumber(context.saleReturn, saleReturnId);
+      const actorName = context.actorUser?.full_name || 'Un usuario';
+      const finalProductName = productName || getProductName(detail);
+      const isPurchaseReturn = action === 'PURCHASE_RETURN';
+      const title = isPurchaseReturn
+        ? 'Devolución de compra generada'
+        : 'Producto enviado a no conforme';
+      const message = isPurchaseReturn
+        ? `${actorName} generó una devolución de compra desde ${returnNumber}.`
+        : `${actorName} envió ${finalProductName} a producto no conforme.`;
+      const actionUrl = isPurchaseReturn
+        ? `${ADMIN_PURCHASE_RETURN_URL}${referenceId ? `?returnId=${referenceId}` : ''}`
+        : `${ADMIN_NON_CONFORMING_URL}${referenceId ? `?ncpId=${referenceId}` : ''}`;
+
+      const metadata = {
+        module: 'sales_returns',
+        event: isPurchaseReturn
+          ? 'purchase_return_created_from_sale_return'
+          : 'non_conforming_created_from_sale_return',
+        saleReturnId: Number(saleReturnId),
+        saleReturnDetailId: Number(saleReturnDetailId),
+        returnNumber,
+        referenceId,
+        productName: finalProductName,
+        quantity: Number(quantity || detail?.quantity || 0),
+        longMessage: isPurchaseReturn
+          ? `${actorName} generó una devolución de compra desde la devolución de venta ${returnNumber}. Producto: ${finalProductName}. Cantidad: ${Number(quantity || detail?.quantity || 0)}.`
+          : `${actorName} envió el producto ${finalProductName} a producto no conforme desde la devolución de venta ${returnNumber}. Cantidad: ${Number(quantity || detail?.quantity || 0)}.`,
+      };
+
+      const recipients = new Map();
+      context.adminUsers.forEach((adminUser) => {
+        addRecipient(recipients, adminUser.id_user, {
+          title,
+          message,
+          type: isPurchaseReturn ? 'purchase' : 'stock',
+          actionUrl,
+          metadata,
+        });
+      });
+
+      if (context.actorUser) {
+        addRecipient(recipients, context.actorUser.id_user, {
+          title,
+          message: isPurchaseReturn
+            ? `Generaste una devolución de compra desde ${returnNumber}.`
+            : `Enviaste ${finalProductName} a producto no conforme.`,
+          type: isPurchaseReturn ? 'purchase' : 'stock',
+          actionUrl,
+          metadata: {
+            ...metadata,
+            event: `${metadata.event}_by_me`,
+          },
+        });
+      }
+
+      await sendNotifications(recipients);
+      return [...recipients.values()];
+    } catch (error) {
+      console.error('[SalesReturnNotificationService] Defective resolution notification error:', error.message);
       return [];
     }
   },

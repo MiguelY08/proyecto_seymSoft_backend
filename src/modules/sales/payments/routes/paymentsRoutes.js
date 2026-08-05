@@ -4,6 +4,7 @@ import { getCreditCustomersController } from "../controllers/GetCreditCustomersC
 import { getCustomerInvoicesController } from "../controllers/GetCustomerInvoicesController.js";
 import { getInvoiceInstallmentsController } from "../controllers/GetInvoiceInstallmentsController.js";
 import { getCustomerContactController } from "../controllers/GetCustomerContactController.js";
+import { getPaymentMethodsController } from "../controllers/GetPaymentMethodsController.js";
 import { createInstallmentController } from "../controllers/CreateInstallmentController.js";
 import { cancelInstallmentController } from "../controllers/CancelInstallmentController.js";
 import { generateInterestController } from "../controllers/GenerateInterestController.js";
@@ -30,6 +31,12 @@ router.get(
 router.get(
   "/customers/:idCustomer/contact",authMiddleware,
   getCustomerContactController
+);
+
+router.get(
+  "/payment-methods",
+  authMiddleware,
+  getPaymentMethodsController
 );
 
 /**

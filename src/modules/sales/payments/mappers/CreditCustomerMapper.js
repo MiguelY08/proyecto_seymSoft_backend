@@ -14,6 +14,8 @@ export default class CreditCustomerMapper {
 
       assignedCredit: data.assignedCredit,
 
+      favorBalance: data.favorBalance,
+
       availableCredit: data.availableCredit,
 
       usedCredit: data.usedCredit,

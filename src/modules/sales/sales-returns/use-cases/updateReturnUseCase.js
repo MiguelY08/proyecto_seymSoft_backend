@@ -45,6 +45,7 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
     let newGeneralStatus = existingReturn.return_statuses?.name_status || 'En Proceso';
     let stockUpdated = false;
     let stockEvents = [];
+    let readyEvents = [];
     
     if (updateData.details && updateData.details.length > 0) {
       // Obtener los detalles actuales para comparar estados
@@ -53,7 +54,8 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
         include: {
           barcodes: true,
           return_methods: true,
-          return_reasons: true
+          return_reasons: true,
+          return_statuses: true
         }
       });
 
@@ -90,9 +92,33 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
         where: { id_sales_return: id },
         include: {
           return_statuses: true,
-          return_methods: true
+          return_methods: true,
+          return_reasons: true,
+          barcodes: {
+            include: {
+              products: {
+                select: { name: true }
+              }
+            }
+          }
         }
       });
+
+      readyEvents = updatedDetails
+        .filter(detail => detail.return_statuses?.name_status === 'Listo')
+        .filter(detail => {
+          const previous = currentDetails.find(
+            current => current.id_sale_return_detail === detail.id_sale_return_detail
+          );
+          return previous?.return_statuses?.name_status !== 'Listo';
+        })
+        .map(detail => ({
+          detailId: detail.id_sale_return_detail,
+          productName: detail.barcodes?.products?.name || detail.barcode || 'Producto',
+          quantity: Number(detail.quantity || 0),
+          method: detail.return_methods?.description || '',
+          reason: detail.return_reasons?.description || '',
+        }));
 
       // Mapear los detalles para calcular el estado general
       const detailsForStatus = updatedDetails.map(detail => ({
@@ -140,6 +166,14 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
       });
     }
 
+    if (readyEvents.length > 0) {
+      await salesReturnNotificationService.notifyReadyDetails({
+        returnId: id,
+        events: readyEvents,
+        actorUserId,
+      });
+    }
+
     return {
       success: true,
       data: {
@@ -150,6 +184,7 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
         nonConformingCreated: 0,
         creditApplied: creditEvents.reduce((total, event) => total + event.amount, 0),
         creditEvents,
+        readyEvents,
         stockEvents
       },
       error: null,

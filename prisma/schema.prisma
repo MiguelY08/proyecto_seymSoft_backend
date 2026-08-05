@@ -432,6 +432,7 @@ model products {
   wholesale_discount_pct Decimal?                @default(0) @db.Decimal(5, 2)
   partner_discount_pct   Decimal?                @default(0) @db.Decimal(5, 2)
   bulk_discount_pct      Decimal?                @default(0) @db.Decimal(5, 2)
+  precio_proveedor       Decimal?                @db.Decimal(10, 2)
   barcodes               barcodes[]
   client_favorites       client_favorites[]
   order_details          order_details[]

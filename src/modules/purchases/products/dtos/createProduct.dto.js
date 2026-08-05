@@ -8,6 +8,13 @@ const parsePositiveInt = (value) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+const parseOptionalDecimal = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 const normalizeBarcode = (barcode) => ({
   barcode: barcode?.barcode ?? barcode?.codBarras ?? barcode?.code,
   barcode_type: barcode?.barcode_type ?? barcode?.barcodeType ?? "EAN13",
