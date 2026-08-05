@@ -2,26 +2,18 @@
 export class SupplierPurchaseMapper {
   static #toDateOnly(date) {
     if (!date) return null;
-
     const parsedDate = new Date(date);
     if (Number.isNaN(parsedDate.getTime())) return null;
-
-    return new Date(
-      parsedDate.getFullYear(),
-      parsedDate.getMonth(),
-      parsedDate.getDate()
-    );
+    return new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
   }
 
   static #canRegisterReturns(maxReturnDate) {
     const limitDate = this.#toDateOnly(maxReturnDate);
     if (!limitDate) return false;
-
     const today = this.#toDateOnly(new Date());
     return today <= limitDate;
   }
 
-  // ─── Detail mapper ──────────────────────────────────────────────────────────
   static detailToDTO(detail) {
     if (!detail) return null;
 
@@ -29,22 +21,17 @@ export class SupplierPurchaseMapper {
     const extraBarcodes = allBarcodes
       .filter((b) => b.id_barcode !== detail.id_barcode)
       .map((b) => b.barcode);
-    const returnAvailability =
-      detail.returnAvailability ?? {};
-    const purchasedQuantity =
-      returnAvailability.purchasedQuantity ?? detail.quantity;
-    const returnReservedQuantity =
-      returnAvailability.reservedQuantity ?? 0;
-    const finalReturnedQuantity =
-      returnAvailability.finalReturnedQuantity ?? 0;
-    const returnAvailableQuantity =
-      returnAvailability.availableQuantity ?? detail.quantity;
+    const returnAvailability = detail.returnAvailability ?? {};
+    const purchasedQuantity = returnAvailability.purchasedQuantity ?? detail.quantity;
+    const returnReservedQuantity = returnAvailability.reservedQuantity ?? 0;
+    const finalReturnedQuantity = returnAvailability.finalReturnedQuantity ?? 0;
+    const returnAvailableQuantity = returnAvailability.availableQuantity ?? detail.quantity;
 
     return {
       id:             detail.id_purchase_detail,
       idBarcode:      detail.id_barcode,
-      barcode:        detail.barcodes?.barcode        ?? null,
-      productId:      detail.barcodes?.id_product     ?? null,
+      barcode:        detail.barcodes?.barcode ?? null,
+      productId:      detail.barcodes?.id_product ?? null,
       productName:    detail.barcodes?.products?.name ?? null,
       quantity:       detail.quantity,
       purchasedQuantity,
@@ -57,6 +44,11 @@ export class SupplierPurchaseMapper {
         finalReturnedQuantity,
         availableQuantity: returnAvailableQuantity,
       },
+      // ========== NUEVOS CAMPOS ==========
+      purchaseType:   detail.purchase_type ?? "Unidad",
+      quantityPerPack: detail.quantity_per_pack ?? 0,
+      stockAdded:     detail.stock_added ?? detail.quantity,
+      // ========== FIN NUEVOS CAMPOS ==========
       grossUnitPrice: Number(detail.gross_unit_price),
       taxUnitPrice:   Number(detail.tax_unit_price),
       netUnitPrice:   Number(detail.net_unit_price),
@@ -70,7 +62,6 @@ export class SupplierPurchaseMapper {
     };
   }
 
-  // ─── Purchase mapper (list) ─────────────────────────────────────────────────
   static toDTO(purchase) {
     if (!purchase) return null;
     return {
@@ -80,8 +71,8 @@ export class SupplierPurchaseMapper {
       totalAmount:      Number(purchase.total_amount ?? 0),
       totalQuantity:    purchase.total_quantity || 0,
       providerId:       purchase.id_provider,
-      providerName:     purchase.providers?.name_provider              ?? null,
-      providerMaxReturnPeriod: purchase.providers?.max_return_period   ?? null,
+      providerName:     purchase.providers?.name_provider ?? null,
+      providerMaxReturnPeriod: purchase.providers?.max_return_period ?? null,
       statusId:         purchase.id_purchase_status,
       status:           purchase.purchase_statuses?.name_puchase_status ?? null,
       maxReturnDate:    purchase.max_return_date,
@@ -89,22 +80,17 @@ export class SupplierPurchaseMapper {
     };
   }
 
-  // ─── Purchase mapper with details ───────────────────────────────────────────
   static toDTOWithDetails(purchase) {
     if (!purchase) return null;
-    const details =
-      (purchase.purchase_details ?? []).map(SupplierPurchaseMapper.detailToDTO);
+    const details = (purchase.purchase_details ?? []).map(SupplierPurchaseMapper.detailToDTO);
 
     return {
       ...SupplierPurchaseMapper.toDTO(purchase),
-      totalQuantity:
-        purchase.total_quantity ??
-        details.reduce((sum, detail) => sum + (detail.quantity || 0), 0),
+      totalQuantity: purchase.total_quantity ?? details.reduce((sum, detail) => sum + (detail.quantity || 0), 0),
       details,
     };
   }
 
-  // ─── DB mappers ─────────────────────────────────────────────────────────────
   static toCreateDB(dto) {
     return {
       invoice_number:     dto.invoiceNumber,

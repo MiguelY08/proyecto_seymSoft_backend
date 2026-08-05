@@ -1,9 +1,6 @@
 // backend/src/modules/supplier-purchases/validators/supplierPurchasesValidator.js
 import { z } from 'zod';
 
-// ─── Statuses ─────────────────────────────────────────────────────────────────
-// 1 = Completada | 2 = Proc. devolución | 3 = Anulada
-
 export const createSupplierPurchaseValidator = z.object({
   body: z.object({
     invoiceNumber: z
@@ -36,12 +33,24 @@ export const createSupplierPurchaseValidator = z.object({
             .int()
             .positive('La cantidad debe ser un entero positivo.'),
 
-          // ← NUEVO: supplierPrice (opcional, viene del frontend)
           supplierPrice: z.coerce
             .number()
             .positive('El precio de compra debe ser un número positivo.')
             .optional()
             .nullable(),
+
+          // ========== NUEVOS CAMPOS ==========
+          purchaseType: z
+            .string()
+            .optional()
+            .default('Unidad'),
+          
+          quantityPerPack: z.coerce
+            .number()
+            .int()
+            .min(0, 'La cantidad por paca debe ser un número positivo.')
+            .optional()
+            .default(0),
 
           extraBarcodes: z
             .array(
@@ -78,6 +87,8 @@ export const getSupplierPurchasesValidator = z.object({
     search:    z.string().trim().optional(),
     startDate: z.coerce.date().optional(),
     endDate:   z.coerce.date().optional(),
+    sortField: z.enum(['id_purchase', 'purchase_date', 'invoice_number', 'total_amount', 'id_provider', 'id_purchase_status']).optional().default('id_purchase'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   }),
 });
 

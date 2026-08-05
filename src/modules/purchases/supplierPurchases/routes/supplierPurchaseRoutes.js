@@ -1,3 +1,4 @@
+// backend/src/modules/supplier-purchases/routes/supplierPurchaseRoutes.js
 import { Router } from 'express';
 import { authMiddleware } from '../../../../shared/middlewares/authMiddleware.js';
 
@@ -10,7 +11,7 @@ const router = Router();
 
 // router.use(authMiddleware);
 
-// GET    /api/supplier-purchases              → lista paginada con filtros
+// GET    /api/supplier-purchases              → lista paginada con filtros y ordenamiento
 // POST   /api/supplier-purchases              → crear compra + detalles + barcodes extra + stock
 // GET    /api/supplier-purchases/:id          → detalle con productos y barcodes
 // PATCH  /api/supplier-purchases/:id/annul    → anular + revierte stock
