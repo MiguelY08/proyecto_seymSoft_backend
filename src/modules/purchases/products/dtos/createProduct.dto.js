@@ -25,16 +25,10 @@ export class CreateProductDto {
   constructor(data) {
     this.name = data.nombre ?? data.name;
     this.reference = data.referencia ?? data.reference;
-    this.retailPrice = parseFloat(data.precioDetalle ?? data.retailPrice);
-    this.wholesalePrice = parseFloat(data.precioMayorista ?? data.wholesalePrice);
-    this.partnerPrice = data.precioColegas ? parseFloat(data.precioColegas) : null;
-    this.bulkPrice = data.precioPacas ? parseFloat(data.precioPacas) : null;
-    this.supplierPrice = parseOptionalDecimal(firstDefined(
-      data.supplierPrice,
-      data.precioProveedor,
-      data.precio_proveedor,
-      data.supplier_price
-    ));
+    this.retailPrice = parseFloat(data.precioDetalle ?? data.retailPrice) || 0;
+    this.wholesalePrice = parseFloat(data.precioMayorista ?? data.wholesalePrice) || 0;
+    this.partnerPrice = parseFloat(data.precioColegas ?? data.partnerPrice) || 0;
+    this.bulkPrice = parseFloat(data.precioPacas ?? data.bulkPrice) || 0;
     this.retailDiscountPct = parseFloat(data.retailDiscountPct) || 0;
     this.wholesaleDiscountPct = parseFloat(data.wholesaleDiscountPct) || 0;
     this.partnerDiscountPct = parseFloat(data.partnerDiscountPct) || 0;
