@@ -12,10 +12,12 @@ export class CreateSupplierPurchaseDto {
     this.idProvider    = Number(data.idProvider);
     this.maxReturnDate = data.maxReturnDate ? new Date(data.maxReturnDate) : null;
     this.details       = (data.details || []).map((d) => ({
-      idProduct:     Number(d.idProduct),
-      quantity:      Number(d.quantity),
-      supplierPrice: d.supplierPrice ? Number(d.supplierPrice) : null, // ← Precio de compra desde frontend
-      extraBarcodes: (d.extraBarcodes || []).map((b) => b.trim()).filter(Boolean),
+      idProduct:       Number(d.idProduct),
+      quantity:        Number(d.quantity),
+      supplierPrice:   d.supplierPrice ? Number(d.supplierPrice) : null,
+      purchaseType:    d.purchaseType || "Unidad",
+      quantityPerPack: Number(d.quantityPerPack) || 0,
+      extraBarcodes:   (d.extraBarcodes || []).map((b) => b.trim()).filter(Boolean),
     }));
   }
 }
