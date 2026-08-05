@@ -41,11 +41,6 @@ export class CreateProductUseCase {
       throw new AppError("Debes proporcionar al menos un codigo de barras.", 400);
     }
 
-    const hasStock = dto.barcodes.some((b) => (b.stock || 0) > 0);
-    if (!hasStock) {
-      throw new AppError("Debes proporcionar stock en al menos un codigo de barras.", 400);
-    }
-
     const product = await this.repo.create(dto);
     console.log("Producto creado:", product.id_product);
 
