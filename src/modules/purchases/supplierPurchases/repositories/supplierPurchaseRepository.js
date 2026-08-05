@@ -2,8 +2,6 @@
 import { prisma } from '../../../../config/prisma.js';
 import { calculatePurchaseDetailsReturnAvailability } from '../../purchase-returns/helpers/purchaseReturnHelper.js';
 
-// ─── Reusable includes ────────────────────────────────────────────────────────
-
 const purchaseInclude = {
   providers:         { select: { name_provider: true, max_return_period: true } },
   purchase_statuses: { select: { name_puchase_status: true } },
@@ -34,9 +32,7 @@ const purchaseWithDetailsInclude = {
 
 export class SupplierPurchaseRepository {
 
-  // ── Lookups ───────────────────────────────────────────────────────────────
-
-  async findAll({ page, limit, search, startDate, endDate }) {
+  async findAll({ page, limit, search, startDate, endDate, sortField = 'id_purchase', sortOrder = 'desc' }) {
     const skip  = (page - 1) * limit;
     const where = {};
 
@@ -53,13 +49,26 @@ export class SupplierPurchaseRepository {
       if (endDate)   where.purchase_date.lte = endDate;
     }
 
+    const orderBy = {};
+    const fieldMapping = {
+      'id_purchase': 'id_purchase',
+      'purchase_date': 'purchase_date',
+      'invoice_number': 'invoice_number',
+      'total_amount': 'total_amount',
+      'id_provider': 'id_provider',
+      'id_purchase_status': 'id_purchase_status',
+    };
+    
+    const dbField = fieldMapping[sortField] || 'id_purchase';
+    orderBy[dbField] = sortOrder === 'asc' ? 'asc' : 'desc';
+
     const [total, purchases] = await Promise.all([
       prisma.purchases.count({ where }),
       prisma.purchases.findMany({
         where,
         skip,
         take:    limit,
-        orderBy: { purchase_date: 'desc' },
+        orderBy,
         include: purchaseInclude,
       }),
     ]);
@@ -78,49 +87,32 @@ export class SupplierPurchaseRepository {
       include: purchaseWithDetailsInclude,
     });
 
-    if (!purchase) {
-      return null;
-    }
+    if (!purchase) return null;
 
-    const purchaseDetailIds =
-      purchase.purchase_details.map((detail) =>
-        detail.id_purchase_detail
-      );
+    const purchaseDetailIds = purchase.purchase_details.map((detail) => detail.id_purchase_detail);
 
-    const returnDetails =
-      purchaseDetailIds.length > 0
-        ? await prisma.prd.findMany({
-            where: {
-              id_purchase_detail: {
-                in: purchaseDetailIds,
-              },
-            },
-            select: {
-              id_purchase_detail: true,
-              quantity: true,
-              id_return_method: true,
-              id_return_status: true,
-            },
-          })
-        : [];
+    const returnDetails = purchaseDetailIds.length > 0
+      ? await prisma.prd.findMany({
+          where: { id_purchase_detail: { in: purchaseDetailIds } },
+          select: { id_purchase_detail: true, quantity: true, id_return_method: true, id_return_status: true },
+        })
+      : [];
 
-    const availabilityByDetail =
-      calculatePurchaseDetailsReturnAvailability({
-        purchaseDetails: purchase.purchase_details,
-        returnDetails,
-      });
+    const availabilityByDetail = calculatePurchaseDetailsReturnAvailability({
+      purchaseDetails: purchase.purchase_details,
+      returnDetails,
+    });
 
     return {
       ...purchase,
       purchase_details: purchase.purchase_details.map((detail) => ({
         ...detail,
-        returnAvailability:
-          availabilityByDetail.get(detail.id_purchase_detail) ?? {
-            purchasedQuantity: detail.quantity,
-            reservedQuantity: 0,
-            finalReturnedQuantity: 0,
-            availableQuantity: detail.quantity,
-          },
+        returnAvailability: availabilityByDetail.get(detail.id_purchase_detail) ?? {
+          purchasedQuantity: detail.quantity,
+          reservedQuantity: 0,
+          finalReturnedQuantity: 0,
+          availableQuantity: detail.quantity,
+        },
       })),
     };
   }
@@ -134,31 +126,27 @@ export class SupplierPurchaseRepository {
   async findProviderById(id) {
     return prisma.providers.findUnique({
       where:  { id_provider: parseInt(id) },
-      select: { 
-        id_provider: true, 
-        name_provider: true,
-        max_return_period: true,
-      },
+      select: { id_provider: true, name_provider: true, max_return_period: true },
     });
   }
 
-
-async findProductById(id) {
-  return prisma.products.findUnique({
-    where:  { id_product: parseInt(id) },
-    select: {
-      id_product:      true,
-      name:            true,
-      wholesale_price: true,
-      precio_proveedor: true, // ← AGREGAR: precio de compra al proveedor
-      iva_percentage:  true,
-      barcodes: {
-        select:  { id_barcode: true, barcode: true },
-        orderBy: { id_barcode: 'asc' },
+  async findProductById(id) {
+    return prisma.products.findUnique({
+      where:  { id_product: parseInt(id) },
+      select: {
+        id_product:      true,
+        name:            true,
+        wholesale_price: true,
+        precio_proveedor: true,
+        iva_percentage:  true,
+        quantity_per_pack: true, // ← NECESARIO PARA CALCULAR STOCK
+        barcodes: {
+          select:  { id_barcode: true, barcode: true },
+          orderBy: { id_barcode: 'asc' },
+        },
       },
-    },
-  });
-}
+    });
+  }
 
   async findBarcodeByCode(barcode) {
     return prisma.barcodes.findUnique({
@@ -166,8 +154,6 @@ async findProductById(id) {
       select: { id_barcode: true, barcode: true, id_product: true },
     });
   }
-
-  // ── Create ────────────────────────────────────────────────────────────────
 
   async createExtraBarcodes(details) {
     for (const detail of details) {
@@ -188,7 +174,6 @@ async findProductById(id) {
   }
 
   async create(purchaseData, details) {
-
     await this.createExtraBarcodes(details);
 
     const detailsWithExtraIds = await Promise.all(
@@ -206,7 +191,6 @@ async findProductById(id) {
     );
 
     return prisma.$transaction(async (tx) => {
-
       const purchase = await tx.purchases.create({ data: purchaseData });
 
       await tx.purchase_details.createMany({
@@ -214,6 +198,11 @@ async findProductById(id) {
           id_purchase:      purchase.id_purchase,
           id_barcode:       d.primaryBarcodeId,
           quantity:         d.quantity,
+          // ========== NUEVOS CAMPOS ==========
+          purchase_type:    d.purchaseType || "Unidad",
+          quantity_per_pack: d.quantityPerPack || 0,
+          stock_added:      d.stockAdded || d.quantity,
+          // ========== FIN NUEVOS CAMPOS ==========
           gross_unit_price: d.grossUnitPrice,
           tax_unit_price:   d.taxUnitPrice,
           net_unit_price:   d.netUnitPrice,
@@ -225,9 +214,10 @@ async findProductById(id) {
         })),
       });
 
+      // ========== USAR stockAdded PARA EL INCREMENTO ==========
       const allBarcodeIds = detailsWithExtraIds.flatMap((d) => [
-        { id: d.primaryBarcodeId, qty: d.quantity },
-        ...d.extraBarcodeIds.map((eid) => ({ id: eid, qty: d.quantity })),
+        { id: d.primaryBarcodeId, qty: d.stockAdded || d.quantity },
+        ...d.extraBarcodeIds.map((eid) => ({ id: eid, qty: d.stockAdded || d.quantity })),
       ]);
 
       await Promise.all(
@@ -243,15 +233,11 @@ async findProductById(id) {
         where:   { id_purchase: purchase.id_purchase },
         include: purchaseWithDetailsInclude,
       });
-
     }, { timeout: 30000 });
   }
 
-  // ── Annul ─────────────────────────────────────────────────────────────────
-
   async annul(id, cancellationReason) {
     return prisma.$transaction(async (tx) => {
-
       const details = await tx.purchase_details.findMany({
         where:   { id_purchase: parseInt(id) },
         include: {
@@ -276,9 +262,11 @@ async findProductById(id) {
         data:  { cancellation_reason: cancellationReason },
       });
 
+      // ========== REVERTIR STOCK USANDO stock_added ==========
       const stockReverts = details.flatMap((d) => {
         const ids = d.barcodes?.products?.barcodes?.map((b) => b.id_barcode) ?? [];
-        return ids.map((barcodeId) => ({ id: barcodeId, qty: d.quantity }));
+        const quantityToRevert = d.stock_added ?? d.quantity;
+        return ids.map((barcodeId) => ({ id: barcodeId, qty: quantityToRevert }));
       });
 
       await Promise.all(
@@ -291,7 +279,6 @@ async findProductById(id) {
       );
 
       return purchase;
-
     }, { timeout: 30000 });
   }
 }
