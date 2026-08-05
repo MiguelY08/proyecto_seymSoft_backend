@@ -94,7 +94,8 @@ export const getAvailableInvoicesController = async (req, res) => {
         // âœ… IMPORTANTE: Incluir sales_returns para saber si tiene devoluciÃ³n
         sales_returns: {
           select: {
-            id_sales_return: true
+            id_sales_return: true,
+            return_number: true
           }
         }
       }
@@ -113,6 +114,7 @@ export const getAvailableInvoicesController = async (req, res) => {
 
         // âœ… DETECTAR SI TIENE DEVOLUCIÃ“N
         const hasReturn = (sale.sales_returns?.length || 0) > 0;
+        const associatedReturn = sale.sales_returns?.[0] || null;
 
         // âœ… DETECTAR SI ESTÃ ANULADA
         const isAnnulled = sale.id_sale_status === 4;
@@ -129,6 +131,7 @@ export const getAvailableInvoicesController = async (req, res) => {
           saleDate: sale.sale_date,
           subtotal: Number(sale.subtotal || 0),
           total: Number(order?.total || sale.subtotal || 0),
+          returnNumber: associatedReturn?.return_number || '',
           hasReturn: hasReturn,      // âœ… PARA DESHABILITAR EN FRONTEND
           isAnnulled: isAnnulled,    // âœ… PARA DESHABILITAR EN FRONTEND
           statusId: sale.id_sale_status,
