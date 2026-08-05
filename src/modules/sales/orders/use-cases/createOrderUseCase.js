@@ -1,7 +1,7 @@
 import {
   ORDER_PAYMENT_EXPIRATION,
   ORDER_STATUSES,
-  PAYMENT_METHODS,
+  PAYMENT_METHOD_IDS,
   PAYMENT_STATUSES,
   SALE_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
@@ -16,9 +16,13 @@ import {
   getPriceByClientType,
 } from '../helpers/orderHelpers.js';
 import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
+import {
+  assertCanUseFavorBalance,
+  getFavorBalancePaymentAmount,
+} from '../../shared/favorBalance.js';
 
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
-const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
+const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.FAVOR_BALANCE;
 const IN_PROCESS_ORDER_STATUS_ID = ORDER_STATUSES[1].id;
 const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
@@ -247,21 +251,12 @@ export class CreateOrderUseCase {
     const requestedFavorBalanceAmount = roundMoney(dto.favorBalanceAmount);
     const clientFavorBalance = roundMoney(client.credit_balance);
 
-    if (requestedFavorBalanceAmount > 0) {
-      if (requestedFavorBalanceAmount > clientFavorBalance) {
-        throw new AppError(
-          `El saldo a favor aplicado supera el saldo disponible del cliente. Disponible: ${clientFavorBalance}.`,
-          400
-        );
-      }
-
-      if (requestedFavorBalanceAmount > calculated.total) {
-        throw new AppError(
-          'El saldo a favor aplicado no puede superar el total del pedido.',
-          400
-        );
-      }
-    }
+    assertCanUseFavorBalance({
+      amount: requestedFavorBalanceAmount,
+      availableBalance: clientFavorBalance,
+      maxAmount: calculated.total,
+      maxAmountMessage: 'El saldo a favor aplicado no puede superar el total del pedido.',
+    });
 
     const initialPayments = [
       ...(dto.initialPayments || []),
@@ -276,27 +271,14 @@ export class CreateOrderUseCase {
           ]
         : []),
     ];
-    const favorBalanceAmount = roundMoney(
-      initialPayments
-        .filter((payment) => Number(payment.idPaymentMethod) === FAVOR_BALANCE_PAYMENT_METHOD_ID)
-        .reduce((total, payment) => total + Number(payment.amount || 0), 0)
-    );
+    const favorBalanceAmount = getFavorBalancePaymentAmount(initialPayments);
 
-    if (favorBalanceAmount > 0) {
-      if (favorBalanceAmount > clientFavorBalance) {
-        throw new AppError(
-          `El saldo a favor aplicado supera el saldo disponible del cliente. Disponible: ${clientFavorBalance}.`,
-          400
-        );
-      }
-
-      if (favorBalanceAmount > calculated.total) {
-        throw new AppError(
-          'El saldo a favor aplicado no puede superar el total del pedido.',
-          400
-        );
-      }
-    }
+    assertCanUseFavorBalance({
+      amount: favorBalanceAmount,
+      availableBalance: clientFavorBalance,
+      maxAmount: calculated.total,
+      maxAmountMessage: 'El saldo a favor aplicado no puede superar el total del pedido.',
+    });
 
     for (const payment of initialPayments) {
       if (Number(payment.idPaymentMethod) === CREDIT_PAYMENT_METHOD_ID) {

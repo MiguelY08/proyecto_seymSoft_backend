@@ -1,6 +1,6 @@
 import {
   ORDER_STATUSES,
-  PAYMENT_METHODS,
+  PAYMENT_METHOD_IDS,
   PAYMENT_STATUSES,
   SALE_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
@@ -10,6 +10,10 @@ import { notifyStockAlertsForProducts } from "../../../notifications/services/st
 import { CreateOrderDto } from "../../orders/dtos/createOrder.dto.js";
 import { CreateOrderUseCase } from "../../orders/use-cases/createOrderUseCase.js";
 import { OrderRepository } from "../../orders/repositories/orderRepository.js";
+import {
+  assertCanUseFavorBalance,
+  getFavorBalancePaymentAmount,
+} from "../../shared/favorBalance.js";
 
 const VENDING_TYPES = [
   "manual",
@@ -29,7 +33,7 @@ const EMPLOYEE_REQUIRED_TYPES = [
 ];
 
 const SYSTEM_EMPLOYEE_ID = 7;
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 const DIRECT_VENDING_TYPE = "direct";
 const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
@@ -179,10 +183,27 @@ const prepareOrder = async (orderData) => {
     );
 
   return {
+    orderRepository,
     orderUseCase,
     orderData:
       await orderUseCase.prepare(dto),
   };
+};
+
+const rollbackCreatedOrderFromSale = async ({
+  preparedOrder,
+  idOrder,
+  favorBalanceAmount,
+}) => {
+  if (!preparedOrder?.orderRepository || !idOrder) {
+    return;
+  }
+
+  await preparedOrder.orderRepository.deleteCreatedOrder(idOrder);
+  await preparedOrder.orderRepository.restoreClientFavorBalance(
+    preparedOrder.orderData.idClient,
+    favorBalanceAmount
+  );
 };
 
 const getPaidAmount = (paymentMethods = []) =>
@@ -709,6 +730,49 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
+    const favorBalanceAmount =
+      createsOrderFromSale
+        ? getFavorBalancePaymentAmount(paymentMethods)
+        : 0;
+
+    if (favorBalanceAmount > 0) {
+      const client =
+        await VendingRepository.findClientById(
+          preparedOrder.orderData.idClient
+        );
+
+      if (!client) {
+        return {
+          success: false,
+          data: null,
+          error: "Cliente no encontrado",
+          errorCode: "CLIENT_NOT_FOUND",
+        };
+      }
+
+      try {
+        assertCanUseFavorBalance({
+          amount:
+            favorBalanceAmount,
+          availableBalance:
+            client.credit_balance,
+          maxAmount:
+            totals.total,
+          maxAmountMessage:
+            "El saldo a favor aplicado no puede superar el total de la venta.",
+        });
+      } catch (error) {
+        return {
+          success: false,
+          data: null,
+          error:
+            error.message,
+          errorCode:
+            "FAVOR_BALANCE_EXCEEDED",
+        };
+      }
+    }
+
     const creditAmount =
       getCreditAmount(paymentMethods);
 
@@ -785,6 +849,16 @@ export const createVendingUseCase = async (params) => {
 
     if (createsOrderFromSale) {
       try {
+        const initialPayments =
+          paymentMethods.map((paymentMethod) => ({
+            idPaymentMethod:
+              paymentMethod.idPaymentMethod,
+            amount:
+              paymentMethod.amount,
+            observations:
+              'Pago registrado desde ventas.',
+          }));
+
         preparedOrder.orderData = {
           ...preparedOrder.orderData,
           idPaymentStatus:
@@ -797,15 +871,8 @@ export const createVendingUseCase = async (params) => {
           }),
           paymentDeadline:
             null,
-          initialPayments:
-            paymentMethods.map((paymentMethod) => ({
-              idPaymentMethod:
-                paymentMethod.idPaymentMethod,
-              amount:
-                paymentMethod.amount,
-              observations:
-                'Pago registrado desde ventas.',
-            })),
+          initialPayments,
+          favorBalanceAmount,
         };
 
         createdOrder =
@@ -831,27 +898,48 @@ export const createVendingUseCase = async (params) => {
       }
     }
 
-    const sale =
-      await VendingRepository.create({
-        idOrder,
-        idEmployee:
-          resolvedEmployeeId,
-        subtotal:
-          totals.subtotal,
-        idSaleStatus:
-          data.idSaleStatus || SALE_STATUSES[1].id,
-        idSaleType:
-          saleType.id_sale_type,
-        paymentMethods,
-        credit:
-          data.credit,
-        idOrderStatus:
-          directSaleOrderStatus,
-        orderDetails,
-        decreaseStock: true,
-        markOrderAsPaid:
-          createsOrderFromSale,
-      });
+    let sale;
+
+    try {
+      sale =
+        await VendingRepository.create({
+          idOrder,
+          idEmployee:
+            resolvedEmployeeId,
+          subtotal:
+            totals.subtotal,
+          idSaleStatus:
+            data.idSaleStatus || SALE_STATUSES[1].id,
+          idSaleType:
+            saleType.id_sale_type,
+          paymentMethods,
+          credit:
+            data.credit,
+          idOrderStatus:
+            directSaleOrderStatus,
+          orderDetails,
+          decreaseStock: true,
+          markOrderAsPaid:
+            createsOrderFromSale,
+        });
+    } catch (saleError) {
+      if (createsOrderFromSale) {
+        try {
+          await rollbackCreatedOrderFromSale({
+            preparedOrder,
+            idOrder,
+            favorBalanceAmount,
+          });
+        } catch (cleanupError) {
+          console.error(
+            "[CreateVendingUseCase] Rollback error:",
+            cleanupError.message
+          );
+        }
+      }
+
+      throw saleError;
+    }
 
     await notifyLowStockProductsInCarts(orderDetails);
 

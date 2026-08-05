@@ -5,9 +5,9 @@ import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 
 import { comparePassword } from "../../../../shared/utils/hashPassword.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
-import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
-
-const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
+import {
+  FAVOR_BALANCE_PAYMENT_METHOD_ID,
+} from "../../shared/favorBalance.js";
 
 export class CancelInstallmentUseCase {
   constructor(paymentsRepository) {

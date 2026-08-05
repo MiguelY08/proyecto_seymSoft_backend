@@ -6,13 +6,15 @@ import InstallmentMapper from "../mappers/InstallmentMapper.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 import { PAYMENT_BUSINESS_RULES } from "../constants/paymentBusinessRules.constants.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
-import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+import {
+  PAYMENT_METHOD_IDS,
+} from "../../../../shared/constants/generalStatuses.js";
+import {
+  FAVOR_BALANCE_PAYMENT_METHOD_ID,
+  roundMoney,
+} from "../../shared/favorBalance.js";
 
-const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
-
-const roundMoney = (value) =>
-  Math.round((Number(value) || 0) * 100) / 100;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 export class CreateInstallmentUseCase {
   constructor(paymentsRepository) {

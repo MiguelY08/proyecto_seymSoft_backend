@@ -1,6 +1,6 @@
 import {
   ORDER_STATUSES,
-  PAYMENT_METHODS,
+  PAYMENT_METHOD_IDS,
   PAYMENT_STATUSES,
   SALE_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
@@ -9,9 +9,13 @@ import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
 import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
+import {
+  assertCanUseFavorBalance,
+  FAVOR_BALANCE_PAYMENT_METHOD_ID,
+} from '../../shared/favorBalance.js';
 
 const DEFAULT_VENDING_TYPE = 'manual';
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
@@ -295,6 +299,15 @@ export class RegisterOrderPaymentUseCase {
       );
     }
 
+    if (Number(data.idPaymentMethod) === FAVOR_BALANCE_PAYMENT_METHOD_ID) {
+      assertCanUseFavorBalance({
+        amount,
+        availableBalance: order.clients?.credit_balance,
+        maxAmount: pendingBefore,
+        maxAmountMessage: 'El saldo a favor aplicado no puede superar el saldo pendiente del pedido.',
+      });
+    }
+
     const paidAfter = roundMoney(
       paidBefore + amount
     );
@@ -321,6 +334,7 @@ export class RegisterOrderPaymentUseCase {
     await this.repo.createPayment(order.id_order, {
       ...data,
       amount,
+      idClient: order.id_customer,
     });
 
     let generatedSale = null;

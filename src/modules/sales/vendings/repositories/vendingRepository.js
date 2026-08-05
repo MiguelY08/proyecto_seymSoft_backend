@@ -2,16 +2,20 @@ import { prisma } from "../../../../config/prisma.js";
 import {
   CREDIT_STATUSES,
   GENERAL_STATUSES,
-  PAYMENT_METHODS,
+  PAYMENT_METHOD_IDS,
   PAYMENT_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 import {
   getShippingStatus,
   requiresShippingQuote,
 } from "../../orders/helpers/orderShippingStatus.js";
+import {
+  getFavorBalancePaymentAmount,
+  restoreClientFavorBalance,
+} from "../../shared/favorBalance.js";
 import { VendingMapper } from "../mappers/vendingMapper.js";
 
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 const saleInclude = {
   employees: {
@@ -108,6 +112,7 @@ const saleSummarySelect = {
   sales_orders: {
     select: {
       id_order: true,
+      id_customer: true,
       id_order_status: true,
       delivery_type: true,
       delivery_adress: true,
@@ -397,6 +402,12 @@ const annulmentSaleSelect = {
   id_order: true,
   id_sale_status: true,
   subtotal: true,
+  sale_payment_methods: {
+    select: {
+      id_payment_method: true,
+      amount: true,
+    },
+  },
   credits: {
     select: {
       id_credit: true,
@@ -407,6 +418,7 @@ const annulmentSaleSelect = {
   sales_orders: {
     select: {
       id_order: true,
+      id_customer: true,
       id_order_status: true,
       total: true,
       cancellation_reason: true,
@@ -441,6 +453,9 @@ const mapAnnulledSaleSummary = (sale) => {
     subtotal: Number(sale.subtotal || 0),
     annulmentReason: sale.sales_orders?.cancellation_reason || null,
     annulledAt: sale.sales_orders?.cancelled_at || null,
+    favorBalanceRestoredAmount: getFavorBalancePaymentAmount(
+      sale.sale_payment_methods || []
+    ),
     credit: sale.credits
       ? {
           idCustomer: sale.credits.id_customer,
@@ -1034,6 +1049,20 @@ export class VendingRepository {
               id_credit_status:
                 CREDIT_STATUSES[2].id,
             },
+          });
+        }
+
+        const refundableFavorBalance =
+          getFavorBalancePaymentAmount(
+            currentSale.sale_payment_methods || []
+          );
+
+        if (refundableFavorBalance > 0) {
+          await restoreClientFavorBalance(tx, {
+            idClient:
+              currentSale.sales_orders.id_customer,
+            amount:
+              refundableFavorBalance,
           });
         }
 

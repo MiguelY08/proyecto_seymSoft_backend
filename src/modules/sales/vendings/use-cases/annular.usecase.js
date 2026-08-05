@@ -68,6 +68,7 @@ export const notifySaleAnnulled = async ({ sale, reason }) => {
  * - Cambiar el estado del pedido a Cancelado.
  * - Retornar al stock los productos relacionados con el pedido.
  * - Restaurar cupo del cliente si la venta tenia credito.
+ * - Restaurar saldo a favor del cliente si fue usado como metodo de pago.
  * - Notificar al cliente el motivo de anulacion.
  * - Exigir motivo de anulacion desde el validator/controller.
  *

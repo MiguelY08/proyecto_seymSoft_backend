@@ -1,10 +1,10 @@
 ﻿import { z } from "zod";
 import {
-  PAYMENT_METHODS,
+  PAYMENT_METHOD_IDS,
   PAYMENT_RECEIPT_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 const formatZodErrors = (error) => {
   const issues =
