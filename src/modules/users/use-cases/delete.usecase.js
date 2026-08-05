@@ -1,16 +1,25 @@
 import { prisma } from "../../../config/prisma.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { UserMapper } from "../mappers/usersMapper.js";
+import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
+import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
 
 const SYSTEM_ID_USER = 999999999;
 const INACTIVE_ID_STATUS = 2;
+
+const fail = (errorCode) => ({
+  success: false,
+  data: null,
+  error: userErrorPublicMessages[errorCode],
+  errorCode,
+});
 
 /**
  * Use-Case: Eliminar usuario
  *
  * Reglas de negocio:
  * - El usuario DEBE existir.
- * - El usuario DEBE estar INACTIVO.
+ * - El usuario DEBE estar inactivo.
  * - NO se puede eliminar el usuario del sistema.
  * - NO se puede eliminar un usuario con roles asignados.
  * - Antes de eliminar, se transfieren relaciones permitidas.
@@ -18,63 +27,51 @@ const INACTIVE_ID_STATUS = 2;
 export const deleteUserUseCase = async (idUser) => {
   try {
     if (!idUser || isNaN(idUser) || idUser < 1) {
-      return {
-        success: false,
-        data: null,
-        error: "ID de usuario inválido",
-        errorCode: "VALIDATION_ERROR",
-      };
+      return fail(userErrorCodes.VALIDATION_ERROR);
     }
 
     const parsedIdUser = Number(idUser);
-
     const existingUser = await UserRepository.findById(parsedIdUser);
 
     if (!existingUser) {
-      return {
-        success: false,
-        data: null,
-        error: "Usuario no encontrado",
-        errorCode: "USER_NOT_FOUND",
-      };
+      return fail(userErrorCodes.USER_NOT_FOUND);
     }
 
     const mappedUser = UserMapper.toDomain(existingUser);
 
     if (parsedIdUser === SYSTEM_ID_USER) {
-      return {
-        success: false,
-        data: null,
-        error: "No se puede eliminar el usuario del sistema",
-        errorCode: "CANNOT_DELETE_SYSTEM_USER",
-      };
+      return fail(userErrorCodes.CANNOT_DELETE_SYSTEM_USER);
     }
 
     const hasAssignedRoles =
       await UserRepository.hasAssignedRoles(parsedIdUser);
 
     if (hasAssignedRoles) {
-      return {
-        success: false,
-        data: null,
-        error: "No se puede eliminar el usuario porque tiene roles asignados",
-        errorCode: "USER_HAS_ASSIGNED_ROLES",
-      };
+      return fail(userErrorCodes.USER_HAS_ASSIGNED_ROLES);
     }
 
     if (mappedUser.idStatus !== INACTIVE_ID_STATUS) {
-      return {
-        success: false,
-        data: null,
-        error: "El usuario debe estar inactivo para poder ser eliminado",
-        errorCode: "USER_STILL_ACTIVE",
-      };
+      return fail(userErrorCodes.USER_STILL_ACTIVE);
+    }
+
+    const relationSummary =
+      await UserRepository.getDeletionRelationSummary(parsedIdUser);
+
+    if (relationSummary?.totalBlockingRelations > 0) {
+      console.error("[DeleteUserUseCase] Blocking relations detected:", {
+        idUser: parsedIdUser,
+        blockingRelations: relationSummary.blockingRelations,
+        transferableRelations: relationSummary.transferableRelations,
+      });
+
+      return fail(userErrorCodes.USER_HAS_ASSOCIATED_RECORDS);
     }
 
     const relationsTransferred = {
       clients: 0,
       employees: 0,
       access: 0,
+      notifications: 0,
     };
 
     try {
@@ -109,31 +106,35 @@ export const deleteUserUseCase = async (idUser) => {
 
         relationsTransferred.access = accessResult.count;
 
+        const notificationsResult = await tx.notifications.updateMany({
+          where: { id_user: parsedIdUser },
+          data: { id_user: SYSTEM_ID_USER },
+        });
+
+        relationsTransferred.notifications = notificationsResult.count;
+
         await tx.users.delete({
           where: { id_user: parsedIdUser },
         });
       });
-
     } catch (txError) {
-      console.error("[DeleteUserUseCase] Transaction error:", txError.message);
+      console.error("[DeleteUserUseCase] Transaction error:", {
+        idUser: parsedIdUser,
+        message: txError.message,
+        prismaCode: txError.code,
+        meta: txError.meta,
+        stack: txError.stack,
+      });
 
-      let errorCode = "TRANSFER_ERROR";
-      let errorMsg = "Error al transferir relaciones: " + txError.message;
+      let errorCode = userErrorCodes.TRANSFER_ERROR;
 
       if (txError.code === "P2025") {
-        errorCode = "DATABASE_ERROR";
-        errorMsg = "Registro no encontrado durante la eliminación";
+        errorCode = userErrorCodes.DATABASE_ERROR;
       } else if (txError.code === "P2003") {
-        errorCode = "TRANSFER_ERROR";
-        errorMsg = "No se pueden transferir relaciones: restricciones de integridad";
+        errorCode = userErrorCodes.USER_HAS_ASSOCIATED_RECORDS;
       }
 
-      return {
-        success: false,
-        data: null,
-        error: errorMsg,
-        errorCode,
-      };
+      return fail(errorCode);
     }
 
     return {
@@ -145,16 +146,16 @@ export const deleteUserUseCase = async (idUser) => {
       error: null,
       errorCode: null,
     };
-
   } catch (error) {
-    console.error("[DeleteUserUseCase] Error:", error.message);
+    console.error("[DeleteUserUseCase] Error:", {
+      idUser,
+      message: error.message,
+      prismaCode: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
 
-    return {
-      success: false,
-      data: null,
-      error: "Error al eliminar usuario: " + error.message,
-      errorCode: "DATABASE_ERROR",
-    };
+    return fail(userErrorCodes.DATABASE_ERROR);
   }
 };
 

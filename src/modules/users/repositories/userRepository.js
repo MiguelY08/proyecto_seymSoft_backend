@@ -331,6 +331,78 @@ export class UserRepository {
     return Boolean(employee?.employee_roles);
   }
 
+  static async getDeletionRelationSummary(idUser) {
+    const parsedIdUser = Number(idUser);
+
+    const user = await prisma.users.findUnique({
+      where: {
+        id_user: parsedIdUser,
+      },
+      select: {
+        clients: {
+          select: {
+            id_client: true,
+          },
+        },
+        employees: {
+          select: {
+            id_employee: true,
+          },
+        },
+        _count: {
+          select: {
+            access: true,
+            installments_installments_cancelled_byTousers: true,
+            installments_installments_registered_byTousers: true,
+            order_payment_receipts: true,
+            purchase_return_audit_logs: true,
+            purchases_returns: true,
+            notifications: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const transferableRelations = {
+      clients: user.clients ? 1 : 0,
+      employees: user.employees ? 1 : 0,
+      access: Number(user._count?.access || 0),
+      notifications: Number(user._count?.notifications || 0),
+    };
+
+    const blockingRelations = {
+      installmentsRegistered: Number(
+        user._count?.installments_installments_registered_byTousers || 0
+      ),
+      installmentsCancelled: Number(
+        user._count?.installments_installments_cancelled_byTousers || 0
+      ),
+      reviewedOrderPaymentReceipts: Number(
+        user._count?.order_payment_receipts || 0
+      ),
+      purchaseReturnAuditLogs: Number(
+        user._count?.purchase_return_audit_logs || 0
+      ),
+      cancelledPurchaseReturns: Number(
+        user._count?.purchases_returns || 0
+      ),
+    };
+
+    const totalBlockingRelations = Object.values(
+      blockingRelations
+    ).reduce((sum, count) => sum + Number(count || 0), 0);
+
+    return {
+      transferableRelations,
+      blockingRelations,
+      totalBlockingRelations,
+    };
+  }
+
   static async findById(id) {
     return await prisma.users.findUnique({
       where: {

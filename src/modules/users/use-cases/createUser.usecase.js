@@ -8,6 +8,15 @@ import {
   normalizeName,
   normalizeNumericString,
 } from "../../../shared/utils/textNormalizer.js";
+import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
+import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
+
+const fail = (errorCode) => ({
+  success: false,
+  data: null,
+  error: userErrorPublicMessages[errorCode],
+  errorCode,
+});
 
 const generateRandomPassword = () => {
   const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -40,25 +49,19 @@ const sendWelcomeEmailInBackground = ({
         env.FRONTEND_URL
       );
     } catch (emailError) {
-      console.error(
-        "[CreateUserUseCase] Email error:",
-        {
-          message: emailError.message,
-          code: emailError.code,
-          command: emailError.command,
-          responseCode: emailError.responseCode,
-        }
-      );
+      console.error("[CreateUserUseCase] Email error:", {
+        message: emailError.message,
+        code: emailError.code,
+        command: emailError.command,
+        responseCode: emailError.responseCode,
+      });
     }
   });
 };
 
 export const createUserUseCase = async (userData) => {
   try {
-    const {
-      phone,
-      idRole,
-    } = userData;
+    const { phone, idRole } = userData;
 
     const fullName = normalizeName(userData.fullName);
     const email = normalizeEmail(userData.email);
@@ -68,35 +71,20 @@ export const createUserUseCase = async (userData) => {
         : null;
 
     if (!fullName || !email) {
-      return {
-        success: false,
-        data: null,
-        error: "Faltan campos obligatorios",
-        errorCode: "VALIDATION_ERROR",
-      };
+      return fail(userErrorCodes.VALIDATION_ERROR);
     }
 
     const existingEmail = await UserRepository.findByEmail(email);
 
     if (existingEmail) {
-      return {
-        success: false,
-        data: null,
-        error: "El email ya esta registrado",
-        errorCode: "DUPLICATE_EMAIL",
-      };
+      return fail(userErrorCodes.DUPLICATE_EMAIL);
     }
 
     if (idRole) {
       const role = await RoleRepository.findRoleById(idRole);
 
       if (!role) {
-        return {
-          success: false,
-          data: null,
-          error: "El rol no existe",
-          errorCode: "INVALID_ROLE",
-        };
+        return fail(userErrorCodes.ROLE_NOT_FOUND);
       }
     }
 
@@ -124,26 +112,49 @@ export const createUserUseCase = async (userData) => {
       fullName,
     });
 
+    const userWithRole = await UserRepository.getUserWithRole(
+      newUser.idUser
+    );
+
+    if (!userWithRole?.user) {
+      console.error("[CreateUserUseCase] Created user payload missing:", {
+        idUser: newUser.idUser,
+        userWithRole,
+      });
+
+      return fail(userErrorCodes.DATABASE_ERROR);
+    }
+
     return {
       success: true,
-      data: newUser,
+      data: {
+        user: userWithRole.user,
+        role: userWithRole.role,
+        permissions: userWithRole.permissions,
+      },
       warning: null,
       warningCode: null,
       error: null,
       errorCode: null,
     };
   } catch (error) {
-    console.error(
-      "[CreateUserUseCase]",
-      error
-    );
+    console.error("[CreateUserUseCase] Error:", {
+      email: userData?.email,
+      idRole: userData?.idRole,
+      message: error.message,
+      prismaCode: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
 
-    return {
-      success: false,
-      data: null,
-      error: error.message,
-      errorCode: "DATABASE_ERROR",
-    };
+    if (error.code === "P2002") {
+      const field = error.meta?.target?.[0];
+      if (field === "email") {
+        return fail(userErrorCodes.DUPLICATE_EMAIL);
+      }
+    }
+
+    return fail(userErrorCodes.DATABASE_ERROR);
   }
 };
 

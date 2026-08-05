@@ -1,5 +1,6 @@
 import { ClientRepository } from '../repositories/clientRepository.js';
 import { createUserUseCase } from '../../../users/use-cases/createUser.usecase.js';
+import { UserRepository } from '../../../users/repositories/userRepository.js';
 import {
   isNumericString,
   normalizeEmail,
@@ -34,11 +35,30 @@ const normalizeClientPayload = (clientData) => ({
   }),
 });
 
+const buildLinkedUserClientPayload = (clientData) => ({
+  userId: clientData.userId,
+  personType: clientData.personType,
+  documentType: clientData.documentType,
+  document: clientData.document,
+  address: clientData.address,
+  contactName: clientData.contactName,
+  contactPhone: clientData.contactPhone,
+  clientType: clientData.clientType,
+  clientCredit: clientData.clientCredit,
+  credit_balance: clientData.credit_balance,
+  rut: clientData.rut,
+  ciuCode: clientData.ciuCode,
+});
+
 export const createClientUseCase = async (clientData) => {
   try {
     const normalizedClientData = normalizeClientPayload(clientData);
+    const isLinkedUserFlow = Boolean(normalizedClientData.userId);
+    const clientPayload = isLinkedUserFlow
+      ? buildLinkedUserClientPayload(normalizedClientData)
+      : normalizedClientData;
 
-    if (!isNumericString(normalizedClientData.document)) {
+    if (!isNumericString(clientPayload.document)) {
       return {
         success: false,
         error: 'El documento solo debe contener numeros',
@@ -47,6 +67,7 @@ export const createClientUseCase = async (clientData) => {
     }
 
     if (
+      !isLinkedUserFlow &&
       normalizedClientData.phone !== undefined &&
       !isNumericString(normalizedClientData.phone)
     ) {
@@ -57,13 +78,13 @@ export const createClientUseCase = async (clientData) => {
       };
     }
 
-    if (normalizedClientData.userId) {
-      const user = await ClientRepository.findUserById(normalizedClientData.userId);
+    if (isLinkedUserFlow) {
+      const user = await UserRepository.findById(Number(clientPayload.userId));
       if (!user) return { success: false, error: 'Usuario no encontrado', errorCode: 'USER_NOT_FOUND' };
-      const alreadyClient = await ClientRepository.isUserAlreadyClient(normalizedClientData.userId);
+      const alreadyClient = await ClientRepository.isUserAlreadyClient(clientPayload.userId);
       if (alreadyClient) return { success: false, error: 'El usuario ya es cliente', errorCode: 'ALREADY_CLIENT' };
 
-      const newClient = await ClientRepository.create(normalizedClientData, normalizedClientData.userId);
+      const newClient = await ClientRepository.create(clientPayload, clientPayload.userId);
       return { success: true, data: newClient };
     }
 

@@ -1,65 +1,64 @@
-import { UserRepository } from "../repositories/userRepository.js";
+import { getUserByIdUseCase } from "../use-cases/index.js";
+import {
+  sendError,
+  sendInternalError,
+  sendSuccess,
+} from "../../../shared/utils/httpResponses.js";
+import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
+import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
 
-/**
- * GET USER BY ID CONTROLLER - ACTUALIZADO
- * 
- * Retorna usuario con su rol y permisos (si es empleado)
- * 
- * Response:
- * {
- *   "success": true,
- *   "data": {
- *     "user": {...},
- *     "role": {...} o null,
- *     "permissions": [...]
- *   }
- * }
- */
+const statusCodeByError = {
+  [userErrorCodes.VALIDATION_ERROR]: 400,
+  [userErrorCodes.USER_NOT_FOUND]: 404,
+  [userErrorCodes.DATABASE_ERROR]: 500,
+  [userErrorCodes.INTERNAL_SERVER_ERROR]: 500,
+};
+
 export const GetUserByIdController = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Validar ID
-    if (!id || isNaN(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "ID de usuario inválido.",
-      });
-    }
-
     const idUser = Number(id);
 
-    // Obtener usuario con rol y permisos
-    const result = await UserRepository.getUserWithRole(idUser);
-
-    // Usuario no existe
-    if (!result || !result.user) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuario no encontrado.",
+    if (!id || isNaN(idUser) || idUser < 1) {
+      return sendError(res, {
+        status: 400,
+        message: userErrorPublicMessages[userErrorCodes.VALIDATION_ERROR],
+        errorCode: userErrorCodes.VALIDATION_ERROR,
+        errors: { id: "ID de usuario invalido." },
       });
     }
 
-    // Retornar con role y permissions
-    return res.status(200).json({
-      success: true,
+    const result = await getUserByIdUseCase(idUser);
+
+    if (!result.success) {
+      return sendError(res, {
+        status: statusCodeByError[result.errorCode] || 500,
+        message:
+          userErrorPublicMessages[result.errorCode] ||
+          result.error,
+        errorCode:
+          result.errorCode ||
+          userErrorCodes.INTERNAL_SERVER_ERROR,
+      });
+    }
+
+    return sendSuccess(res, {
+      status: 200,
       message: "Usuario obtenido exitosamente.",
       data: {
-        user: result.user,
-        role: result.role,
-        permissions: result.permissions,
-        client: result.client,
-        requiresPasswordSetup: result.requiresPasswordSetup,
+        user: result.data.user,
+        role: result.data.role,
+        permissions: result.data.permissions,
+        client: result.data.client,
+        requiresPasswordSetup:
+          result.data.requiresPasswordSetup,
       },
     });
-
   } catch (error) {
     console.error("[GetUserByIdController] Error:", error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Error al obtener el usuario.",
-      error: error.message,
+    return sendInternalError(res, {
+      status: 500,
     });
   }
 };
