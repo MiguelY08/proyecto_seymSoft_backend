@@ -1,89 +1,28 @@
 import { UserRepository } from "../repositories/userRepository.js";
 import { UserMapper } from "../mappers/usersMapper.js";
+import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
+import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
 
-/**
- * Use-Case: Obtener todos los usuarios
- * 
- * Responsabilidades:
- * - Aplicar lógica de negocio
- * - Llamar al repository con filtros
- * - Validar reglas de negocio
- * - Retornar datos estructurados
- * 
- * Reglas de negocio:
- * - Los usuarios retornados DEBEN contener:
- *   • Nombre completo
- *   • Correo electrónico
- *   • Teléfono/celular
- *   • Fecha de creación (metadata)
- *   • Estado (metadata)
- * 
- * - Soporta paginación y filtros avanzados
- * - Ordena por campo especificado
- * 
- * @param {Object} filters - Filtros de búsqueda
- * @param {number} filters.page - Número de página (default: 1)
- * @param {number} filters.limit - Usuarios por página (default: 10)
- * @param {number} filters.status - Filtro por estado (opcional)
- * @param {string} filters.search - Búsqueda por nombre/email (opcional)
- * @param {string} filters.sortBy - Campo de orden: name, email, date (default: date)
- * @param {string} filters.order - Dirección: asc, desc (default: desc)
- * 
- * @returns {Promise<Object>} Resultado con estructura:
- * {
- *   success: boolean,
- *   data: {
- *     users: Array<{
- *       idUser: number,
- *       fullName: string,
- *       email: string,
- *       phone: number|null,
- *       creationDate: Date,
- *       idStatus: number
- *     }>,
- *     total: number,
- *     page: number,
- *     limit: number,
- *     totalPages: number,
- *     hasNextPage: boolean,
- *     hasPrevPage: boolean
- *   },
- *   error: string|null
- * }
- * 
- * @throws No lanza excepciones, retorna objeto de resultado
- * 
- * Ejemplo de uso:
- * const result = await getAllUsersUseCase({
- *   page: 1,
- *   limit: 10,
- *   status: 1,
- *   search: "juan",
- *   sortBy: "name",
- *   order: "asc"
- * });
- * 
- * if (result.success) {
- *   console.log(result.data.users);
- * } else {
- *   console.error(result.error);
- * }
- */
+const fail = (errorCode) => ({
+  success: false,
+  data: null,
+  error: userErrorPublicMessages[errorCode],
+  errorCode,
+});
+
 export const getAllUsersUseCase = async (filters = {}) => {
   try {
-    // Llamar al repository con filtros validados
     const result = await UserRepository.findAllWithFilters(filters);
 
-    // Validar que los datos cumplan reglas de negocio
     if (!result.users || !Array.isArray(result.users)) {
-      return {
-        success: false,
-        data: null,
-        error: "Error: estructura de datos inválida del repository",
-      };
+      console.error("[GetAllUsersUseCase] Invalid repository payload:", {
+        filters,
+        result,
+      });
+
+      return fail(userErrorCodes.DATABASE_ERROR);
     }
 
-    // Si está vacío, retornar vacío
     if (result.users.length === 0) {
       return {
         success: true,
@@ -97,30 +36,37 @@ export const getAllUsersUseCase = async (filters = {}) => {
           hasPrevPage: result.hasPrevPage,
         },
         error: null,
+        errorCode: null,
       };
     }
 
-    const mappedUsers = result.users.map((user) => {
-      if (!user || Object.keys(user).length === 0) {
-        return null;
-      }
+    const mappedUsers = result.users
+      .map((user) => {
+        if (!user || Object.keys(user).length === 0) {
+          return null;
+        }
 
-      try {
-        const mappedUser = UserMapper.toDomain(user);
+        try {
+          const mappedUser = UserMapper.toDomain(user);
 
-        return {
-          ...mappedUser,
-          role: user.role || null,
-          isClient: user.isClient || false,
-        };
+          return {
+            ...mappedUser,
+            role: user.role || null,
+            isClient: user.isClient || false,
+          };
+        } catch (mapError) {
+          console.error("[GetAllUsersUseCase] Error mapping user:", {
+            filters,
+            message: mapError.message,
+            stack: mapError.stack,
+            rawUser: user,
+          });
 
-      } catch (mapError) {
-        console.error("[DEBUG] Error mapping user:", mapError.message);
-        return null;
-      }
-    }).filter(u => u !== null);
+          return null;
+        }
+      })
+      .filter((user) => user !== null);
 
-    // Retornar resultado exitoso con estructura esperada
     return {
       success: true,
       data: {
@@ -133,17 +79,18 @@ export const getAllUsersUseCase = async (filters = {}) => {
         hasPrevPage: result.hasPrevPage,
       },
       error: null,
+      errorCode: null,
     };
-
   } catch (error) {
-    console.error("[GetAllUsersUseCase] Error:", error.message);
-    console.error("[GetAllUsersUseCase] Stack:", error.stack);
+    console.error("[GetAllUsersUseCase] Error:", {
+      filters,
+      message: error.message,
+      prismaCode: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
 
-    return {
-      success: false,
-      data: null,
-      error: "Error al obtener usuarios: " + error.message,
-    };
+    return fail(userErrorCodes.DATABASE_ERROR);
   }
 };
 

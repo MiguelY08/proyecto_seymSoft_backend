@@ -1,5 +1,7 @@
 ﻿import { z } from "zod";
-import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+import {
+  PAYMENT_METHOD_IDS,
+} from "../../../../shared/constants/generalStatuses.js";
 import {
   DELIVERY_TYPES,
   normalizeDeliveryType,
@@ -11,7 +13,7 @@ const VENDING_TYPES = [
   "web",
 ];
 
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 const deliveryTypeSchema = z
   .string()

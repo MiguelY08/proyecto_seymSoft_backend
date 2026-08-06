@@ -10,6 +10,13 @@ export const PAYMENT_METHODS = {
   4: { id: 4, name: "Saldo a favor" },
 };
 
+export const PAYMENT_METHOD_IDS = {
+  TRANSFER: PAYMENT_METHODS[1].id,
+  CASH: PAYMENT_METHODS[2].id,
+  CREDIT: PAYMENT_METHODS[3].id,
+  FAVOR_BALANCE: PAYMENT_METHODS[4].id,
+};
+
 export const PAYMENT_STATUSES = {
   1: { id: 1, name: "Pendiente", description: "Pago-Abono pendiente" },
   2: { id: 2, name: "Pagado", description: "Pedido pagado" },

@@ -1,104 +1,87 @@
 import { updateUserUseCase } from "../use-cases/index.js";
 import { validateUpdateUser } from "../validators/index.js";
-import { UserMapper } from "../mappers/usersMapper.js";
 import { isSelfUserAction } from "../helpers/selfUserAction.js";
+import {
+  sendError,
+  sendInternalError,
+  sendSuccess,
+  sendValidationError,
+} from "../../../shared/utils/httpResponses.js";
+import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
+import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
+
+const statusCodeByError = {
+  [userErrorCodes.VALIDATION_ERROR]: 400,
+  [userErrorCodes.USER_NOT_FOUND]: 404,
+  [userErrorCodes.DUPLICATE_EMAIL]: 409,
+  [userErrorCodes.NO_DATA_TO_UPDATE]: 400,
+  [userErrorCodes.ROLE_NOT_FOUND]: 404,
+  [userErrorCodes.SELF_USER_UPDATE_NOT_ALLOWED]: 403,
+  [userErrorCodes.CANNOT_UPDATE_SYSTEM_USER]: 403,
+  [userErrorCodes.ROLE_UPDATE_ERROR]: 500,
+  [userErrorCodes.DATABASE_ERROR]: 500,
+  [userErrorCodes.INTERNAL_SERVER_ERROR]: 500,
+};
 
 export const UpdateUserController = async (req, res) => {
   try {
-    // Validar ID (parámetro)
     const { id } = req.params;
- 
+
     if (!id || isNaN(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "ID de usuario inválido.",
+      return sendError(res, {
+        status: 400,
+        message: userErrorPublicMessages[userErrorCodes.VALIDATION_ERROR],
+        errorCode: userErrorCodes.VALIDATION_ERROR,
+        errors: { id: "ID de usuario invalido." },
       });
     }
- 
+
     const idUser = Number(id);
 
     if (isSelfUserAction({ authUser: req.user, targetUserId: idUser })) {
-      return res.status(403).json({
-        success: false,
+      return sendError(res, {
+        status: 403,
         message:
-          "No puedes editar tu propio usuario desde el módulo de usuarios. Usa la sección de perfil.",
-        errorCode: "SELF_USER_UPDATE_NOT_ALLOWED",
+          userErrorPublicMessages[
+            userErrorCodes.SELF_USER_UPDATE_NOT_ALLOWED
+          ],
+        errorCode:
+          userErrorCodes.SELF_USER_UPDATE_NOT_ALLOWED,
       });
     }
- 
-    // Validar datos con Zod
+
     const validation = validateUpdateUser(req.body);
- 
+
     if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        message: "Errores de validación.",
-        errors: validation.errors,
-      });
+      return sendValidationError(res, validation.errors);
     }
- 
-    const validatedData = validation.data;
- 
-    // Ejecutar use-case
+
     const result = await updateUserUseCase({
       idUser,
-      updateData: validatedData,
+      updateData: validation.data,
     });
- 
-    // Manejar diferentes tipos de error
+
     if (!result.success) {
-      if (result.errorCode === "USER_NOT_FOUND") {
-        return res.status(404).json({
-          success: false,
-          message: "Usuario no encontrado.",
-        });
-      }
- 
-      if (result.errorCode === "DUPLICATE_EMAIL") {
-        return res.status(409).json({
-          success: false,
-          message: "El email ya está registrado.",
-          errors: { email: "Email duplicado." },
-        });
-      }
- 
-      if (result.errorCode === "NO_DATA_TO_UPDATE") {
-        return res.status(400).json({
-          success: false,
-          message: "Debe proporcionar al menos un campo para actualizar.",
-        });
-      }
- 
-      if (result.errorCode === "ROLE_NOT_FOUND") {
-        return res.status(404).json({
-          success: false,
-          message: result.error,
-        });
-      }
- 
-      if (result.errorCode === "ROLE_NO_PERMISSIONS") {
-        return res.status(400).json({
-          success: false,
-          message: result.error,
-        });
-      }
- 
-      if (result.errorCode === "ROLE_UPDATE_ERROR") {
-        return res.status(500).json({
-          success: false,
-          message: result.error,
-        });
-      }
- 
-      return res.status(500).json({
-        success: false,
-        message: result.error,
+      const extraErrors =
+        result.errorCode === userErrorCodes.DUPLICATE_EMAIL
+          ? { email: "Email duplicado." }
+          : null;
+
+      return sendError(res, {
+        status:
+          statusCodeByError[result.errorCode] || 500,
+        message:
+          userErrorPublicMessages[result.errorCode] ||
+          result.error,
+        errorCode:
+          result.errorCode ||
+          userErrorCodes.INTERNAL_SERVER_ERROR,
+        errors: extraErrors,
       });
     }
- 
-    // ✅ Retornar con user, role y permissions
-    return res.status(200).json({
-      success: true,
+
+    return sendSuccess(res, {
+      status: 200,
       message: "Usuario actualizado exitosamente.",
       data: {
         user: result.data,
@@ -106,14 +89,11 @@ export const UpdateUserController = async (req, res) => {
         permissions: result.data.permissions,
       },
     });
- 
   } catch (error) {
     console.error("[UpdateUserController] Error:", error);
- 
-    return res.status(500).json({
-      success: false,
-      message: "Error actualizando el usuario.",
-      error: error.message,
+
+    return sendInternalError(res, {
+      status: 500,
     });
   }
 };

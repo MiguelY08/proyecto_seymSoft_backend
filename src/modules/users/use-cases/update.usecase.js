@@ -5,58 +5,33 @@ import {
   normalizeName,
   normalizeNumericString,
 } from "../../../shared/utils/textNormalizer.js";
+import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
+import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
 
 const SYSTEM_ID_USER = 999999999;
 
+const fail = (errorCode) => ({
+  success: false,
+  data: null,
+  error: userErrorPublicMessages[errorCode],
+  errorCode,
+});
+
 /**
  * Use-Case: Actualizar usuario
- * 
- * Responsabilidades:
- * - Aplicar lógica de negocio
- * - Validar que el usuario existe
- * - Validar duplicados de email (si se actualiza)
- * - Actualizar solo los campos especificados
- * - Manejar asignación/eliminación de roles
- * - Retornar usuario actualizado con rol y permisos
- * 
- * Reglas de negocio:
- * - Si idRole es número: crear/actualizar employee y asignar rol
- * - Si idRole es null: eliminar employee y employee_roles
- * - Si idRole NO viene: no cambiar el rol
- * - No se puede actualizar: id, creationDate, password
- * 
- * @param {Object} params
- * @param {number} params.idUser - ID del usuario a actualizar
- * @param {Object} params.updateData - Datos a actualizar
- * @param {string} params.updateData.fullName - Nombre completo (opcional)
- * @param {string} params.updateData.email - Email (opcional)
- * @param {number} params.updateData.phone - Teléfono (opcional)
- * @param {number} params.updateData.idRole - ID del rol (opcional, null para eliminar)
  */
 export const updateUserUseCase = async (params) => {
   try {
     const { idUser, updateData } = params;
 
-    // Validar idUser
     if (!idUser || isNaN(idUser) || idUser < 1) {
-      return {
-        success: false,
-        data: null,
-        error: "ID de usuario inválido",
-        errorCode: "VALIDATION_ERROR",
-      };
+      return fail(userErrorCodes.VALIDATION_ERROR);
     }
 
     const parsedIdUser = Number(idUser);
 
-    // Validar que updateData no esté vacío
     if (!updateData || Object.keys(updateData).length === 0) {
-      return {
-        success: false,
-        data: null,
-        error: "Debe proporcionar al menos un campo para actualizar",
-        errorCode: "NO_DATA_TO_UPDATE",
-      };
+      return fail(userErrorCodes.NO_DATA_TO_UPDATE);
     }
 
     const normalizedUpdateData = {
@@ -73,121 +48,79 @@ export const updateUserUseCase = async (params) => {
         }),
     };
 
-    // Buscar usuario existente
     const existingUser = await UserRepository.findById(parsedIdUser);
 
     if (!existingUser) {
-      return {
-        success: false,
-        data: null,
-        error: "Usuario no encontrado",
-        errorCode: "USER_NOT_FOUND",
-      };
+      return fail(userErrorCodes.USER_NOT_FOUND);
     }
 
-    // Prevenir actualización del usuario del sistema
     if (parsedIdUser === SYSTEM_ID_USER) {
-      return {
-        success: false,
-        data: null,
-        error: "No se puede actualizar el usuario del sistema",
-        errorCode: "CANNOT_UPDATE_SYSTEM_USER",
-      };
+      return fail(userErrorCodes.CANNOT_UPDATE_SYSTEM_USER);
     }
 
-    // Validar email único (si se está actualizando)
     if (normalizedUpdateData.email) {
       const existingEmail = await UserRepository.findByEmail(
         normalizedUpdateData.email
       );
 
       if (existingEmail && existingEmail.id_user !== parsedIdUser) {
-        return {
-          success: false,
-          data: null,
-          error: "El email ya está registrado",
-          errorCode: "DUPLICATE_EMAIL",
-        };
+        return fail(userErrorCodes.DUPLICATE_EMAIL);
       }
     }
 
-    // Separar datos de usuario y rol
     const { idRole, ...userUpdateData } = normalizedUpdateData;
 
-    // Actualizar datos del usuario
-    const updatedUser = await UserRepository.update(parsedIdUser, userUpdateData);
+    const updatedUser = await UserRepository.update(
+      parsedIdUser,
+      userUpdateData
+    );
 
     if (!updatedUser) {
-      return {
-        success: false,
-        data: null,
-        error: "Error al actualizar el usuario",
-        errorCode: "DATABASE_ERROR",
-      };
+      return fail(userErrorCodes.DATABASE_ERROR);
     }
-
-    // ═══════════════════════════════════════════════════════════
-    // MANEJAR CAMBIOS DE ROL
-    // ═══════════════════════════════════════════════════════════
 
     if (idRole !== undefined) {
       try {
-        // Obtener employee actual
         let employee = await prisma.employees.findUnique({
           where: { id_user: parsedIdUser },
           include: { employee_roles: true },
         });
 
         if (idRole === null) {
-          // ✅ CASO 1: Eliminar rol (idRole = null)
-          // Eliminar employee_roles primero (FK constraint)
           if (employee && employee.employee_roles) {
             await prisma.employee_roles.deleteMany({
               where: { id_employee: employee.id_employee },
             });
           }
 
-          // Luego eliminar employee
           if (employee) {
             await prisma.employees.delete({
               where: { id_employee: employee.id_employee },
             });
           }
-
         } else {
-          // ✅ CASO 2: Asignar nuevo rol (idRole = número)
-
-          // Validar que el rol existe
           const roleExists = await prisma.roles.findUnique({
             where: { id_role: idRole },
           });
 
           if (!roleExists) {
-            return {
-              success: false,
-              data: null,
-              error: `El rol con ID ${idRole} no existe`,
-              errorCode: "ROLE_NOT_FOUND",
-            };
+            return fail(userErrorCodes.ROLE_NOT_FOUND);
           }
 
-          // Crear employee si no existe
           if (!employee) {
             employee = await prisma.employees.create({
               data: {
                 id_user: parsedIdUser,
-                id_status: 1, // Activo por defecto
+                id_status: 1,
               },
               include: { employee_roles: true },
             });
           }
 
-          // Eliminar employee_roles anteriores
           await prisma.employee_roles.deleteMany({
             where: { id_employee: employee.id_employee },
           });
 
-          // Crear employee_role
           await prisma.employee_roles.create({
             data: {
               id_employee: employee.id_employee,
@@ -195,20 +128,30 @@ export const updateUserUseCase = async (params) => {
             },
           });
         }
-
       } catch (error) {
-        console.error("[UpdateUserUseCase] Error al manejar rol:", error);
-        return {
-          success: false,
-          data: null,
-          error: `Error al actualizar el rol: ${error.message}`,
-          errorCode: "ROLE_UPDATE_ERROR",
-        };
+        console.error("[UpdateUserUseCase] Role update error:", {
+          idUser: parsedIdUser,
+          requestedRoleId: idRole,
+          message: error.message,
+          prismaCode: error.code,
+          meta: error.meta,
+          stack: error.stack,
+        });
+
+        return fail(userErrorCodes.ROLE_UPDATE_ERROR);
       }
     }
 
-    // Obtener usuario actualizado con rol y permisos
     const userWithRole = await UserRepository.getUserWithRole(parsedIdUser);
+
+    if (!userWithRole?.user) {
+      console.error("[UpdateUserUseCase] Updated user payload missing:", {
+        idUser: parsedIdUser,
+        userWithRole,
+      });
+
+      return fail(userErrorCodes.DATABASE_ERROR);
+    }
 
     return {
       success: true,
@@ -220,24 +163,24 @@ export const updateUserUseCase = async (params) => {
       error: null,
       errorCode: null,
     };
-
   } catch (error) {
-    console.error("[UpdateUserUseCase] Error:", error.message);
+    console.error("[UpdateUserUseCase] Error:", {
+      idUser: params?.idUser,
+      updateData: params?.updateData,
+      message: error.message,
+      prismaCode: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
 
-    let errorCode = "DATABASE_ERROR";
     if (error.code === "P2002") {
       const field = error.meta?.target?.[0];
       if (field === "email") {
-        errorCode = "DUPLICATE_EMAIL";
+        return fail(userErrorCodes.DUPLICATE_EMAIL);
       }
     }
 
-    return {
-      success: false,
-      data: null,
-      error: "Error al actualizar usuario: " + error.message,
-      errorCode,
-    };
+    return fail(userErrorCodes.DATABASE_ERROR);
   }
 };
 

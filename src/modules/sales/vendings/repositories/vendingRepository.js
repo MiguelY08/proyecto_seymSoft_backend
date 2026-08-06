@@ -2,16 +2,20 @@ import { prisma } from "../../../../config/prisma.js";
 import {
   CREDIT_STATUSES,
   GENERAL_STATUSES,
-  PAYMENT_METHODS,
+  PAYMENT_METHOD_IDS,
   PAYMENT_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 import {
   getShippingStatus,
   requiresShippingQuote,
 } from "../../orders/helpers/orderShippingStatus.js";
+import {
+  getFavorBalancePaymentAmount,
+  restoreClientFavorBalance,
+} from "../../shared/favorBalance.js";
 import { VendingMapper } from "../mappers/vendingMapper.js";
 
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 const saleInclude = {
   employees: {
@@ -108,6 +112,7 @@ const saleSummarySelect = {
   sales_orders: {
     select: {
       id_order: true,
+      id_customer: true,
       id_order_status: true,
       delivery_type: true,
       delivery_adress: true,
@@ -397,6 +402,12 @@ const annulmentSaleSelect = {
   id_order: true,
   id_sale_status: true,
   subtotal: true,
+  sale_payment_methods: {
+    select: {
+      id_payment_method: true,
+      amount: true,
+    },
+  },
   credits: {
     select: {
       id_credit: true,
@@ -407,10 +418,17 @@ const annulmentSaleSelect = {
   sales_orders: {
     select: {
       id_order: true,
+      id_customer: true,
       id_order_status: true,
       total: true,
       cancellation_reason: true,
       cancelled_at: true,
+      delivery_type: true,
+      delivery_adress: true,
+      delivery_recipient_name: true,
+      delivery_department_name: true,
+      delivery_city_name: true,
+      shipping_amount: true,
       clients: {
         select: {
           users: {
@@ -441,455 +459,10 @@ const mapAnnulledSaleSummary = (sale) => {
     subtotal: Number(sale.subtotal || 0),
     annulmentReason: sale.sales_orders?.cancellation_reason || null,
     annulledAt: sale.sales_orders?.cancelled_at || null,
+    favorBalanceRestoredAmount: getFavorBalancePaymentAmount(
+      sale.sale_payment_methods || []
+    ),
     credit: sale.credits
-      ? {
-          idCustomer: sale.credits.id_customer,
-          remainingBalance: Number(sale.credits.remaining_balance || 0),
-        }
-      : null,
-    order: {
-      idOrder: sale.sales_orders?.id_order || sale.id_order,
-      idOrderStatus: sale.sales_orders?.id_order_status || null,
-      total: Number(sale.sales_orders?.total || sale.subtotal || 0),
-      cancellationReason: sale.sales_orders?.cancellation_reason || null,
-      cancelledAt: sale.sales_orders?.cancelled_at || null,
-      customer: sale.sales_orders?.clients
-        ? {
-            user: sale.sales_orders.clients.users
-              ? {
-                  fullName: sale.sales_orders.clients.users.full_name,
-                  email: sale.sales_orders.clients.users.email,
-                }
-              : null,
-          }
-        : null,
-    },
-  };
-};
-const getTodayAtStart = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-};
-
-const buildCreditCapacity = (client) => {
-  if (!client) return null;
-
-  const activeCredits = (client.credits || []).filter(
-    (credit) => Number(credit.remaining_balance || 0) > 0
-  );
-
-  const usedCredit = activeCredits.reduce(
-    (total, credit) => total + Number(credit.remaining_balance || 0),
-    0
-  );
-
-  const assignedCredit = Number(client.credit || 0);
-  const today = getTodayAtStart();
-  const hasOverdueCredit = activeCredits.some((credit) => {
-    const dueDate = credit.due_date ? new Date(credit.due_date) : null;
-
-    if (Number(credit.id_credit_status) === CREDIT_STATUSES[3].id) {
-      return true;
-    }
-
-    return Boolean(dueDate && dueDate < today);
-  });
-
-  return {
-    idCustomer: client.id_client,
-    isActive: Number(client.users?.id_status || 0) === GENERAL_STATUSES[1].id,
-    assignedCredit,
-    usedCredit,
-    availableCredit: Math.max(assignedCredit - usedCredit, 0),
-    activeCredits: activeCredits.length,
-    hasOverdueCredit,
-  };
-};
-
-const validateCreditCapacity = ({ capacity, creditAmount }) => {
-  if (!capacity) {
-    throw new Error("Cliente no encontrado");
-  }
-
-  if (!capacity.isActive) {
-    throw new Error("El cliente no se encuentra activo");
-  }
-
-  if (capacity.hasOverdueCredit) {
-    throw new Error("El cliente tiene creditos vencidos y no puede realizar nuevas compras a credito");
-  }
-
-  if (capacity.assignedCredit <= 0) {
-    throw new Error("El cliente no tiene cupo de credito asignado");
-  }
-
-  if (Number(creditAmount || 0) > capacity.availableCredit) {
-    throw new Error("El cupo disponible calculado del cliente no es suficiente para la venta a credito");
-  }
-};
-
-export class VendingRepository {
-
-  static async create(data) {
-    const createdSaleId =
-      await prisma.$transaction(async (tx) => {
-        const creditAmount =
-          getCreditAmount(data.paymentMethods);
-
-        const order =
-          await tx.sales_orders.findUnique({
-            where: {
-              id_order:
-                Number(data.idOrder),
-            },
-            select: {
-              id_customer: true,
-              sales: {
-                select: {
-                  id_sale: true,
-                },
-              },
-              clients: {
-                select: {
-                  id_client: true,
-                  credit: true,
-                  users: {
-                    select: {
-                      id_status: true,
-                    },
-                  },
-                  credits: {
-                    where: {
-                      remaining_balance: {
-                        gt: 0,
-                      },
-                    },
-                    select: {
-                      remaining_balance: true,
-                      id_credit_status: true,
-                      due_date: true,
-                    },
-                  },
-                },
-              },
-            },
-          });
-
-        if (!order) {
-          throw new Error("Pedido no encontrado");
-        }
-
-        if (order.sales) {
-          throw new Error("El pedido ya tiene una venta asociada");
-        }
-
-        const creditData =
-          buildCreditData({
-            data,
-            idCustomer:
-              order.id_customer,
-            creditAmount,
-          });
-
-        if (creditAmount > 0) {
-          validateCreditCapacity({
-            capacity:
-              buildCreditCapacity(order.clients),
-            creditAmount,
-          });
-        }
-
-        const createdSale =
-          await tx.sales.create({
-            data: {
-              id_order:
-                data.idOrder,
-              id_employe:
-                data.idEmployee,
-              subtotal:
-                data.subtotal,
-              id_sale_status:
-                data.idSaleStatus,
-              id_sale_type:
-                data.idSaleType,
-              sale_payment_methods: {
-                create:
-                  data.paymentMethods.map(
-                    (paymentMethod) => ({
-                      id_payment_method:
-                        Number(paymentMethod.idPaymentMethod),
-                      amount:
-                        paymentMethod.amount ?? null,
-                    })
-                  ),
-              },
-              ...(creditData && {
-                credits: {
-                  create:
-                    creditData,
-                },
-              }),
-              ...(data.saleDate && {
-                sale_date:
-                  data.saleDate,
-              }),
-            },
-            select: {
-              id_sale: true,
-            },
-          });
-
-        if (data.markOrderAsPaid || data.idOrderStatus) {
-          await tx.sales_orders.update({
-            where: {
-              id_order:
-                Number(data.idOrder),
-            },
-            data: {
-              ...(data.markOrderAsPaid && {
-                payment_statuses: {
-                  connect: {
-                    id_payment_status:
-                      PAYMENT_STATUSES[2].id,
-                  },
-                },
-                payment_status:
-                  PAYMENT_STATUSES[2].name,
-              }),
-              ...(data.idOrderStatus && {
-                order_statuses: {
-                  connect: {
-                    id_order_status:
-                      Number(data.idOrderStatus),
-                  },
-                },
-              }),
-            },
-          });
-        }
-
-        if (data.decreaseStock) {
-          await decreaseStockAtomically(
-            tx,
-            data.orderDetails || []
-          );
-        }
-
-        return createdSale.id_sale;
-      }, {
-        timeout: 15000,
-      });
-
-    const sale =
-      await prisma.sales.findUnique({
-        where: {
-          id_sale:
-            createdSaleId,
-        },
-        select:
-          saleSummarySelect,
-      });
-
-    return mapSaleSummary(
-      sale
-    );
-  }
-  static async update(idSale, data) {
-    const updatedSaleId =
-      await prisma.$transaction(async (tx) => {
-        const currentSale =
-          await tx.sales.findUnique({
-            where: {
-              id_sale:
-                Number(idSale),
-            },
-            select: {
-              id_order: true,
-            },
-          });
-
-        if (!currentSale) {
-          return null;
-        }
-
-        if (data.idSaleStatus) {
-          await tx.sales.update({
-            where: {
-              id_sale:
-                Number(idSale),
-            },
-            data: {
-              id_sale_status:
-                data.idSaleStatus,
-            },
-          });
-        }
-
-        if (
-          data.deliveryAdress !== undefined ||
-          data.deliveryType !== undefined ||
-          data.idOrderStatus !== undefined
-        ) {
-          await tx.sales_orders.update({
-            where: {
-              id_order:
-                currentSale.id_order,
-            },
-            data: {
-              ...(data.deliveryAdress !== undefined && {
-                delivery_adress:
-                  data.deliveryAdress,
-              }),
-              ...(data.deliveryType !== undefined && {
-                delivery_type:
-                  data.deliveryType,
-              }),
-              ...(data.idOrderStatus !== undefined && {
-                order_statuses: {
-                  connect: {
-                    id_order_status:
-                      data.idOrderStatus,
-                  },
-                },
-              }),
-            },
-          });
-        }
-
-        return Number(idSale);
-      });
-
-    if (!updatedSaleId) {
-      return null;
-    }
-
-    const sale =
-      await prisma.sales.findUnique({
-        where: {
-          id_sale:
-            updatedSaleId,
-        },
-        select:
-          saleSummarySelect,
-      });
-
-    return mapSaleSummary(
-      sale
-    );
-  }
-
-  static async findSaleEmailPayloadById(idSale) {
-    const sale =
-      await prisma.sales.findUnique({
-        where: {
-          id_sale:
-            Number(idSale),
-        },
-        select: {
-          id_sale: true,
-          id_order: true,
-          subtotal: true,
-          credits: {
-            select: {
-              credit_amount: true,
-              remaining_balance: true,
-              due_date: true,
-            },
-          },
-          sale_payment_methods: {
-            select: {
-              amount: true,
-              payment_methods: {
-                select: {
-                  name_payment_method: true,
-                },
-              },
-            },
-          },
-          sales_orders: {
-            select: {
-              total: true,
-              clients: {
-                select: {
-                  users: {
-                    select: {
-                      full_name: true,
-                      email: true,
-                    },
-                  },
-                },
-              },
-              order_details: {
-                select: {
-                  barcode: true,
-                  quantity: true,
-                  unit_price: true,
-                  subtotal: true,
-                  products: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-    if (!sale) return null;
-
-    const user =
-      sale.sales_orders?.clients?.users;
-
-    return {
-      idSale:
-        sale.id_sale,
-      idOrder:
-        sale.id_order,
-      subtotal:
-        Number(sale.subtotal || 0),
-      total:
-        Number(sale.sales_orders?.total || sale.subtotal || 0),
-      customer: {
-        user: user
-          ? {
-              fullName:
-                user.full_name,
-              email:
-                user.email,
-            }
-          : null,
-      },
-      paymentMethods:
-        (sale.sale_payment_methods || []).map((paymentMethod) => ({
-          amount:
-            Number(paymentMethod.amount || 0),
-          paymentMethod: {
-            namePaymentMethod:
-              paymentMethod.payment_methods?.name_payment_method || null,
-          },
-        })),
-      details:
-        (sale.sales_orders?.order_details || []).map((detail) => ({
-          productName:
-            detail.products?.name || null,
-          barcode:
-            detail.barcode,
-          quantity:
-            detail.quantity,
-          unitPrice:
-            Number(detail.unit_price || 0),
-          subtotal:
-            Number(detail.subtotal || 0),
-        })),
-      credit: sale.credits
-        ? {
-            creditAmount:
-              Number(sale.credits.credit_amount || 0),
-            remainingBalance:
-              Number(sale.credits.remaining_balance || 0),
             dueDate:
               sale.credits.due_date || null,
           }
@@ -1034,6 +607,20 @@ export class VendingRepository {
               id_credit_status:
                 CREDIT_STATUSES[2].id,
             },
+          });
+        }
+
+        const refundableFavorBalance =
+          getFavorBalancePaymentAmount(
+            currentSale.sale_payment_methods || []
+          );
+
+        if (refundableFavorBalance > 0) {
+          await restoreClientFavorBalance(tx, {
+            idClient:
+              currentSale.sales_orders.id_customer,
+            amount:
+              refundableFavorBalance,
           });
         }
 
