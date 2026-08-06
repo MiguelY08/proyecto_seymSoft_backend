@@ -117,4 +117,12 @@ export const notificationRepository = {
 
     return toNotificationResponse(notification);
   },
+
+  async deleteAll(idUser) {
+    return prisma.notifications.deleteMany({
+      where: {
+        id_user: idUser,
+      },
+    });
+  },
 };
