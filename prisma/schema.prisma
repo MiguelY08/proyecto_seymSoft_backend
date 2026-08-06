@@ -504,10 +504,16 @@ model purchase_details {
   tax_percentage      Decimal   @db.Decimal(5, 2)
   batch_code          String    @db.VarChar(50)
   cancellation_reason String?   @db.VarChar(250)
+  purchase_type       String?   @default("Unidad") @db.VarChar(20)
+  quantity_per_pack   Int?      @default(0)
+  stock_added         Decimal?  @db.Decimal(12, 2)
   hsp                 hsp[]
   prd                 prd[]
   barcodes            barcodes  @relation(fields: [id_barcode], references: [id_barcode], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_codigo_producto_fkey")
   purchases           purchases @relation(fields: [id_purchase], references: [id_purchase], onDelete: NoAction, onUpdate: NoAction, map: "detalle_compra_id_compra_fkey")
+
+  @@index([purchase_type], map: "idx_purchase_details_purchase_type")
+  @@index([stock_added], map: "idx_purchase_details_stock_added")
 }
 
 model purchase_return_audit_logs {
