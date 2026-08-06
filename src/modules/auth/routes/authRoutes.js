@@ -14,8 +14,6 @@ import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
 import { GoogleAuthController } from "../controllers/googleAuthController.js";
 import { ChangePasswordController } from "../controllers/changePasswordController.js";
 
-
-
 const router = express.Router();
 
 // POST /auth/register
@@ -52,7 +50,11 @@ router.post("/validate-code", ResetPasswordController.validateCode);
 router.post("/reset-password", ResetPasswordController.resetPassword);
 
 // POST /auth/change-password (protected)
-router.post("/change-password",authMiddleware, ChangePasswordController.changePassword);
+router.post(
+  "/change-password",
+  authMiddleware,
+  ChangePasswordController.changePassword,
+);
 
 // ===== GOOGLE OAUTH =====
 // GET /auth/google - Redirige a Google para autorizar

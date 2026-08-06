@@ -6,33 +6,24 @@ import {
   normalizeNumericString,
 } from "../../../shared/utils/textNormalizer.js";
 
-export const getZodIssues = (error) =>
-  error?.issues || error?.errors || [];
+export const getZodIssues = (error) => error?.issues || error?.errors || [];
 
 const emailSchema = (message = "Email invÃ¡lido") =>
-  z.preprocess(
-    normalizeEmail,
-    z.string().email(message)
-  );
+  z.preprocess(normalizeEmail, z.string().email(message));
 
 const nameSchema = (requiredMessage, maxMessage) =>
   z.preprocess(
     normalizeName,
-    z
-      .string()
-      .min(1, requiredMessage)
-      .max(255, maxMessage)
+    z.string().min(1, requiredMessage).max(255, maxMessage),
   );
 
 const phoneSchema = z
   .union([z.string(), z.number().int()])
   .refine(
     (value) => isNumericString(value),
-    "El telefono solo debe contener numeros"
+    "El telefono solo debe contener numeros",
   )
-  .transform((value) =>
-    BigInt(normalizeNumericString(value))
-  );
+  .transform((value) => BigInt(normalizeNumericString(value)));
 
 /**
  * LOGIN SCHEMA
@@ -70,7 +61,7 @@ export const registerSchema = z
   .object({
     full_name: nameSchema(
       "El nombre completo es requerido",
-      "El nombre no puede exceder 255 caracteres"
+      "El nombre no puede exceder 255 caracteres",
     ),
     email: emailSchema("Email inválido"),
     pass_word: z
@@ -158,11 +149,11 @@ export const updateProfileSchema = z
       .optional(),
     full_name: nameSchema(
       "El nombre completo es requerido",
-      "El nombre no puede exceder 255 caracteres"
+      "El nombre no puede exceder 255 caracteres",
     ).optional(),
     fullName: nameSchema(
       "El nombre completo es requerido",
-      "El nombre no puede exceder 255 caracteres"
+      "El nombre no puede exceder 255 caracteres",
     ).optional(),
     current_password: z
       .string()
@@ -271,24 +262,11 @@ export const resetPasswordSchema = z
   });
 
 export const changePasswordSchema = z.object({
-
-  currentPassword: z
-    .string()
-    .optional(),
+  currentPassword: z.string().optional(),
 
   newPassword: z
     .string()
-    .min(
-      8,
-      "La contraseña debe tener al menos 8 caracteres"
-    )
-    .regex(
-      /[A-Z]/,
-      "La contraseña debe contener al menos una mayúscula"
-    )
-    .regex(
-      /[0-9]/,
-      "La contraseña debe contener al menos un número"
-    ),
-
+    .min(8, "La contraseña debe tener al menos 8 caracteres")
+    .regex(/[A-Z]/, "La contraseña debe contener al menos una mayúscula")
+    .regex(/[0-9]/, "La contraseña debe contener al menos un número"),
 });
