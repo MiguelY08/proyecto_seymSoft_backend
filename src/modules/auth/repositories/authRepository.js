@@ -1,14 +1,12 @@
 import { prisma } from "../../../config/prisma.js";
 import { UserRepository } from "../../users/repositories/userRepository.js";
 
-
 export class AuthRepository {
-  
   /**
    * MÉTODOS QUE DELEGAN A UserRepository
    * (Solo para lectura/búsqueda de usuarios)
    */
-  
+
   static async findUserById(idUser) {
     return await UserRepository.findById(idUser);
   }
@@ -31,24 +29,23 @@ export class AuthRepository {
     return await UserRepository.create(userData);
   }
 
-static async updatePassword(idUser, hashedPassword) {
-  console.log("🔐 Actualizando usuario:", idUser);
-  console.log("🔐 Con hash:", hashedPassword.substring(0, 20) + "...");
-  
-  try {
-    const result = await prisma.users.update({
-      where: { id_user: idUser },
-      data: { pass_word: hashedPassword }
-    });
-    
-    console.log("✅ Usuario actualizado:", result.id_user);
-    return result;
-    
-  } catch (error) {
-    console.error("❌ ERROR en updatePassword:", error.message);
-    throw error;
+  static async updatePassword(idUser, hashedPassword) {
+    console.log("🔐 Actualizando usuario:", idUser);
+    console.log("🔐 Con hash:", hashedPassword.substring(0, 20) + "...");
+
+    try {
+      const result = await prisma.users.update({
+        where: { id_user: idUser },
+        data: { pass_word: hashedPassword },
+      });
+
+      console.log("✅ Usuario actualizado:", result.id_user);
+      return result;
+    } catch (error) {
+      console.error("❌ ERROR en updatePassword:", error.message);
+      throw error;
+    }
   }
-}
 
   static async createRefreshToken(idUser, token, expirationDate) {
     return await prisma.refresh_tokens.create({

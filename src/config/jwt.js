@@ -1,5 +1,50 @@
 import jwt from "jsonwebtoken";
 
+const getRefreshTokenExpiresIn = () => {
+  const configuredValue = process.env.JWT_REFRESH_EXPIRES || "7d";
+  const normalizedValue = String(configuredValue).trim().toLowerCase();
+  const match = normalizedValue.match(/^(\d+)([smhd])$/);
+
+  if (!match) {
+    return "7d";
+  }
+
+  return normalizedValue;
+};
+
+export const getRefreshTokenExpirationDate = () => {
+  const expiresIn = getRefreshTokenExpiresIn();
+  const match = expiresIn.match(/^(\d+)([smhd])$/);
+
+  if (!match) {
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 7);
+    return expirationDate;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const expirationDate = new Date();
+
+  switch (unit) {
+    case "s":
+      expirationDate.setSeconds(expirationDate.getSeconds() + amount);
+      break;
+    case "m":
+      expirationDate.setMinutes(expirationDate.getMinutes() + amount);
+      break;
+    case "h":
+      expirationDate.setHours(expirationDate.getHours() + amount);
+      break;
+    case "d":
+    default:
+      expirationDate.setDate(expirationDate.getDate() + amount);
+      break;
+  }
+
+  return expirationDate;
+};
+
 /**
  * GENERAR ACCESS TOKEN (15 minutos)
  */
@@ -28,7 +73,7 @@ export const generateRefreshToken = (id_user) => {
     },
     process.env.JWT_REFRESH_SECRET, // Secret diferente al ACCESS
     {
-      expiresIn: process.env.JWT_REFRESH_EXPIRES || "7d", // Expira en 7 días
+      expiresIn: getRefreshTokenExpiresIn(), // Respeta JWT_REFRESH_EXPIRES
     },
   );
 };
@@ -55,11 +100,13 @@ export const verifyAccessToken = (token) => {
  */
 export const verifyRefreshToken = (token) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    return decoded; // Devuelve { id_user, type, iat, exp }
+    return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
   } catch (error) {
-    console.error("Refresh Token Error:", error.message);
-    return null;
+    if (error.name === "TokenExpiredError") {
+      throw new Error("Refresh token expired");
+    }
+
+    throw new Error("Refresh token invalid");
   }
 };
 
