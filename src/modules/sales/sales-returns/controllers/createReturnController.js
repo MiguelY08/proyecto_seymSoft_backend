@@ -48,16 +48,20 @@ export const createReturnController = async (req, res) => {
     const result = await createReturnUseCase(
       validation.data,
       req.files || [],
-      evidenceDescription
+      evidenceDescription,
+      req.user?.id_user
     );
 
     if (!result.success) {
+      const message = result.errorCode === 'RETURN_ALREADY_EXISTS'
+        ? `No es posible crear la devolución. Esta venta ya tiene asociada la devolución ${result.existingReturnNumber || 'registrada'}.`
+        : result.error;
 
       return res
         .status(statusCodeByError[result.errorCode] || 500)
         .json({
           success: false,
-          message: result.error,
+          message,
           errorCode: result.errorCode,
         });
     }
