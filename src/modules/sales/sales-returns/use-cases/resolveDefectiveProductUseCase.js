@@ -189,10 +189,17 @@ export const resolveDefectiveProductUseCase = async ({
       }
 
       const defaultStatus = await ReturnRepository.getDefaultNonConformingStatus();
+      const saleReturnNumber = context.saleReturn?.return_number || `DEV-${saleReturnId}`;
+      const nonConformingReason = [
+        `Producto defectuoso proveniente de la devolución de venta ${saleReturnNumber}.`,
+        'No tiene devolución de compra disponible.',
+        purchaseInfo.reason || ''
+      ].join(' ').trim();
+
       const ncp = await ReturnRepository.createNonConformingProduct({
         idBarcode: context.detail.id_barcode,
         quantity: detailQuantity,
-        reason: `Producto defectuoso proveniente de la devolución de venta #${saleReturnId}. No tiene devolución de compra disponible. ${purchaseInfo.reason || ''}`.trim(),
+        reason: nonConformingReason,
         idStatus: defaultStatus?.id_status || 1
       });
 

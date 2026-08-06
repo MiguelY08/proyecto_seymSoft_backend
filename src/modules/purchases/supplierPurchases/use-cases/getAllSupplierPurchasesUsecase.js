@@ -5,8 +5,24 @@ import { SupplierPurchaseMapper }     from '../mappers/supplierPurchaseMapper.js
 const repo = new SupplierPurchaseRepository();
 
 export class GetAllSupplierPurchasesUseCase {
-  async execute({ page, limit, search, startDate, endDate }) {
-    const { purchases, total } = await repo.findAll({ page, limit, search, startDate, endDate });
+  async execute({ 
+    page, 
+    limit, 
+    search, 
+    startDate, 
+    endDate,
+    sortField = 'id_purchase',
+    sortOrder = 'desc'
+  }) {
+    const { purchases, total } = await repo.findAll({ 
+      page, 
+      limit, 
+      search, 
+      startDate, 
+      endDate,
+      sortField,
+      sortOrder
+    });
     return {
       data: (purchases || []).map(SupplierPurchaseMapper.toDTO),
       pagination: {
