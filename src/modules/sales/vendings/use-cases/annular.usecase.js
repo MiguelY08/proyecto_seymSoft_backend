@@ -50,6 +50,12 @@ export const notifySaleAnnulled = async ({ sale, reason }) => {
       reason,
       total: sale.order?.total || sale.subtotal,
       creditRestoredAmount: sale.credit?.remainingBalance || 0,
+      shippingAmount: sale.order?.shippingAmount,
+      deliveryType: sale.order?.deliveryType,
+      deliveryAddress: sale.order?.deliveryAddress,
+      deliveryRecipientName: sale.order?.deliveryRecipientName,
+      deliveryDepartment: sale.order?.deliveryDepartment,
+      deliveryCity: sale.order?.deliveryCity,
     });
   } catch (error) {
     console.error(
