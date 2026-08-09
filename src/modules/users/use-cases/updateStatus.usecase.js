@@ -2,8 +2,10 @@ import { UserRepository } from "../repositories/userRepository.js";
 import { GENERAL_STATUSES } from "../../../shared/constants/generalStatuses.js";
 import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
 import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
+import { isDefaultAdminEmail } from "../../../shared/constants/defaultAdminUser.js";
 
 const SYSTEM_ID_USER = 999999999;
+const INACTIVE_ID_STATUS = 2;
 
 const fail = (errorCode) => ({
   success: false,
@@ -41,6 +43,13 @@ export const updateUserStatusUseCase = async (params) => {
     }
 
     if (parsedIdUser === SYSTEM_ID_USER) {
+      return fail(userErrorCodes.CANNOT_UPDATE_SYSTEM_USER);
+    }
+
+    if (
+      isDefaultAdminEmail(existingUser.email) &&
+      parsedIdStatus === INACTIVE_ID_STATUS
+    ) {
       return fail(userErrorCodes.CANNOT_UPDATE_SYSTEM_USER);
     }
 

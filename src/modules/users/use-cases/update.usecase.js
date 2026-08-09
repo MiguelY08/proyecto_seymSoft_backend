@@ -7,6 +7,10 @@ import {
 } from "../../../shared/utils/textNormalizer.js";
 import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
 import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
+import {
+  DEFAULT_ADMIN_EMAIL,
+  isDefaultAdminEmail,
+} from "../../../shared/constants/defaultAdminUser.js";
 
 const SYSTEM_ID_USER = 999999999;
 
@@ -55,6 +59,15 @@ export const updateUserUseCase = async (params) => {
     }
 
     if (parsedIdUser === SYSTEM_ID_USER) {
+      return fail(userErrorCodes.CANNOT_UPDATE_SYSTEM_USER);
+    }
+
+    if (
+      isDefaultAdminEmail(existingUser.email) &&
+      (normalizedUpdateData.idRole !== undefined ||
+        (normalizedUpdateData.email &&
+          normalizedUpdateData.email !== DEFAULT_ADMIN_EMAIL))
+    ) {
       return fail(userErrorCodes.CANNOT_UPDATE_SYSTEM_USER);
     }
 
