@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   RETURN_METHODS,
   RETURN_REASONS,
+  RETURN_STATUSES,
 } from "../../../../shared/constants/generalStatuses.js";
 
 const RETURN_METHOD_IDS =
@@ -12,6 +13,11 @@ const RETURN_METHOD_IDS =
 const RETURN_REASON_IDS =
   Object.values(RETURN_REASONS).map(
     (reason) => reason.id
+  );
+
+const RETURN_STATUS_IDS =
+  Object.values(RETURN_STATUSES).map(
+    (status) => status.id
   );
 
 const positiveInt = (fieldName) =>
@@ -81,6 +87,13 @@ export const createPurchaseReturnSchema = z.object({
               .refine(
                 (value) => RETURN_METHOD_IDS.includes(value),
                 "El metodo de devolucion no es valido."
+              ),
+
+          idReturnStatus:
+            positiveInt("idReturnStatus")
+              .refine(
+                (value) => RETURN_STATUS_IDS.includes(value),
+                "El estado de devolucion no es valido."
               ),
 
           supplierDate:

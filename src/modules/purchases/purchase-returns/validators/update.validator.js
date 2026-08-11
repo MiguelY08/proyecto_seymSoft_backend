@@ -95,6 +95,13 @@ const detailToAddSchema = z.object({
         "El metodo de devolucion no es valido."
       ),
 
+  idReturnStatus:
+    positiveInt("idReturnStatus")
+      .refine(
+        (value) => RETURN_STATUS_IDS.includes(value),
+        "El estado de devolucion no es valido."
+      ),
+
   supplierDate:
     optionalDate("supplierDate"),
 }).strict();
