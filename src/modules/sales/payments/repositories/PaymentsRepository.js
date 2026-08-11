@@ -1,8 +1,14 @@
 import { prisma } from "../../../../config/prisma.js";
 import { CREDIT_STATUS } from "../constants/creditStatus.constants.js";
-import { PAYMENT_METHODS } from "../../../../shared/constants/generalStatuses.js";
+import {
+  PAYMENT_METHOD_IDS,
+} from "../../../../shared/constants/generalStatuses.js";
+import {
+  decrementClientFavorBalance,
+  restoreClientFavorBalance,
+} from "../../shared/favorBalance.js";
 
-const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHODS[3].id;
+const CREDIT_PAYMENT_METHOD_ID = PAYMENT_METHOD_IDS.CREDIT;
 
 export class PaymentsRepository {
   constructor() {
@@ -423,27 +429,14 @@ export class PaymentsRepository {
   }) {
     return this.prisma.$transaction(async (tx) => {
       if (Number(favor_balance_amount) > 0) {
-        const updatedBalance = await tx.clients.updateMany({
-          where: {
-            id_client:
-              id_customer,
-            credit_balance: {
-              gte:
-                Number(favor_balance_amount),
-            },
-          },
-
-          data: {
-            credit_balance: {
-              decrement:
-                Number(favor_balance_amount),
-            },
-          },
+        await decrementClientFavorBalance(tx, {
+          idClient:
+            id_customer,
+          amount:
+            favor_balance_amount,
+          insufficientMessage:
+            "Saldo a favor insuficiente para registrar el abono.",
         });
-
-        if (updatedBalance.count === 0) {
-          throw new Error("Saldo a favor insuficiente para registrar el abono.");
-        }
       }
 
       const installment = await tx.installments.create({
@@ -528,17 +521,11 @@ export class PaymentsRepository {
       });
 
       if (Number(favor_balance_amount) > 0) {
-        await tx.clients.update({
-          where: {
-            id_client: id_customer,
-          },
-
-          data: {
-            credit_balance: {
-              increment:
-                Number(favor_balance_amount),
-            },
-          },
+        await restoreClientFavorBalance(tx, {
+          idClient:
+            id_customer,
+          amount:
+            favor_balance_amount,
         });
       }
     });

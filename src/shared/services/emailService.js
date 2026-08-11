@@ -1431,11 +1431,25 @@ export class EmailService {
     subtotal,
     total,
     credit,
+    shippingAmount,
+    deliveryType,
+    deliveryAddress,
+    deliveryRecipientName,
+    deliveryDepartment,
+    deliveryCity,
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const saleUrl = `${frontendUrl}/vendings/${saleId}`;
+    const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Venta registrada - #${saleId}`;
+    const deliveryDepartmentName =
+      deliveryDepartment?.name || deliveryDepartment || "No aplica";
+    const deliveryCityName =
+      deliveryCity?.name || deliveryCity || "No aplica";
+    const deliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
     const creditAmount = credit?.creditAmount || credit?.credit_amount;
     const remainingBalance = credit?.remainingBalance || credit?.remaining_balance;
@@ -1445,7 +1459,7 @@ export class EmailService {
       ? `\nCredito: ${formatMoney(creditAmount)}\nSaldo credito: ${formatMoney(remainingBalance)}\nVencimiento: ${formatDate(dueDate)}`
       : "";
 
-    const text = `Hola ${name},\n\nTu venta #${saleId} fue registrada.\n\nPedido relacionado: #${orderId}\nSubtotal: ${formatMoney(subtotal)}\nTotal: ${formatMoney(total)}${creditText}\n\n${saleUrl}`;
+    const text = `Hola ${name},\n\nTu venta #${saleId} fue registrada.\n\nPedido relacionado: #${orderId}\nSubtotal: ${formatMoney(subtotal)}\nTotal: ${formatMoney(total)}${creditText}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${deliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${deliveryDepartmentName}\nMunicipio/Ciudad: ${deliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Venta registrada #${saleId}`,
@@ -1511,7 +1525,29 @@ export class EmailService {
           `, "warning")}
         ` : ""}
 
-        ${renderActionLink(saleUrl, "Ver venta")}
+        ${renderSectionTitle("Informacion de entrega")}
+        ${renderInfoCard(`
+          <p style="margin: 0 0 6px;">
+            <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${deliveryRecipient}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Envio:</strong> ${formatMoney(shippingAmount)}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Departamento:</strong> ${deliveryDepartmentName}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Municipio/Ciudad:</strong> ${deliveryCityName}
+          </p>
+          <p style="margin: 0;">
+            <strong>Direccion:</strong> ${deliveryAddress || "No aplica"}
+          </p>
+        `)}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1526,13 +1562,27 @@ export class EmailService {
     reason,
     total,
     creditRestoredAmount,
+    shippingAmount,
+    deliveryType,
+    deliveryAddress,
+    deliveryRecipientName,
+    deliveryDepartment,
+    deliveryCity,
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const saleUrl = `${frontendUrl}/vendings/${saleId}`;
+    const orderUrl = `${frontendUrl}/orders/${orderId}`;
     const subject = `Venta anulada - #${saleId}`;
+    const deliveryDepartmentName =
+      deliveryDepartment?.name || deliveryDepartment || "No aplica";
+    const deliveryCityName =
+      deliveryCity?.name || deliveryCity || "No aplica";
+    const deliveryRecipient = formatDisplayText(
+      deliveryRecipientName,
+      "No registrada"
+    );
 
-    const text = `Hola ${name},\n\nLa venta #${saleId} relacionada al pedido #${orderId} fue anulada.\n\nMotivo: ${reason || "No especificado"}\nTotal: ${formatMoney(total)}\nCupo restaurado: ${formatMoney(creditRestoredAmount)}\n\n${saleUrl}`;
+    const text = `Hola ${name},\n\nLa venta #${saleId} relacionada al pedido #${orderId} fue anulada.\n\nMotivo: ${reason || "No especificado"}\nTotal: ${formatMoney(total)}\nCupo restaurado: ${formatMoney(creditRestoredAmount)}\nTipo de entrega: ${deliveryType || "No especificado"}\nPersona que recibe/recoge: ${deliveryRecipient}\nEnvio: ${formatMoney(shippingAmount)}\nDepartamento: ${deliveryDepartmentName}\nMunicipio/Ciudad: ${deliveryCityName}\nDireccion: ${deliveryAddress || "No aplica"}\n\n${orderUrl}`;
 
     const html = baseLayout({
       title: `Venta anulada #${saleId}`,
@@ -1582,7 +1632,29 @@ export class EmailService {
           </p>
         `, "danger")}
 
-        ${renderActionLink(saleUrl, "Ver venta")}
+        ${renderSectionTitle("Informacion de entrega")}
+        ${renderInfoCard(`
+          <p style="margin: 0 0 6px;">
+            <strong>Tipo de entrega:</strong> ${deliveryType || "No especificado"}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Persona que recibe/recoge:</strong> ${deliveryRecipient}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Envio:</strong> ${formatMoney(shippingAmount)}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Departamento:</strong> ${deliveryDepartmentName}
+          </p>
+          <p style="margin: 0 0 6px;">
+            <strong>Municipio/Ciudad:</strong> ${deliveryCityName}
+          </p>
+          <p style="margin: 0;">
+            <strong>Direccion:</strong> ${deliveryAddress || "No aplica"}
+          </p>
+        `)}
+
+        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 

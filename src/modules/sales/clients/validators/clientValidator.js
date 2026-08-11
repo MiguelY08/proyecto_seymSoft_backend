@@ -61,7 +61,7 @@ const ownClientProfileSchema = z.object({
   }
 });
 
-export const createClientSchema = z.object({
+const createClientBaseSchema = z.object({
   userId: z.number().int().positive().optional(),
 
   personType: z.enum(['natural', 'juridica'], {
@@ -88,21 +88,34 @@ export const createClientSchema = z.object({
   contactPhone: z.string().regex(/^[0-9]{7,10}$/, 'Telefono de contacto invalido').optional().or(z.literal('')),
   clientCredit: z.string().optional(),
   credit_balance: z.string().optional()
-}).refine(data => {
-  if (!data.userId) {
-    if (!data.firstName || !data.lastName || !data.phone || !data.email) return false;
-  }
-  return true;
-}, {
-  message: 'firstName, lastName, phone y email son obligatorios cuando no se proporciona userId',
-  path: ['firstName']
-}).refine(data => {
-  if (data.rut === 'si' && !data.ciuCode?.trim()) return false;
-  return true;
-}, {
-  message: 'El codigo CIU es obligatorio cuando RUT es Si',
-  path: ['ciuCode']
 });
+
+const createClientWithUserSchema = createClientBaseSchema
+  .safeExtend({
+    userId: z.number().int().positive(),
+  })
+  .refine(data => {
+    if (data.rut === 'si' && !data.ciuCode?.trim()) return false;
+    return true;
+  }, {
+    message: 'El codigo CIU es obligatorio cuando RUT es Si',
+    path: ['ciuCode']
+  });
+
+const createStandaloneClientSchema = createClientBaseSchema
+  .refine(data => (
+    Boolean(data.firstName && data.lastName && data.phone && data.email)
+  ), {
+    message: 'firstName, lastName, phone y email son obligatorios cuando no se proporciona userId',
+    path: ['firstName']
+  })
+  .refine(data => {
+    if (data.rut === 'si' && !data.ciuCode?.trim()) return false;
+    return true;
+  }, {
+    message: 'El codigo CIU es obligatorio cuando RUT es Si',
+    path: ['ciuCode']
+  });
 
 export const updateClientSchema = z.object({
   address: z.string().min(1, 'La direccion es obligatoria').optional(),
@@ -118,7 +131,10 @@ export const updateClientSchema = z.object({
 });
 
 export const validateCreateClient = (data) => {
-  const result = createClientSchema.safeParse(data);
+  const schema = data?.userId
+    ? createClientWithUserSchema
+    : createStandaloneClientSchema;
+  const result = schema.safeParse(data);
 
   if (!result.success) {
     const errors = result.error.issues.map(issue => ({

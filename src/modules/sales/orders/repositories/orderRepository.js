@@ -1,11 +1,16 @@
 ﻿import { prisma } from '../../../../config/prisma.js';
 import {
-  PAYMENT_METHODS,
   ORDER_STATUSES,
   PAYMENT_RECEIPT_STATUSES,
   PAYMENT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { normalizeDeliveryType } from '../../shared/deliveryTypes.js';
+import {
+  decrementClientFavorBalance,
+  getFavorBalancePaymentAmount,
+  isFavorBalancePayment,
+  restoreClientFavorBalance as restoreClientFavorBalanceAmount,
+} from '../../shared/favorBalance.js';
 
 const getPaymentStatusById = (id) =>
   PAYMENT_STATUSES[Number(id)] || PAYMENT_STATUSES[1];
@@ -27,16 +32,12 @@ const resolvePaymentStatus = (data = {}) => {
   return PAYMENT_STATUSES[1];
 };
 
-const FAVOR_BALANCE_PAYMENT_METHOD_ID = PAYMENT_METHODS[4].id;
-
 const getRefundableFavorBalanceAmount = (order) => {
   if (!order || order.sales) {
     return 0;
   }
 
-  return (order.order_payments || [])
-    .filter((payment) => Number(payment.id_payment_method) === FAVOR_BALANCE_PAYMENT_METHOD_ID)
-    .reduce((total, payment) => total + Number(payment.amount || 0), 0);
+  return getFavorBalancePaymentAmount(order.order_payments || []);
 };
 
 const normalizeDeliveryTypeFilter = (value) => {
@@ -739,6 +740,13 @@ export class OrderRepository {
         delivery_type: true,
         shipping_amount: true,
         total: true,
+        id_customer: true,
+        clients: {
+          select: {
+            id_client: true,
+            credit_balance: true,
+          },
+        },
         sales: {
           select: {
             id_sale: true,
@@ -845,23 +853,11 @@ export class OrderRepository {
       }
 
       if (Number(data.favorBalanceAmount || 0) > 0) {
-        const updatedBalance = await tx.clients.updateMany({
-          where: {
-            id_client: Number(data.idClient),
-            credit_balance: {
-              gte: Number(data.favorBalanceAmount),
-            },
-          },
-          data: {
-            credit_balance: {
-              decrement: Number(data.favorBalanceAmount),
-            },
-          },
+        await decrementClientFavorBalance(tx, {
+          idClient: data.idClient,
+          amount: data.favorBalanceAmount,
+          insufficientMessage: 'Saldo a favor insuficiente para completar el pedido.',
         });
-
-        if (updatedBalance.count === 0) {
-          throw new Error('Saldo a favor insuficiente para completar el pedido.');
-        }
       }
 
       return order.id_order;
@@ -907,15 +903,9 @@ export class OrderRepository {
       return;
     }
 
-    await prisma.clients.update({
-      where: {
-        id_client: Number(idClient),
-      },
-      data: {
-        credit_balance: {
-          increment: value,
-        },
-      },
+    await restoreClientFavorBalanceAmount(prisma, {
+      idClient,
+      amount: value,
     });
   }
 
@@ -1001,6 +991,7 @@ export class OrderRepository {
 
   async cancel(id, reason = 'Pedido cancelado.') {
     const orderId = Number(id);
+    let favorBalanceRestoredAmount = 0;
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.sales_orders.findUnique({
@@ -1024,6 +1015,7 @@ export class OrderRepository {
       });
 
       const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
+      favorBalanceRestoredAmount = refundableFavorBalance;
 
       await tx.sales_orders.update({
         where: {
@@ -1041,35 +1033,44 @@ export class OrderRepository {
       });
 
       if (refundableFavorBalance > 0) {
-        await tx.clients.update({
-          where: {
-            id_client: Number(order.id_customer),
-          },
-          data: {
-            credit_balance: {
-              increment: refundableFavorBalance,
-            },
-          },
+        await restoreClientFavorBalanceAmount(tx, {
+          idClient: order.id_customer,
+          amount: refundableFavorBalance,
         });
       }
     });
 
-    return this.findSummaryById(orderId);
+    const cancelledOrder = await this.findSummaryById(orderId);
+
+    return {
+      ...cancelledOrder,
+      favorBalanceRestoredAmount,
+    };
   }
 
   async createPayment(idOrder, data) {
-    return prisma.order_payments.create({
-      data: {
-        id_order: Number(idOrder),
-        id_payment_method: Number(data.idPaymentMethod),
-        amount: Number(data.amount),
-        observations: data.observations || null,
-        reference: data.reference || null,
-        payment_date: data.paymentDate || data.payment_date || undefined,
-      },
-      include: {
-        payment_methods: true,
-      },
+    return prisma.$transaction(async (tx) => {
+      if (isFavorBalancePayment(data)) {
+        await decrementClientFavorBalance(tx, {
+          idClient: data.idClient,
+          amount: data.amount,
+          insufficientMessage: 'Saldo a favor insuficiente para registrar el pago.',
+        });
+      }
+
+      return tx.order_payments.create({
+        data: {
+          id_order: Number(idOrder),
+          id_payment_method: Number(data.idPaymentMethod),
+          amount: Number(data.amount),
+          observations: data.observations || null,
+          reference: data.reference || null,
+          payment_date: data.paymentDate || data.payment_date || undefined,
+        },
+        include: {
+          payment_methods: true,
+        },
+      });
     });
   }
 
@@ -1288,6 +1289,7 @@ export class OrderRepository {
 
   async expirePendingOrder(idOrder, reason = 'Pedido cancelado por vencimiento de pago.') {
     const orderId = Number(idOrder);
+    let favorBalanceRestoredAmount = 0;
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.sales_orders.findUnique({
@@ -1311,6 +1313,7 @@ export class OrderRepository {
       });
 
       const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
+      favorBalanceRestoredAmount = refundableFavorBalance;
 
       await tx.sales_orders.update({
         where: {
@@ -1330,20 +1333,19 @@ export class OrderRepository {
       });
 
       if (refundableFavorBalance > 0) {
-        await tx.clients.update({
-          where: {
-            id_client: Number(order.id_customer),
-          },
-          data: {
-            credit_balance: {
-              increment: refundableFavorBalance,
-            },
-          },
+        await restoreClientFavorBalanceAmount(tx, {
+          idClient: order.id_customer,
+          amount: refundableFavorBalance,
         });
       }
     });
 
-    return this.findSummaryById(orderId);
+    const expiredOrder = await this.findSummaryById(orderId);
+
+    return {
+      ...expiredOrder,
+      favorBalanceRestoredAmount,
+    };
   }
 
   async findPaymentMethodById(idPaymentMethod) {
