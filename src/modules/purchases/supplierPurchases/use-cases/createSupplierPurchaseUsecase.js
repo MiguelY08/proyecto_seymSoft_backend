@@ -1,6 +1,7 @@
 // backend/src/modules/supplier-purchases/use-cases/createSupplierPurchaseUsecase.js
 import { SupplierPurchaseRepository } from '../repositories/supplierPurchaseRepository.js';
 import { SupplierPurchaseMapper }     from '../mappers/supplierPurchaseMapper.js';
+import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
 
 const repo = new SupplierPurchaseRepository();
 
@@ -98,7 +99,29 @@ export class CreateSupplierPurchaseUseCase {
     }
 
     const purchaseData = SupplierPurchaseMapper.toCreateDB({ ...dto, details: enrichedDetails });
-    const purchase     = await repo.create(purchaseData, enrichedDetails);
-    return SupplierPurchaseMapper.toDTOWithDetails(purchase);
+    const purchase = await repo.create(purchaseData, enrichedDetails);
+    const mappedPurchase = SupplierPurchaseMapper.toDTOWithDetails(purchase);
+
+    try {
+      await notifyAdmins({
+        title: 'Nueva compra registrada',
+        message: `Se registró la compra ${mappedPurchase.invoiceNumber} a ${mappedPurchase.providerName}.`,
+        type: 'purchase',
+        actionUrl: '/admin/purchases/supplier-purchases',
+        metadata: {
+          module: 'purchases',
+          idPurchase: mappedPurchase.id,
+          invoiceNumber: mappedPurchase.invoiceNumber,
+          event: 'purchase_created',
+        },
+      });
+    } catch (notificationError) {
+      console.error(
+        '[CreateSupplierPurchaseUseCase] Purchase notification error:',
+        notificationError.message
+      );
+    }
+
+    return mappedPurchase;
   }
 }
