@@ -1,6 +1,9 @@
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
 
+const firstPresent = (...values) =>
+  values.find((value) => value !== undefined && value !== null);
+
 const normalizeBarcode = (barcode) => {
   const code = firstDefined(barcode.barcode, barcode.codBarras, barcode.code);
 
@@ -20,7 +23,7 @@ export class UpdateProductDto {
     this.wholesalePrice = firstDefined(data.wholesalePrice, data.precioMayorista, data.wholesale_price);
     this.partnerPrice = firstDefined(data.partnerPrice, data.precioColegas, data.partner_price);
     this.bulkPrice = firstDefined(data.bulkPrice, data.precioPacas, data.bulk_price);
-    this.supplierPrice = firstDefined(
+    this.supplierPrice = firstPresent(
       data.supplierPrice,
       data.precioProveedor,
       data.precio_proveedor,
@@ -44,7 +47,7 @@ export class UpdateProductDto {
       data.idCategoria,
       data.categoryId
     );
-    this.description = firstDefined(data.description, data.descripcion);
+    this.description = firstPresent(data.description, data.descripcion);
     this.quantityPerPack = firstDefined(data.quantityPerPack, data.cantidadXPaca, data.quantity_per_pack);
     this.idStatus = firstDefined(data.idStatus, data.id_status);
     this.stock = firstDefined(data.stock, data.cantidad, data.quantity);

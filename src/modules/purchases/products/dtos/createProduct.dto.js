@@ -29,6 +29,12 @@ export class CreateProductDto {
     this.wholesalePrice = parseFloat(data.precioMayorista ?? data.wholesalePrice) || 0;
     this.partnerPrice = parseFloat(data.precioColegas ?? data.partnerPrice) || 0;
     this.bulkPrice = parseFloat(data.precioPacas ?? data.bulkPrice) || 0;
+    this.supplierPrice = parseOptionalDecimal(firstDefined(
+      data.supplierPrice,
+      data.precioProveedor,
+      data.precio_proveedor,
+      data.supplier_price
+    ));
     this.retailDiscountPct = parseFloat(data.retailDiscountPct) || 0;
     this.wholesaleDiscountPct = parseFloat(data.wholesaleDiscountPct) || 0;
     this.partnerDiscountPct = parseFloat(data.partnerDiscountPct) || 0;

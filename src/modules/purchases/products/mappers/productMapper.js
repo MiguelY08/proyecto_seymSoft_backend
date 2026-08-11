@@ -6,6 +6,21 @@
  */
 export const mapProduct = (product) => {
   const totalStock = (product.barcodes || []).reduce((sum, b) => sum + (b.stock || 0), 0);
+  const relatedCategories = (product.product_categories || []).map((pc) => ({
+    id: pc.id_category,
+    name: pc.categories?.category_name,
+  }));
+  const primaryCategory = product.categories
+    ? {
+        id: product.categories.id_category,
+        name: product.categories.category_name,
+      }
+    : null;
+  const categories = relatedCategories.length > 0
+    ? relatedCategories
+    : primaryCategory
+      ? [primaryCategory]
+      : [];
 
   return {
     id: product.id_product,
@@ -46,10 +61,7 @@ export const mapProduct = (product) => {
       isPrimary: img.is_primary,
     })),
     // ← AGREGAR ESTO
-    categories: (product.product_categories || []).map((pc) => ({
-      id: pc.id_category,
-      name: pc.categories?.category_name,
-    })),
+    categories,
     subcategories: (product.product_subcategories || []).map((ps) => ({
       id: ps.id_subcategory,
       name: ps.subcategories?.name_subcategory,

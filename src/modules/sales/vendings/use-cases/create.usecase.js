@@ -7,6 +7,7 @@ import {
 import { VendingRepository } from "../repositories/vendingRepository.js";
 import { EmailService } from "../../../../shared/services/emailService.js";
 import { notifyStockAlertsForProducts } from "../../../notifications/services/stockNotificationService.js";
+import { notifyAdmins } from "../../../notifications/services/adminNotificationService.js";
 import { CreateOrderDto } from "../../orders/dtos/createOrder.dto.js";
 import { CreateOrderUseCase } from "../../orders/use-cases/createOrderUseCase.js";
 import { OrderRepository } from "../../orders/repositories/orderRepository.js";
@@ -942,6 +943,26 @@ export const createVendingUseCase = async (params) => {
     }
 
     await notifyLowStockProductsInCarts(orderDetails);
+
+    try {
+      await notifyAdmins({
+        title: "Nueva venta registrada",
+        message: `Se registró la venta #${sale.id_sale} por $${totals.total}.`,
+        type: "sale",
+        actionUrl: "/admin/sales/vendings",
+        metadata: {
+          module: "sales",
+          idSale: sale.id_sale,
+          idOrder,
+          event: "sale_created",
+        },
+      });
+    } catch (notificationError) {
+      console.error(
+        "[CreateVendingUseCase] Sale notification error:",
+        notificationError.message
+      );
+    }
 
     return {
       success: true,
