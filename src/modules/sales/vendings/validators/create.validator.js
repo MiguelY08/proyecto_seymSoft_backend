@@ -103,6 +103,13 @@ const orderSchema = z.object({
     .nullable()
     .optional(),
 
+  deliveryRecipientPhone: z
+    .string()
+    .trim()
+    .max(30, "El telefono de quien recibe el pedido no puede exceder 30 caracteres")
+    .nullable()
+    .optional(),
+
   shippingAmount: z
     .number()
     .nonnegative("El valor del envio no puede ser negativo")
