@@ -26,6 +26,11 @@ export class SupplierPurchaseMapper {
     const returnReservedQuantity = returnAvailability.reservedQuantity ?? 0;
     const finalReturnedQuantity = returnAvailability.finalReturnedQuantity ?? 0;
     const returnAvailableQuantity = returnAvailability.availableQuantity ?? detail.quantity;
+    const stockAvailable = Number(detail.barcodes?.stock ?? 0);
+    const returnEligibleQuantity = Math.max(
+      0,
+      Math.min(Number(returnAvailableQuantity), stockAvailable)
+    );
 
     return {
       id:             detail.id_purchase_detail,
@@ -38,11 +43,14 @@ export class SupplierPurchaseMapper {
       returnReservedQuantity,
       finalReturnedQuantity,
       returnAvailableQuantity,
+      returnEligibleQuantity,
+      stockAvailable,
       returnAvailability: {
         purchasedQuantity,
         reservedQuantity: returnReservedQuantity,
         finalReturnedQuantity,
         availableQuantity: returnAvailableQuantity,
+        eligibleQuantity: returnEligibleQuantity,
       },
       // ========== NUEVOS CAMPOS ==========
       purchaseType:   detail.purchase_type ?? "Unidad",

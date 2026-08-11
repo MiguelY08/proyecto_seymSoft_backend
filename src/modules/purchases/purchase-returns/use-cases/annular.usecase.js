@@ -7,14 +7,18 @@ import {
 } from "../helpers/purchaseReturnHelper.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
-const shouldRestoreStockOnAnnul = (detail) => {
+export const shouldRestoreStockOnAnnul = (detail) => {
   const isReplacementReady =
     Number(detail.id_return_method) ===
       RETURN_METHOD_IDS.REPLACEMENT &&
     Number(detail.id_return_status) ===
       RETURN_DETAIL_STATUS_IDS.READY;
 
-  return !isReplacementReady;
+  const isSupplierRejected =
+    Number(detail.id_return_status) ===
+    RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION;
+
+  return !isReplacementReady && !isSupplierRejected;
 };
 
 const calculateNextPurchaseStatus = ({

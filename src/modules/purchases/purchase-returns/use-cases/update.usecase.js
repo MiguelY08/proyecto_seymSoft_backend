@@ -5,6 +5,8 @@ import {
   validatePurchaseReturnPeriod,
   validateReturnQuantity,
   shouldRestoreStockOnReady,
+  isSupplierRejectionStatus,
+  canUseSupplierRejectionReason,
 } from "../helpers/purchaseReturnHelper.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
@@ -77,6 +79,17 @@ const buildDetailsToAdd = async ({
     }, new Map());
 
   for (const detail of details) {
+    if (
+      isSupplierRejectionStatus(detail.idReturnStatus) &&
+      !canUseSupplierRejectionReason(detail.idReturnReason)
+    ) {
+      return {
+        success: false,
+        error: "Prov. rechazó solo aplica para productos insatisfechos o en mal estado.",
+        errorCode: "SUPPLIER_REJECTION_REASON_NOT_ALLOWED",
+      };
+    }
+
     if (!returnReasonIds.has(Number(detail.idReturnReason))) {
       return {
         success: false,
@@ -207,7 +220,7 @@ const buildDetailsToAdd = async ({
       idReturnMethod:
         detail.idReturnMethod,
       idReturnStatus:
-        RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT,
+        detail.idReturnStatus,
       idProduct:
         purchaseDetail.barcodes.id_product,
     };
@@ -281,6 +294,8 @@ const buildDetailsToUpdate = async ({
       validateDetailStatusTransition({
         idReturnMethod:
           currentDetail.id_return_method,
+        idReturnReason:
+          currentDetail.id_return_reason,
         currentStatusId:
           currentDetail.id_return_status,
         nextStatusId:
@@ -307,12 +322,14 @@ const buildDetailsToUpdate = async ({
       idReturnStatus:
         detail.idReturnStatus,
       currentDetail,
-      stockIncrement: shouldRestoreStock
+          stockIncrement: shouldRestoreStock
         ? {
             idBarcode:
               currentDetail.purchase_details.id_barcode,
             quantity:
               currentDetail.quantity,
+            idReturnMethod:
+              currentDetail.id_return_method,
           }
         : null,
     });

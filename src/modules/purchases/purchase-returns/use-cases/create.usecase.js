@@ -3,10 +3,26 @@ import {
   PURCHASE_STATUS_IDS,
   validatePurchaseReturnPeriod,
   validateReturnQuantity,
+  isSupplierRejectionStatus,
+  canUseSupplierRejectionReason,
+  isResolvedReturnStatus,
 } from "../helpers/purchaseReturnHelper.js";
 import { PurchaseReturnRepository } from "../repositories/purchaseReturnRepository.js";
 
-const getNextPurchaseStatusOnCreate = (currentPurchaseStatusId) => {
+const getNextPurchaseStatusOnCreate = (
+  currentPurchaseStatusId,
+  details = []
+) => {
+  const isCompleted =
+    details.length > 0 &&
+    details.every(
+      (detail) => isResolvedReturnStatus(detail.idReturnStatus)
+    );
+
+  if (isCompleted) {
+    return PURCHASE_STATUS_IDS.COMPLETED_WITH_RETURNS;
+  }
+
   if (
     Number(currentPurchaseStatusId) ===
     PURCHASE_STATUS_IDS.COMPLETED_WITH_ANNULLED_RETURNS
@@ -74,6 +90,17 @@ const buildEnrichedDetails = async ({
     }, new Map());
 
   for (const detail of details) {
+    if (
+      isSupplierRejectionStatus(detail.idReturnStatus) &&
+      !canUseSupplierRejectionReason(detail.idReturnReason)
+    ) {
+      return {
+        success: false,
+        error: "Prov. rechazó solo aplica para productos insatisfechos o en mal estado.",
+        errorCode: "SUPPLIER_REJECTION_REASON_NOT_ALLOWED",
+      };
+    }
+
     if (!returnReasonIds.has(Number(detail.idReturnReason))) {
       return {
         success: false,
@@ -204,7 +231,7 @@ const buildEnrichedDetails = async ({
       idReturnMethod:
         detail.idReturnMethod,
       idReturnStatus:
-        RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT,
+        detail.idReturnStatus,
       idProduct:
         purchaseDetail.barcodes.id_product,
     });
@@ -279,10 +306,15 @@ export const createPurchaseReturnUseCase = async (data) => {
       await PurchaseReturnRepository.create({
         idPurchase: data.idPurchase,
         idReturnStatus:
-          RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT,
+          enrichedResult.data.every((detail) =>
+            isResolvedReturnStatus(detail.idReturnStatus)
+          )
+            ? RETURN_DETAIL_STATUS_IDS.READY
+            : RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT,
         idPurchaseStatus:
           getNextPurchaseStatusOnCreate(
-            purchase.id_purchase_status
+            purchase.id_purchase_status,
+            enrichedResult.data
           ),
         details: enrichedResult.data,
       });
