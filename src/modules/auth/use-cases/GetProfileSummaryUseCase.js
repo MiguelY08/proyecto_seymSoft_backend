@@ -3,6 +3,8 @@ import calculatePendingInterest from "../../sales/payments/helpers/calculatePend
 import calculateOverdueDays from "../../sales/payments/helpers/calculateOverdueDays.js";
 import { ProfileSummaryMapper } from "../mappers/profileSummaryMapper.js";
 
+const ACTIVE_STATUS_ID = 1;
+
 const millisecondsPerDay =
   1000 * 60 * 60 * 24;
 
@@ -157,11 +159,15 @@ export class GetProfileSummaryUseCase {
         0
       );
 
-    const role =
+    const roleRecord =
       profile.employees
         ?.employee_roles
-        ?.roles
-        ?.name_role || null;
+        ?.roles;
+
+    const role =
+      Number(roleRecord?.id_status) === ACTIVE_STATUS_ID
+        ? roleRecord.name_role
+        : null;
 
     return ProfileSummaryMapper.toDto({
       user: {

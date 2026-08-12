@@ -2,6 +2,8 @@ import { prisma } from "../../../config/prisma.js";
 import { UserMapper } from "../mappers/usersMapper.js";
 import { comparePassword }from "../../../shared/utils/hashPassword.js";
 
+const ACTIVE_STATUS_ID = 1;
+
 export class UserRepository {
 
   static async create(data) {
@@ -635,7 +637,7 @@ const role =
   employee.employee_roles
     ?.roles;
 
-if (!role) {
+if (!role || Number(role.id_status) !== ACTIVE_STATUS_ID) {
 
   return {
 

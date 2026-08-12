@@ -3,6 +3,7 @@ import { UserRepository } from "../repositories/userRepository.js";
 import { UserMapper } from "../mappers/usersMapper.js";
 import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
 import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
+import { isDefaultAdminEmail } from "../../../shared/constants/defaultAdminUser.js";
 
 const SYSTEM_ID_USER = 999999999;
 const INACTIVE_ID_STATUS = 2;
@@ -40,6 +41,10 @@ export const deleteUserUseCase = async (idUser) => {
     const mappedUser = UserMapper.toDomain(existingUser);
 
     if (parsedIdUser === SYSTEM_ID_USER) {
+      return fail(userErrorCodes.CANNOT_DELETE_SYSTEM_USER);
+    }
+
+    if (isDefaultAdminEmail(existingUser.email)) {
       return fail(userErrorCodes.CANNOT_DELETE_SYSTEM_USER);
     }
 
