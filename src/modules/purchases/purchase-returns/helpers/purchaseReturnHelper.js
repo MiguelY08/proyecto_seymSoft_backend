@@ -10,6 +10,7 @@ export const RETURN_DETAIL_STATUS_IDS = {
   PENDING_REFUND: RETURN_STATUSES[3].id,
   READY: RETURN_STATUSES[4].id,
   ANNULLED: RETURN_STATUSES[5].id,
+  SUPPLIER_REJECTION: RETURN_STATUSES[8].id,
 };
 
 export const RETURN_METHOD_IDS = {
@@ -40,6 +41,7 @@ const DETAIL_STATUS_FLOW_BY_METHOD = {
     ],
     [RETURN_DETAIL_STATUS_IDS.PENDING_REPLACEMENT]: [
       RETURN_DETAIL_STATUS_IDS.READY,
+      RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
     ],
   },
   [RETURN_METHOD_IDS.REFUND]: {
@@ -48,6 +50,7 @@ const DETAIL_STATUS_FLOW_BY_METHOD = {
     ],
     [RETURN_DETAIL_STATUS_IDS.PENDING_REFUND]: [
       RETURN_DETAIL_STATUS_IDS.READY,
+      RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
     ],
   },
   [RETURN_METHOD_IDS.CREDIT_BALANCE]: {
@@ -316,12 +319,34 @@ export const validateReturnQuantity = ({
 export const isReadyStatus = (idReturnStatus) =>
   Number(idReturnStatus) === RETURN_DETAIL_STATUS_IDS.READY;
 
+export const isSupplierRejectionStatus = (idReturnStatus) =>
+  Number(idReturnStatus) === RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION;
+
+export const isResolvedReturnStatus = (idReturnStatus) =>
+  isReadyStatus(idReturnStatus) ||
+  isSupplierRejectionStatus(idReturnStatus);
+
+export const canUseSupplierRejectionReason = (idReturnReason) =>
+  [5, 8].includes(Number(idReturnReason));
+
 export const validateDetailIsEditable = (detail) => {
   if (isReadyStatus(detail?.id_return_status ?? detail?.returnStatusId)) {
     return {
       success: false,
       errorCode: "RETURN_DETAIL_ALREADY_READY",
       error: "Un producto en estado Listo no puede modificarse.",
+    };
+  }
+
+  if (
+    isSupplierRejectionStatus(
+      detail?.id_return_status ?? detail?.returnStatusId
+    )
+  ) {
+    return {
+      success: false,
+      errorCode: "RETURN_DETAIL_SUPPLIER_REJECTED",
+      error: "Un producto rechazado por el proveedor no puede modificarse.",
     };
   }
 
@@ -347,6 +372,7 @@ export const getAllowedNextStatuses = (idReturnMethod, currentStatusId) => {
 
 export const validateDetailStatusTransition = ({
   idReturnMethod,
+  idReturnReason,
   currentStatusId,
   nextStatusId,
 }) => {
@@ -363,6 +389,20 @@ export const validateDetailStatusTransition = ({
       idReturnMethod,
       currentStatusId
     );
+
+  if (
+    isSupplierRejectionStatus(nextStatusId) &&
+    !canUseSupplierRejectionReason(idReturnReason)
+  ) {
+    return {
+      success: false,
+      errorCode: "SUPPLIER_REJECTION_REASON_NOT_ALLOWED",
+      error: "Prov. rechazó solo aplica para productos insatisfechos o en mal estado.",
+      allowedNextStatuses: allowedNextStatuses.filter(
+        (statusId) => statusId !== RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION
+      ),
+    };
+  }
 
   if (!allowedNextStatuses.includes(Number(nextStatusId))) {
     return {
@@ -393,7 +433,7 @@ export const shouldRestoreStockOnReady = ({
 export const getReturnProgress = (details = []) => {
   const total = details.length;
   const completed = details.filter((detail) =>
-    isReadyStatus(
+    isResolvedReturnStatus(
       detail.id_return_status ??
       detail.returnStatusId
     )
@@ -417,7 +457,7 @@ export const calculateReturnLifecycle = ({
   if (
     details.length > 0 &&
     details.every((detail) =>
-      isReadyStatus(
+      isResolvedReturnStatus(
         detail.id_return_status ??
         detail.returnStatusId
       )

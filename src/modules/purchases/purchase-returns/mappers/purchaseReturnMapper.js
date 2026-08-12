@@ -286,8 +286,7 @@ export class PurchaseReturnMapper {
     const total = details.length;
     const completed = details.filter(
       (detail) =>
-        detail.return_statuses?.name_status === "Listo" ||
-        Number(detail.id_return_status) === 4
+        [4, 8].includes(Number(detail.id_return_status))
     ).length;
 
     return {

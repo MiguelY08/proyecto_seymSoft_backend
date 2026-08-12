@@ -1,6 +1,7 @@
 import { prisma } from "../../../../config/prisma.js";
 import {
   RETURN_DETAIL_STATUS_IDS,
+  RETURN_METHOD_IDS,
   RETURN_LIFECYCLE,
   calculatePurchaseDetailReturnAvailability,
   calculatePurchaseStatusFromReturns,
@@ -14,6 +15,39 @@ const getHeaderStatusFromLifecycle = (lifecycle) =>
     : RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT;
 
 export class PurchaseReturnRepository {
+  static async createNonConformingForRejectedDetail(
+    tx,
+    {
+      idPurchaseReturn,
+      idPurchaseReturnDetail,
+      idBarcode,
+      quantity,
+    }
+  ) {
+    const reportReason =
+      `Proveedor rechazó devolución de compra #${idPurchaseReturn}, detalle #${idPurchaseReturnDetail}.`;
+
+    const existing = await tx.non_conforming_products.findFirst({
+      where: {
+        id_barcode: Number(idBarcode),
+        report_reason: reportReason,
+      },
+      select: { id_ncp: true },
+    });
+
+    if (existing) return existing;
+
+    return tx.non_conforming_products.create({
+      data: {
+        affected_quantity: Number(quantity),
+        detection_date: new Date(),
+        report_reason: reportReason,
+        id_barcode: Number(idBarcode),
+        id_status: 1,
+      },
+    });
+  }
+
   static async findById(idPurchaseReturn) {
     const purchaseReturn = await prisma.purchases_returns.findUnique({
       where: {
@@ -533,6 +567,30 @@ export class PurchaseReturnRepository {
         },
       });
 
+      const rejectedDetails = await tx.prd.findMany({
+        where: {
+          id_purchase_return: purchaseReturn.id_purchase_return,
+          id_return_status: RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
+        },
+        select: {
+          id_purchase_return_details: true,
+          id_purchase_detail: true,
+          quantity: true,
+          purchase_details: {
+            select: { id_barcode: true },
+          },
+        },
+      });
+
+      for (const detail of rejectedDetails) {
+        await this.createNonConformingForRejectedDetail(tx, {
+          idPurchaseReturn: purchaseReturn.id_purchase_return,
+          idPurchaseReturnDetail: detail.id_purchase_return_details,
+          idBarcode: detail.purchase_details.id_barcode,
+          quantity: detail.quantity,
+        });
+      }
+
       for (const detail of data.details) {
         await tx.barcodes.update({
           where: {
@@ -857,6 +915,13 @@ export class PurchaseReturnRepository {
         );
 
         for (const stockIncrement of changeset.stockIncrements) {
+          if (
+            Number(stockIncrement.idReturnMethod) !==
+            RETURN_METHOD_IDS.REPLACEMENT
+          ) {
+            continue;
+          }
+
           await tx.barcodes.update({
             where: {
               id_barcode: Number(stockIncrement.idBarcode),
@@ -880,6 +945,18 @@ export class PurchaseReturnRepository {
                 Number(detail.idReturnStatus),
             },
           });
+
+          if (
+            Number(detail.idReturnStatus) ===
+            RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION
+          ) {
+            await this.createNonConformingForRejectedDetail(tx, {
+              idPurchaseReturn: changeset.idPurchaseReturn,
+              idPurchaseReturnDetail: detail.idPurchaseReturnDetail,
+              idBarcode: detail.currentDetail.purchase_details.id_barcode,
+              quantity: detail.currentDetail.quantity,
+            });
+          }
         }
 
         if (changeset.detailsToAdd.length > 0) {
@@ -1147,7 +1224,12 @@ export class PurchaseReturnRepository {
               in: uniqueIds,
             },
             id_return_status:
-              RETURN_DETAIL_STATUS_IDS.READY,
+              {
+                in: [
+                  RETURN_DETAIL_STATUS_IDS.READY,
+                  RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
+                ],
+              },
           },
           _count: {
             id_purchase_return_details: true,

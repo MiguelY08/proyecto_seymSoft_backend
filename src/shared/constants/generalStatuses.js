@@ -106,6 +106,12 @@ export const RETURN_STATUSES = {
     p_description: "Devolución de compra anulada",
     s_description: "Devolución de venta anulada"
   },
+  8: {
+    id: 8,
+    name: "Prov. rechazó",
+    p_description: "El proveedor rechazó la devolución",
+    s_description: "Devolución rechazada por el proveedor"
+  },
 };
 
 export const RETURN_METHODS = {
