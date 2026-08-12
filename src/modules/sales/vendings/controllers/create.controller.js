@@ -7,7 +7,7 @@ import {
   validateCreateVendingParams,
 } from "../validators/index.js";
 
-export const CreateVendingController = async (req, res) => {
+export const CreateVendingController = async (req, res, next) => {
   try {
     // Validar tipo de venta desde la ruta.
     const paramsValidation =
@@ -58,6 +58,7 @@ export const CreateVendingController = async (req, res) => {
         vendingType,
         idEmployee,
         idUser,
+        source: "direct",
         data:
           bodyValidation.data,
       });
@@ -65,6 +66,9 @@ export const CreateVendingController = async (req, res) => {
     if (!result.success) {
       const statusCodeByError = {
         INVALID_SALE_TYPE: 400,
+        INVALID_SALE_CREATION_SOURCE: 500,
+        DIRECT_SALE_REQUIRES_NEW_ORDER: 400,
+        PAID_ORDER_SALE_REQUIRES_ORDER_ID: 400,
         SALE_TYPE_NOT_FOUND: 404,
         EMPLOYEE_REQUIRED: 400,
         EMPLOYEE_USER_NOT_LINKED: 400,
@@ -132,13 +136,7 @@ export const CreateVendingController = async (req, res) => {
       error
     );
 
-    return res.status(500).json({
-      success: false,
-      message:
-        "Error creando la venta.",
-      error:
-        error.message,
-    });
+    return next(error);
   }
 };
 

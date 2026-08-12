@@ -100,7 +100,16 @@ const renderActionLink = (href, label) => `
   </a>
 `;
 
-const renderInfoCard = (content, options = {}) => `
+const renderInfoCard = (content, options = {}) => {
+  const isPickupDelivery = /<strong>Tipo de entrega:<\/strong>\s*Recoge\s*<\/p>/.test(content);
+  const displayContent = isPickupDelivery
+    ? content.replace(
+        /(<strong>Tipo de entrega:<\/strong>\s*Recoge\s*<\/p>)[\s\S]*/,
+        `$1\n          <p style="margin: 0;">\n            <strong>Modalidad:</strong> El cliente recoge en el establecimiento.\n          </p>`
+      )
+    : content;
+
+  return `
   <div style="
     background: ${options.background || COLORS.primarySoft};
     border: 1px solid ${options.borderColor || COLORS.primaryLight};
@@ -109,9 +118,16 @@ const renderInfoCard = (content, options = {}) => `
     margin: 18px 0;
     border-radius: 12px;
   ">
-    ${content}
+    ${displayContent}
   </div>
 `;
+};
+
+const formatPickupDeliveryText = (text) =>
+  text.replace(
+    /\nPersona que recibe\/recoge:[^\n]*(?:\nEnvio:[^\n]*)?\nDepartamento:[^\n]*\nMunicipio\/Ciudad:[^\n]*\nDireccion:[^\n]*/g,
+    "\nModalidad: El cliente recoge en el establecimiento."
+  );
 
 // ----- HELPERS -----
 const renderSectionTitle = (title, subtitle = "") => `
@@ -278,6 +294,8 @@ const renderSummaryGrid = (items = []) => {
 
 const sendMail = async ({ to, subject, text, html }) => {
   const from = getEmailFrom();
+  const isPickupDelivery = /(?:Tipo de entrega|Entrega):\s*Recoge/.test(text);
+  const emailText = isPickupDelivery ? formatPickupDeliveryText(text) : text;
 
   if (resend) {
     console.log("[EmailService] Sending email with Resend", {
@@ -290,7 +308,7 @@ const sendMail = async ({ to, subject, text, html }) => {
       from,
       to,
       subject,
-      text,
+      text: emailText,
       html,
     });
 
@@ -327,7 +345,7 @@ const sendMail = async ({ to, subject, text, html }) => {
     from,
     to,
     subject,
-    text,
+    text: emailText,
     html,
   });
 
@@ -339,122 +357,54 @@ const sendMail = async ({ to, subject, text, html }) => {
   });
 };
 
-const renderDetailsRows = (details = []) => {
+const renderDetailsTable = (details = []) => {
   if (!details.length) {
-    return `
-      <tr>
-        <td colspan="5" style="
-          padding: 16px;
-          border-top: 1px solid ${COLORS.border};
-          color: ${COLORS.muted};
-          text-align: center;
-          font-size: 13px;
-        ">
-          Sin detalles registrados.
-        </td>
-      </tr>
-    `;
+    return renderAlertBox(
+      `<p style="margin: 0; color: ${COLORS.muted};">Sin detalles registrados.</p>`,
+      "primary"
+    );
   }
 
-  return details.map((item, index) => {
-    const background = index % 2 === 0 ? COLORS.white : COLORS.primarySoft;
+  return `
+    <div style="margin: 18px 0;">
+      ${details.map((item, index) => {
+        const background = index % 2 === 0 ? COLORS.white : COLORS.primarySoft;
+        const productName = item.productName || item.name || item.product?.name || "Producto";
+        const barcode = item.barcode || "N/A";
 
-    return `
-      <tr style="background: ${background};">
-        <td style="
-          padding: 12px;
-          border-top: 1px solid ${COLORS.border};
-          vertical-align: middle;
-          color: ${COLORS.text};
-          font-weight: 600;
-        ">
-          ${item.productName || item.name || item.product?.name || "Producto"}
-        </td>
-
-        <td style="
-          padding: 12px;
-          border-top: 1px solid ${COLORS.border};
-          vertical-align: middle;
-          color: ${COLORS.muted};
-          font-size: 13px;
-        ">
-          ${item.barcode || "N/A"}
-        </td>
-
-        <td style="
-          padding: 12px;
-          border-top: 1px solid ${COLORS.border};
-          text-align: right;
-          vertical-align: middle;
-          color: ${COLORS.text};
-        ">
-          ${item.quantity || 0}
-        </td>
-
-        <td style="
-          padding: 12px;
-          border-top: 1px solid ${COLORS.border};
-          text-align: right;
-          vertical-align: middle;
-          color: ${COLORS.text};
-        ">
-          ${formatMoney(item.unitPrice || item.unit_price || 0)}
-        </td>
-
-        <td style="
-          padding: 12px;
-          border-top: 1px solid ${COLORS.border};
-          text-align: right;
-          vertical-align: middle;
-          color: ${COLORS.primary};
-          font-weight: 800;
-        ">
-          ${formatMoney(item.total || item.subtotal || 0)}
-        </td>
-      </tr>
-    `;
-  }).join("");
+        return `
+          <div style="
+            background: ${background};
+            border: 1px solid ${COLORS.border};
+            border-left: 4px solid ${COLORS.primary};
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04);
+          ">
+            <p style="margin: 0; color: ${COLORS.text}; font-size: 15px; font-weight: 800; line-height: 1.35;">
+              ${productName}
+            </p>
+            <p style="margin: 4px 0 12px; color: ${COLORS.muted}; font-size: 12px;">
+              Codigo: ${barcode}
+            </p>
+            <div style="border-top: 1px solid ${COLORS.border}; padding-top: 10px;">
+              <p style="margin: 0 0 6px; color: ${COLORS.text}; font-size: 13px;">
+                <strong>Cantidad:</strong> ${item.quantity || 0}
+              </p>
+              <p style="margin: 0 0 6px; color: ${COLORS.text}; font-size: 13px;">
+                <strong>Precio unitario:</strong> ${formatMoney(item.unitPrice || item.unit_price || 0)}
+              </p>
+              <p style="margin: 0; color: ${COLORS.primary}; font-size: 14px; font-weight: 800;">
+                Total: ${formatMoney(item.total || item.subtotal || 0)}
+              </p>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 };
-
-const renderDetailsTable = (details = []) => `
-  <div style="
-    margin: 20px 0;
-    border: 1px solid ${COLORS.border};
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-  ">
-    <table style="
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      background: ${COLORS.white};
-    ">
-      <thead>
-        <tr style="background: ${COLORS.primary}; color: ${COLORS.white};">
-          <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
-            Producto
-          </th>
-          <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
-            Codigo
-          </th>
-          <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
-            Cantidad
-          </th>
-          <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
-            Precio
-          </th>
-          <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">
-            Total
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        ${renderDetailsRows(details)}
-      </tbody>
-    </table>
-  </div>
-`;
 
 const renderPaymentMethods = (paymentMethods = []) => {
   if (!paymentMethods.length) {
@@ -842,7 +792,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Pedido registrado - #${orderId}`;
     const deliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -929,7 +879,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -955,7 +904,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Pago registrado - Pedido #${orderId}`;
     const paymentDeliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1045,7 +994,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1070,7 +1018,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Comprobante aprobado - Pedido #${orderId}`;
     const approvedDeliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1163,7 +1111,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1184,7 +1131,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Comprobante rechazado - Pedido #${orderId}`;
     const rejectedDeliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1240,7 +1187,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1262,7 +1208,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Estado actualizado - Pedido #${orderId}`;
     const statusDeliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1326,7 +1272,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1348,7 +1293,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Pedido cancelado - #${orderId}`;
     const cancelledDeliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1414,7 +1359,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1440,7 +1384,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Venta registrada - #${saleId}`;
     const deliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1547,7 +1491,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1571,7 +1514,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Venta anulada - #${saleId}`;
     const deliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1654,7 +1597,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 
@@ -1679,7 +1621,7 @@ export class EmailService {
     frontendUrl = getFrontendUrl(),
   }) {
     const name = getName(fullName);
-    const orderUrl = `${frontendUrl}/orders/${orderId}`;
+    const orderUrl = "";
     const subject = `Recordatorio de pago pendiente - Pedido #${orderId}`;
     const reminderDeliveryDepartmentName =
       deliveryDepartment?.name || deliveryDepartment || "No aplica";
@@ -1769,7 +1711,6 @@ export class EmailService {
           </p>
         `)}
 
-        ${renderActionLink(orderUrl, "Ver pedido")}
       `,
     });
 

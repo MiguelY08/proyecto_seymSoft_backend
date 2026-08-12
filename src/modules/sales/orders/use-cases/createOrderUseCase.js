@@ -3,14 +3,12 @@ import {
   ORDER_STATUSES,
   PAYMENT_METHOD_IDS,
   PAYMENT_STATUSES,
-  SALE_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
-import { VendingRepository } from '../../vendings/repositories/vendingRepository.js';
+import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
-import { notifyStockAlertsForProducts } from '../../../notifications/services/stockNotificationService.js';
 import {
   calculateOrderTotals,
   getPriceByClientType,
@@ -28,10 +26,6 @@ const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
-const APPROVED_SALE_STATUS_ID = SALE_STATUSES[1].id;
-const DIRECT_SALE_TYPE_NAME = 'DIRECTA';
-const WEB_SALE_TYPE_NAME = 'WEB';
-const SYSTEM_EMPLOYEE_ID = 7;
 const PAID_ORDER_ALLOWED_STATUS_IDS = [
   READY_ORDER_STATUS_ID,
   DELIVERED_ORDER_STATUS_ID,
@@ -59,22 +53,6 @@ const buildPaymentDeadline = () => {
 
 const buildProductBarcodeKey = (item) =>
   `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
-
-const getOrderItemProductIds = (items = []) => [
-  ...new Set(
-    items
-      .map((item) => Number(item.idProduct ?? item.id_product ?? item.productId))
-      .filter((idProduct) => Number.isInteger(idProduct) && idProduct > 0)
-  ),
-];
-
-const getWebEmployeeId = () => {
-  const idEmployee = Number(process.env.WEB_SALES_EMPLOYEE_ID);
-
-  return Number.isInteger(idEmployee) && idEmployee > 0
-    ? idEmployee
-    : SYSTEM_EMPLOYEE_ID;
-};
 
 const getEnrichedOrderItems = async ({ repo, items, client }) => {
   const barcodeRecords =
@@ -392,49 +370,28 @@ export class CreateOrderUseCase {
   }
 
   async createPaidOrderWithDirectSale(orderData) {
-    if (!orderData.idEmployee && orderData.saleType === 'web') {
-      orderData.idEmployee = getWebEmployeeId();
-    }
-
-    if (!orderData.idEmployee) {
-      throw new AppError(
-        'Debe asociar un empleado para registrar una venta directa desde un pedido pagado.',
-        400
-      );
-    }
-
-    const saleTypeName =
-      orderData.saleType === 'web'
-        ? WEB_SALE_TYPE_NAME
-        : DIRECT_SALE_TYPE_NAME;
-
-    const saleType = await VendingRepository.findSaleTypeByName(saleTypeName);
-
-    if (!saleType) {
-      throw new AppError(`El tipo de venta ${saleTypeName} no existe.`, 404);
-    }
-
     const order = await this.repo.create(orderData);
 
     try {
-      await VendingRepository.create({
-        idOrder: order.id_order,
+      const saleResult = await createVendingUseCase({
+        vendingType: orderData.saleType === 'web' ? 'web' : 'direct',
         idEmployee: orderData.idEmployee,
-        subtotal: orderData.subtotal,
-        idSaleStatus: APPROVED_SALE_STATUS_ID,
-        idSaleType: saleType.id_sale_type,
-        paymentMethods: orderData.initialPayments.map((payment) => ({
-          idPaymentMethod: payment.idPaymentMethod,
-          amount: payment.amount,
-        })),
-        orderDetails: orderData.items,
-        decreaseStock: true,
-        markOrderAsPaid: false,
+        source: 'paid-order',
+        data: {
+          idOrder: order.id_order,
+          paymentMethods: orderData.initialPayments.map((payment) => ({
+            idPaymentMethod: payment.idPaymentMethod,
+            amount: payment.amount,
+          })),
+        },
       });
 
-      await notifyStockAlertsForProducts(
-        getOrderItemProductIds(orderData.items)
-      );
+      if (!saleResult.success) {
+        throw new AppError(
+          saleResult.error || 'No se pudo generar la venta del pedido pagado.',
+          saleResult.errorCode === 'ORDER_ALREADY_SOLD' ? 409 : 400
+        );
+      }
     } catch (error) {
       await this.repo.deleteCreatedOrder(order.id_order);
       await this.repo.restoreClientFavorBalance(
@@ -470,10 +427,7 @@ export class CreateOrderUseCase {
   async execute(dto) {
     const orderData = await this.prepare(dto);
 
-    if (
-      orderData.idPaymentStatus === PAID_PAYMENT_STATUS_ID &&
-      !orderData.isPaidWithFavorBalanceOnly
-    ) {
+    if (orderData.idPaymentStatus === PAID_PAYMENT_STATUS_ID) {
       return this.createPaidOrderWithDirectSale(orderData);
     }
 

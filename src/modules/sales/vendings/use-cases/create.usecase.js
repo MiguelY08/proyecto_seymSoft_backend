@@ -22,6 +22,11 @@ const VENDING_TYPES = [
   "web",
 ];
 
+const SALE_CREATION_SOURCES = {
+  DIRECT: "direct",
+  PAID_ORDER: "paid-order",
+};
+
 const SALE_TYPE_CATALOG_NAMES = {
   manual: "MANUAL",
   direct: "DIRECTA",
@@ -394,8 +399,8 @@ const buildPaymentMethodsFromOrderPayments = (orderPayments = []) => {
  * Use-Case: Crear venta
  *
  * Reglas principales:
- * - La API de Ventas crea primero el pedido y luego la venta.
- * - La generacion automatica desde Pedidos puede usar idOrder interno.
+ * - La API publica de Ventas crea primero el pedido y luego la venta.
+ * - La generacion automatica desde Pedidos usa exclusivamente un idOrder existente.
  * - Una venta exige pago completo: la suma de metodos debe igualar el total.
  * - Si se usa Credito, se valida y descuenta el cupo del cliente en repository.
  */
@@ -406,6 +411,7 @@ export const createVendingUseCase = async (params) => {
       idEmployee,
       idUser,
       dryRun = false,
+      source = SALE_CREATION_SOURCES.PAID_ORDER,
       data,
     } = params;
 
@@ -420,6 +426,39 @@ export const createVendingUseCase = async (params) => {
         data: null,
         error: "Tipo de venta invalido",
         errorCode: "INVALID_SALE_TYPE",
+      };
+    }
+
+    if (!Object.values(SALE_CREATION_SOURCES).includes(source)) {
+      return {
+        success: false,
+        data: null,
+        error: "Origen de creacion de venta invalido",
+        errorCode: "INVALID_SALE_CREATION_SOURCE",
+      };
+    }
+
+    if (
+      source === SALE_CREATION_SOURCES.DIRECT &&
+      (!data.order || data.idOrder)
+    ) {
+      return {
+        success: false,
+        data: null,
+        error: "Una venta directa debe incluir los datos del pedido y no puede reutilizar un pedido existente",
+        errorCode: "DIRECT_SALE_REQUIRES_NEW_ORDER",
+      };
+    }
+
+    if (
+      source === SALE_CREATION_SOURCES.PAID_ORDER &&
+      (!data.idOrder || data.order)
+    ) {
+      return {
+        success: false,
+        data: null,
+        error: "La venta generada desde un pedido pagado requiere un pedido existente",
+        errorCode: "PAID_ORDER_SALE_REQUIRES_ORDER_ID",
       };
     }
 
@@ -574,10 +613,15 @@ export const createVendingUseCase = async (params) => {
               item.ivaAmount,
           }));
       } catch (orderError) {
+        console.error(
+          "[CreateVendingUseCase] Order validation error:",
+          orderError.message
+        );
+
         return {
           success: false,
           data: null,
-          error: "Error validando pedido: " + orderError.message,
+          error: "No fue posible validar los datos del pedido.",
           errorCode: "ORDER_CREATION_ERROR",
         };
       }
@@ -841,6 +885,19 @@ export const createVendingUseCase = async (params) => {
           order:
             rawOrder || createdOrder,
           totals,
+          saleData: {
+            idOrder,
+            idEmployee: resolvedEmployeeId,
+            subtotal: totals.subtotal,
+            idSaleStatus: data.idSaleStatus || SALE_STATUSES[1].id,
+            idSaleType: saleType.id_sale_type,
+            paymentMethods,
+            credit: data.credit,
+            idOrderStatus: directSaleOrderStatus,
+            orderDetails,
+            decreaseStock: true,
+            markOrderAsPaid: createsOrderFromSale,
+          },
           dryRun: true,
         },
         error: null,
@@ -890,10 +947,15 @@ export const createVendingUseCase = async (params) => {
         orderDetails =
           getOrderDetails(rawOrder);
       } catch (orderError) {
+        console.error(
+          "[CreateVendingUseCase] Order creation error:",
+          orderError.message
+        );
+
         return {
           success: false,
           data: null,
-          error: "Error creando pedido: " + orderError.message,
+          error: "No fue posible crear el pedido asociado a la venta.",
           errorCode: "ORDER_CREATION_ERROR",
         };
       }
@@ -1006,7 +1068,7 @@ export const createVendingUseCase = async (params) => {
       error:
         errorCode === "INSUFFICIENT_STOCK"
           ? error.message
-          : "Error creando venta: " + error.message,
+          : "No fue posible crear la venta. Intente nuevamente.",
       errorCode,
     };
   }

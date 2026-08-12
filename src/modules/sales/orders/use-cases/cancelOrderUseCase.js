@@ -1,10 +1,14 @@
-import { ORDER_STATUSES } from '../../../../shared/constants/generalStatuses.js';
+import {
+  ORDER_STATUSES,
+  SALE_STATUSES,
+} from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
+const ANNULLED_SALE_STATUS_ID = SALE_STATUSES[4].id;
 
 export const notifyOrderCancelled = async ({ order, reason }) => {
   const mappedOrder =
@@ -70,6 +74,16 @@ export class CancelOrderUseCase {
     // Evitar cancelar dos veces el mismo pedido.
     if (order.id_order_status === CANCELLED_ORDER_STATUS_ID) {
       throw new AppError('El pedido ya esta cancelado.', 400);
+    }
+
+    if (
+      order.sales &&
+      Number(order.sales.id_sale_status) !== ANNULLED_SALE_STATUS_ID
+    ) {
+      throw new AppError(
+        'No se puede cancelar un pedido con una venta activa. Debe anular la venta asociada.',
+        400
+      );
     }
 
     const canceled = await this.repo.cancel(id, normalizedReason);
