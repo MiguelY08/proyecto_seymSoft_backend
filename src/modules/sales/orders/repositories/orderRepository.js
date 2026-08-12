@@ -688,6 +688,7 @@ export class OrderRepository {
         sales: {
           select: {
             id_sale: true,
+            id_sale_status: true,
           },
         },
         order_details: {

@@ -8,6 +8,7 @@ import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { createVendingUseCase } from '../../vendings/use-cases/create.usecase.js';
+import { VendingRepository } from '../../vendings/repositories/vendingRepository.js';
 import { requiresShippingQuote } from '../helpers/orderShippingStatus.js';
 import {
   assertCanUseFavorBalance,
@@ -78,6 +79,7 @@ const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
     vendingType: getVendingTypeFromOrder(orderWithPayments),
     idUser: options.idUser,
     idEmployee: options.idEmployee,
+    source: 'paid-order',
     data: {
       idOrder: orderWithPayments.id_order,
       idSaleStatus: SALE_STATUSES[1].id,
@@ -106,6 +108,7 @@ const validateSaleFromPaidOrder = async ({
     idUser: options.idUser,
     idEmployee: options.idEmployee,
     dryRun: true,
+    source: 'paid-order',
     data: {
       idOrder,
       idSaleStatus: SALE_STATUSES[1].id,
@@ -119,6 +122,8 @@ const validateSaleFromPaidOrder = async ({
       400
     );
   }
+
+  return saleResult.data.saleData;
 };
 
 export const notifyPaymentRegistered = async ({
@@ -314,10 +319,12 @@ export class RegisterOrderPaymentUseCase {
     const pendingAfter = roundMoney(orderTotal - paidAfter);
     const isPaid = pendingAfter <= 0;
 
+    let saleData = null;
+
     if (isPaid && !order.sales) {
       validateShippingQuoteBeforePaid(order);
 
-      await validateSaleFromPaidOrder({
+      saleData = await validateSaleFromPaidOrder({
         idOrder: order.id_order,
         saleType: getVendingTypeFromOrder(order),
         paymentMethods: getPaymentMethodsFromOrder([
@@ -331,29 +338,29 @@ export class RegisterOrderPaymentUseCase {
       });
     }
 
-    await this.repo.createPayment(order.id_order, {
-      ...data,
-      amount,
-      idClient: order.id_customer,
-    });
-
     let generatedSale = null;
 
-    // Al completar el pago, primero se genera la venta y luego se marca el pedido como Pagado.
     if (isPaid && !order.sales) {
-      generatedSale = await generateSaleFromPaidOrder(
-        this.repo,
+      generatedSale = await VendingRepository.completeOrderPaymentAndCreateSale({
+        saleData,
+        payment: {
+          ...data,
+          amount,
+          idClient: order.id_customer,
+        },
+      });
+    } else {
+      await this.repo.createPayment(order.id_order, {
+        ...data,
+        amount,
+        idClient: order.id_customer,
+      });
+
+      await this.repo.updatePaymentStatus(
         order.id_order,
-        options
+        PAYMENT_STATUSES[1].id
       );
     }
-
-    await this.repo.updatePaymentStatus(
-      order.id_order,
-      isPaid
-        ? PAYMENT_STATUSES[2].id
-        : PAYMENT_STATUSES[1].id
-    );
 
     const finalOrder = await this.repo.findPaymentResultById(
       order.id_order

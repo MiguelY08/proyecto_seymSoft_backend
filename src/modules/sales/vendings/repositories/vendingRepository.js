@@ -10,7 +10,9 @@ import {
   requiresShippingQuote,
 } from "../../orders/helpers/orderShippingStatus.js";
 import {
+  decrementClientFavorBalance,
   getFavorBalancePaymentAmount,
+  isFavorBalancePayment,
   restoreClientFavorBalance,
 } from "../../shared/favorBalance.js";
 import { VendingMapper } from "../mappers/vendingMapper.js";
@@ -546,9 +548,7 @@ const validateCreditCapacity = ({ capacity, creditAmount }) => {
 
 export class VendingRepository {
 
-  static async create(data) {
-    const createdSaleId =
-      await prisma.$transaction(async (tx) => {
+  static async createInTransaction(tx, data) {
         const creditAmount =
           getCreditAmount(data.paymentMethods);
 
@@ -692,23 +692,67 @@ export class VendingRepository {
         }
 
         return createdSale.id_sale;
-      }, {
-        timeout: 15000,
-      });
+  }
 
+  static async findSummaryById(idSale, client = prisma) {
     const sale =
-      await prisma.sales.findUnique({
+      await client.sales.findUnique({
         where: {
-          id_sale:
-            createdSaleId,
+          id_sale: Number(idSale),
         },
-        select:
-          saleSummarySelect,
+        select: saleSummarySelect,
       });
 
-    return mapSaleSummary(
-      sale
-    );
+    return mapSaleSummary(sale);
+  }
+
+  static async create(data) {
+    const createdSaleId =
+      await prisma.$transaction(
+        (tx) => this.createInTransaction(tx, data),
+        {
+        timeout: 15000,
+        }
+      );
+
+    return this.findSummaryById(createdSaleId);
+  }
+
+  static async completeOrderPaymentAndCreateSale({
+    saleData,
+    payment,
+  }) {
+    const createdSaleId = await prisma.$transaction(async (tx) => {
+      if (payment) {
+        if (isFavorBalancePayment(payment)) {
+          await decrementClientFavorBalance(tx, {
+            idClient: payment.idClient,
+            amount: payment.amount,
+            insufficientMessage: 'Saldo a favor insuficiente para registrar el pago.',
+          });
+        }
+
+        await tx.order_payments.create({
+          data: {
+            id_order: Number(saleData.idOrder),
+            id_payment_method: Number(payment.idPaymentMethod),
+            amount: Number(payment.amount),
+            observations: payment.observations || null,
+            reference: payment.reference || null,
+            payment_date: payment.paymentDate || payment.payment_date || undefined,
+          },
+        });
+      }
+
+      return this.createInTransaction(tx, {
+        ...saleData,
+        markOrderAsPaid: true,
+      });
+    }, {
+      timeout: 15000,
+    });
+
+    return this.findSummaryById(createdSaleId);
   }
   static async update(idSale, data) {
     const updatedSaleId =
