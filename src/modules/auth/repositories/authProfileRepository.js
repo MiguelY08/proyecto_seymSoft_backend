@@ -56,6 +56,7 @@ export class AuthProfileRepository {
                 roles: {
                   select: {
                     name_role: true,
+                    id_status: true,
                   },
                 },
               },

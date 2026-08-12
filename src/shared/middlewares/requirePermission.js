@@ -1,6 +1,8 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../errors/appError.js";
 
+const ACTIVE_STATUS_ID = 1;
+
 export const requirePermission = (moduleName, privilegeName) =>
   async (req, res, next) => {
     try {
@@ -16,6 +18,11 @@ export const requirePermission = (moduleName, privilegeName) =>
           employee_roles: {
             select: {
               id_role: true,
+              roles: {
+                select: {
+                  id_status: true,
+                },
+              },
             },
           },
         },
@@ -26,6 +33,13 @@ export const requirePermission = (moduleName, privilegeName) =>
 
       if (!idRole) {
         throw new AppError("No tienes permiso para realizar esta accion.", 403);
+      }
+
+      const roleStatus =
+        employee?.employee_roles?.roles?.id_status;
+
+      if (Number(roleStatus) !== ACTIVE_STATUS_ID) {
+        throw new AppError("Tu rol se encuentra inactivo.", 403);
       }
 
       const [moduleRecord, privilegeRecord] = await Promise.all([

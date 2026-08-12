@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { ROLE_PERMISSION_RULES } 
 from "../src/modules/settings/roles/constants/rolePermissionRules.js";
+import { hashPassword } from "../src/shared/utils/hashPassword.js";
+import { DEFAULT_ADMIN_EMAIL } from "../src/shared/constants/defaultAdminUser.js";
 
 
 const prisma = new PrismaClient();
@@ -123,6 +125,58 @@ async function main() {
     });
 
     console.log("✅ Rol Administrator creado");
+
+    // ==================== USUARIO ADMIN POR DEFECTO ====================
+
+    const defaultAdminPassword = await hashPassword(
+      "adminPapeleriaMagic2026"
+    );
+
+    const defaultAdminUser = await prisma.users.upsert({
+      where: {
+        email: DEFAULT_ADMIN_EMAIL,
+      },
+      update: {
+        full_name: "Administrador SeymSoft",
+        pass_word: defaultAdminPassword,
+        id_status: 1,
+      },
+      create: {
+        full_name: "Administrador SeymSoft",
+        email: DEFAULT_ADMIN_EMAIL,
+        pass_word: defaultAdminPassword,
+        id_status: 1,
+        token_version: 0,
+      },
+    });
+
+    const defaultAdminEmployee = await prisma.employees.upsert({
+      where: {
+        id_user: defaultAdminUser.id_user,
+      },
+      update: {
+        id_status: 1,
+      },
+      create: {
+        id_user: defaultAdminUser.id_user,
+        id_status: 1,
+      },
+    });
+
+    await prisma.employee_roles.upsert({
+      where: {
+        id_employee: defaultAdminEmployee.id_employee,
+      },
+      update: {
+        id_role: adminRole.id_role,
+      },
+      create: {
+        id_employee: defaultAdminEmployee.id_employee,
+        id_role: adminRole.id_role,
+      },
+    });
+
+    console.log("Usuario administrador por defecto creado");
 
     // ==================== ASIGNAR PERMISOS ====================
 

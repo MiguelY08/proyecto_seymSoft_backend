@@ -13,11 +13,12 @@ import { ResetPasswordController } from "../controllers/resetPasswordController.
 import { authMiddleware } from "../../../shared/middlewares/authMiddleware.js";
 import { GoogleAuthController } from "../controllers/googleAuthController.js";
 import { ChangePasswordController } from "../controllers/changePasswordController.js";
+import { registerRateLimiter } from "../middlewares/registerRateLimiter.js";
 
 const router = express.Router();
 
 // POST /auth/register
-router.post("/register", RegisterController.register);
+router.post("/register", registerRateLimiter, RegisterController.register);
 
 // GET /auth/check-email
 router.get("/check-email", CheckEmailAvailabilityController.check);
