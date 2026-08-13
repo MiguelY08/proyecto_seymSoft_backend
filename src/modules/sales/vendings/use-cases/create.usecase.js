@@ -196,22 +196,6 @@ const prepareOrder = async (orderData) => {
   };
 };
 
-const rollbackCreatedOrderFromSale = async ({
-  preparedOrder,
-  idOrder,
-  favorBalanceAmount,
-}) => {
-  if (!preparedOrder?.orderRepository || !idOrder) {
-    return;
-  }
-
-  await preparedOrder.orderRepository.deleteCreatedOrder(idOrder);
-  await preparedOrder.orderRepository.restoreClientFavorBalance(
-    preparedOrder.orderData.idClient,
-    favorBalanceAmount
-  );
-};
-
 const getPaidAmount = (paymentMethods = []) =>
   roundMoney(
     paymentMethods.reduce(
@@ -552,13 +536,18 @@ export const createVendingUseCase = async (params) => {
     }
 
     let order;
-    let createdOrder = null;
     let rawOrder = null;
     let idOrder = null;
     let orderDetails = [];
     let totals = null;
     let preparedOrder = null;
     const createsOrderFromSale = Boolean(data.order);
+    const shouldMarkOrderAsPaid =
+      createsOrderFromSale ||
+      (
+        source === SALE_CREATION_SOURCES.PAID_ORDER &&
+        data.markOrderAsPaid === true
+      );
     const directSaleOrderStatus =
       normalizedType === DIRECT_VENDING_TYPE
         ? DELIVERED_ORDER_STATUS_ID
@@ -882,8 +871,7 @@ export const createVendingUseCase = async (params) => {
         success: true,
         data: {
           sale: null,
-          order:
-            rawOrder || createdOrder,
+          order: rawOrder,
           totals,
           saleData: {
             idOrder,
@@ -896,7 +884,7 @@ export const createVendingUseCase = async (params) => {
             idOrderStatus: directSaleOrderStatus,
             orderDetails,
             decreaseStock: true,
-            markOrderAsPaid: createsOrderFromSale,
+            markOrderAsPaid: shouldMarkOrderAsPaid,
           },
           dryRun: true,
         },
@@ -905,67 +893,10 @@ export const createVendingUseCase = async (params) => {
       };
     }
 
-    if (createsOrderFromSale) {
-      try {
-        const initialPayments =
-          paymentMethods.map((paymentMethod) => ({
-            idPaymentMethod:
-              paymentMethod.idPaymentMethod,
-            amount:
-              paymentMethod.amount,
-            observations:
-              'Pago registrado desde ventas.',
-          }));
-
-        preparedOrder.orderData = {
-          ...preparedOrder.orderData,
-          idPaymentStatus:
-            PAYMENT_STATUSES[2].id,
-          paymentStatus:
-            PAYMENT_STATUSES[2].name,
-          ...(directSaleOrderStatus && {
-            idOrderStatus:
-              directSaleOrderStatus,
-          }),
-          paymentDeadline:
-            null,
-          initialPayments,
-          favorBalanceAmount,
-        };
-
-        createdOrder =
-          await preparedOrder.orderUseCase.createPrepared(
-            preparedOrder.orderData
-          );
-
-        idOrder =
-          getOrderId(createdOrder);
-
-        rawOrder =
-          await VendingRepository.findOrderById(idOrder);
-
-        orderDetails =
-          getOrderDetails(rawOrder);
-      } catch (orderError) {
-        console.error(
-          "[CreateVendingUseCase] Order creation error:",
-          orderError.message
-        );
-
-        return {
-          success: false,
-          data: null,
-          error: "No fue posible crear el pedido asociado a la venta.",
-          errorCode: "ORDER_CREATION_ERROR",
-        };
-      }
-    }
-
     let sale;
 
     try {
-      sale =
-        await VendingRepository.create({
+      const saleData = {
           idOrder,
           idEmployee:
             resolvedEmployeeId,
@@ -982,25 +913,34 @@ export const createVendingUseCase = async (params) => {
             directSaleOrderStatus,
           orderDetails,
           decreaseStock: true,
-          markOrderAsPaid:
-            createsOrderFromSale,
-        });
-    } catch (saleError) {
-      if (createsOrderFromSale) {
-        try {
-          await rollbackCreatedOrderFromSale({
-            preparedOrder,
-            idOrder,
-            favorBalanceAmount,
-          });
-        } catch (cleanupError) {
-          console.error(
-            "[CreateVendingUseCase] Rollback error:",
-            cleanupError.message
-          );
-        }
-      }
+          markOrderAsPaid: shouldMarkOrderAsPaid,
+        };
 
+      sale = createsOrderFromSale
+        ? await VendingRepository.createDirectSaleWithOrder({
+            orderData: {
+              ...preparedOrder.orderData,
+              idPaymentStatus: PAYMENT_STATUSES[2].id,
+              paymentStatus: PAYMENT_STATUSES[2].name,
+              ...(directSaleOrderStatus && {
+                idOrderStatus: directSaleOrderStatus,
+              }),
+              paymentDeadline: null,
+              initialPayments: paymentMethods.map((paymentMethod) => ({
+                idPaymentMethod: paymentMethod.idPaymentMethod,
+                amount: paymentMethod.amount,
+                observations: 'Pago registrado desde ventas.',
+              })),
+              favorBalanceAmount,
+            },
+            saleData,
+          })
+        : await VendingRepository.create(saleData);
+
+      if (createsOrderFromSale) {
+        idOrder = getOrderId(sale);
+      }
+    } catch (saleError) {
       throw saleError;
     }
 
@@ -1030,8 +970,7 @@ export const createVendingUseCase = async (params) => {
       success: true,
       data: {
         sale,
-        order:
-          sale.order || createdOrder,
+        order: sale.order || null,
         totals,
       },
       error: null,

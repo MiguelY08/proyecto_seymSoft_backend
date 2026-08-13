@@ -199,7 +199,15 @@ export class ReviewOrderPaymentReceiptUseCase {
             reviewObservations ||
             `Abono registrado al aprobar comprobante #${receipt.id_order_payment_receipt}.`,
         },
-        options
+        {
+          ...options,
+          receiptReview: {
+            idReceipt: receipt.id_order_payment_receipt,
+            status: PAYMENT_RECEIPT_STATUSES.APPROVED,
+            reviewObservations: reviewObservations || null,
+            reviewedBy: options.idUser || null,
+          },
+        }
       );
       paymentResult = {
         ...registeredPayment,
@@ -208,19 +216,32 @@ export class ReviewOrderPaymentReceiptUseCase {
     }
 
     if (data.status === PAYMENT_RECEIPT_STATUSES.REJECTED) {
-      deadlineResetOrder = await this.repo.resetPaymentDeadline(
+      const updatedReceipt = await this.repo.rejectPaymentReceiptAndResetDeadline(
+        receipt.id_order_payment_receipt,
         idOrder,
-        buildPaymentDeadline()
+        {
+          paymentDeadline: buildPaymentDeadline(),
+          reviewObservations: reviewObservations || null,
+          reviewedBy: options.idUser || null,
+        }
       );
+
+      deadlineResetOrder = await this.repo.findSummaryById(idOrder);
+
+      return {
+        paymentReceipt: mapReceipt(updatedReceipt),
+        paymentResult: null,
+        order: mapOrder(deadlineResetOrder),
+        receiptNotification: {
+          order: deadlineResetOrder,
+          receipt: mapReceipt(updatedReceipt),
+          paymentSummary: null,
+        },
+      };
     }
 
-    const updatedReceipt = await this.repo.updatePaymentReceiptReview(
-      receipt.id_order_payment_receipt,
-      {
-        status: data.status,
-        reviewObservations: reviewObservations || null,
-        reviewedBy: options.idUser || null,
-      }
+    const updatedReceipt = await this.repo.findPaymentReceiptById(
+      receipt.id_order_payment_receipt
     );
 
     const mappedReceipt = mapReceipt(updatedReceipt);

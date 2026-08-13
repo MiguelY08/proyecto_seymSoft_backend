@@ -1075,6 +1075,57 @@ export class OrderRepository {
     });
   }
 
+  /**
+   * Registra un abono que no completa el pedido.
+   *
+   * El pago, el posible descuento de saldo a favor y la confirmación del
+   * estado Pendiente pertenecen a la misma unidad de trabajo. No usar este
+   * método para el último pago: ese flujo también crea una venta.
+   */
+  async registerPartialPayment(idOrder, data) {
+    const paymentStatus = PAYMENT_STATUSES[1];
+
+    return prisma.$transaction(async (tx) => {
+      if (isFavorBalancePayment(data)) {
+        await decrementClientFavorBalance(tx, {
+          idClient: data.idClient,
+          amount: data.amount,
+          insufficientMessage: 'Saldo a favor insuficiente para registrar el pago.',
+        });
+      }
+
+      const payment = await tx.order_payments.create({
+        data: {
+          id_order: Number(idOrder),
+          id_payment_method: Number(data.idPaymentMethod),
+          amount: Number(data.amount),
+          observations: data.observations || null,
+          reference: data.reference || null,
+          payment_date: data.paymentDate || data.payment_date || undefined,
+        },
+        include: {
+          payment_methods: true,
+        },
+      });
+
+      await tx.sales_orders.update({
+        where: {
+          id_order: Number(idOrder),
+        },
+        data: {
+          payment_statuses: {
+            connect: {
+              id_payment_status: paymentStatus.id,
+            },
+          },
+          payment_status: paymentStatus.name,
+        },
+      });
+
+      return payment;
+    });
+  }
+
   async findReceiptUploadContextById(idOrder) {
     return prisma.sales_orders.findUnique({
       where: {
@@ -1147,6 +1198,32 @@ export class OrderRepository {
         reviewed_by: data.reviewedBy ? Number(data.reviewedBy) : null,
       },
       select: paymentReceiptSelect,
+    });
+  }
+
+  async rejectPaymentReceiptAndResetDeadline(receiptId, idOrder, data) {
+    return prisma.$transaction(async (tx) => {
+      await tx.sales_orders.update({
+        where: { id_order: Number(idOrder) },
+        data: {
+          payment_deadline: data.paymentDeadline,
+          payment_reminder_6h_sent: false,
+          payment_reminder_1h_sent: false,
+          payment_expired_at: null,
+          payment_expiration_reason: null,
+        },
+      });
+
+      return tx.order_payment_receipts.update({
+        where: { id_order_payment_receipt: Number(receiptId) },
+        data: {
+          verification_status: PAYMENT_RECEIPT_STATUSES.REJECTED,
+          review_observations: data.reviewObservations || null,
+          reviewed_at: data.reviewedAt || new Date(),
+          reviewed_by: data.reviewedBy ? Number(data.reviewedBy) : null,
+        },
+        select: paymentReceiptSelect,
+      });
     });
   }
 
