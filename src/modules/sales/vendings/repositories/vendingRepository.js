@@ -548,6 +548,81 @@ const validateCreditCapacity = ({ capacity, creditAmount }) => {
 
 export class VendingRepository {
 
+  static async createDirectSaleWithOrder({ orderData, saleData }) {
+    const createdSaleId = await prisma.$transaction(async (tx) => {
+      const order = await tx.sales_orders.create({
+        data: {
+          clients: { connect: { id_client: Number(orderData.idClient) } },
+          order_statuses: {
+            connect: { id_order_status: Number(orderData.idOrderStatus) },
+          },
+          delivery_adress: orderData.deliveryAddress,
+          delivery_type: orderData.deliveryType || 'Recoge',
+          delivery_department_code: orderData.deliveryDepartmentCode,
+          delivery_department_name: orderData.deliveryDepartmentName,
+          delivery_city_code: orderData.deliveryCityCode,
+          delivery_city_name: orderData.deliveryCityName,
+          delivery_recipient_name: orderData.deliveryRecipientName,
+          delivery_recipient_phone: orderData.deliveryRecipientPhone,
+          sale_type: orderData.saleType || 'manual',
+          payment_status: orderData.paymentStatus,
+          payment_statuses: {
+            connect: { id_payment_status: Number(orderData.idPaymentStatus) },
+          },
+          payment_deadline: orderData.paymentDeadline || null,
+          ...(orderData.idEmployee && {
+            employees: { connect: { id_employee: Number(orderData.idEmployee) } },
+          }),
+          subtotal: orderData.subtotal,
+          iva_amount: orderData.ivaAmount,
+          shipping_amount: orderData.shippingAmount,
+          total: orderData.total,
+        },
+        select: { id_order: true },
+      });
+
+      await tx.order_details.createMany({
+        data: orderData.items.map((item) => ({
+          id_order: order.id_order,
+          id_product: Number(item.idProduct ?? item.id_product),
+          barcode: item.barcode,
+          quantity: Number(item.quantity),
+          unit_price: item.unitPrice,
+          subtotal: item.subtotal,
+          iva_amount: item.ivaAmount,
+        })),
+      });
+
+      if (orderData.initialPayments?.length) {
+        await tx.order_payments.createMany({
+          data: orderData.initialPayments.map((payment) => ({
+            id_order: order.id_order,
+            id_payment_method: Number(payment.idPaymentMethod),
+            amount: Number(payment.amount),
+            observations: payment.observations || 'Pago registrado desde ventas.',
+            reference: payment.reference || null,
+            payment_date: payment.paymentDate || undefined,
+          })),
+        });
+      }
+
+      if (Number(orderData.favorBalanceAmount || 0) > 0) {
+        await decrementClientFavorBalance(tx, {
+          idClient: orderData.idClient,
+          amount: orderData.favorBalanceAmount,
+          insufficientMessage: 'Saldo a favor insuficiente para completar la venta.',
+        });
+      }
+
+      return this.createInTransaction(tx, {
+        ...saleData,
+        idOrder: order.id_order,
+      });
+    }, { timeout: 15000 });
+
+    return this.findSummaryById(createdSaleId);
+  }
+
   static async createInTransaction(tx, data) {
         const creditAmount =
           getCreditAmount(data.paymentMethods);
@@ -568,6 +643,7 @@ export class VendingRepository {
               clients: {
                 select: {
                   id_client: true,
+                  id_user: true,
                   credit: true,
                   users: {
                     select: {
@@ -608,9 +684,43 @@ export class VendingRepository {
           });
 
         if (creditAmount > 0) {
+          // Bloquea la fila del cliente durante el cálculo y creación del
+          // crédito. Dos ventas concurrentes del mismo cliente se serializan:
+          // la segunda ve el crédito creado por la primera antes de validar
+          // su cupo disponible.
+          const lockedClient = await tx.clients.update({
+            where: {
+              id_client: order.id_customer,
+            },
+            data: {
+              id_user: order.clients.id_user,
+            },
+            select: {
+              id_client: true,
+              credit: true,
+              users: {
+                select: {
+                  id_status: true,
+                },
+              },
+              credits: {
+                where: {
+                  remaining_balance: {
+                    gt: 0,
+                  },
+                },
+                select: {
+                  remaining_balance: true,
+                  id_credit_status: true,
+                  due_date: true,
+                },
+              },
+            },
+          });
+
           validateCreditCapacity({
             capacity:
-              buildCreditCapacity(order.clients),
+              buildCreditCapacity(lockedClient),
             creditAmount,
           });
         }
@@ -721,6 +831,7 @@ export class VendingRepository {
   static async completeOrderPaymentAndCreateSale({
     saleData,
     payment,
+    receiptReview = null,
   }) {
     const createdSaleId = await prisma.$transaction(async (tx) => {
       if (payment) {
@@ -744,10 +855,28 @@ export class VendingRepository {
         });
       }
 
-      return this.createInTransaction(tx, {
+      const createdSaleId = await this.createInTransaction(tx, {
         ...saleData,
         markOrderAsPaid: true,
       });
+
+      if (receiptReview) {
+        await tx.order_payment_receipts.update({
+          where: {
+            id_order_payment_receipt: Number(receiptReview.idReceipt),
+          },
+          data: {
+            verification_status: receiptReview.status,
+            review_observations: receiptReview.reviewObservations || null,
+            reviewed_at: receiptReview.reviewedAt || new Date(),
+            reviewed_by: receiptReview.reviewedBy
+              ? Number(receiptReview.reviewedBy)
+              : null,
+          },
+        });
+      }
+
+      return createdSaleId;
     }, {
       timeout: 15000,
     });

@@ -14,6 +14,36 @@ const getReceiptBucket = () =>
   process.env.SUPABASE_BUCKET_PAYMENT_RECEIPTS ||
   process.env.SUPABASE_BUCKET_PRODUCTS;
 
+const deleteOrphanReceiptImage = async ({ imageUrl, bucketName, idOrder }) => {
+  const maxAttempts = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await deleteImage(imageUrl, { bucketName });
+      return true;
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `[UploadOrderPaymentReceiptUseCase] Fallo limpiando imagen huérfana (intento ${attempt}/${maxAttempts}):`,
+        error.message
+      );
+    }
+  }
+
+  // Storage no participa en la transacción de BD. Este evento permitirá que
+  // el futuro worker/outbox elimine el archivo de manera idempotente.
+  console.error('[ORPHAN_PAYMENT_RECEIPT_IMAGE]', {
+    idOrder: Number(idOrder),
+    bucketName,
+    imageUrl,
+    attempts: maxAttempts,
+    error: lastError?.message || 'Error desconocido',
+  });
+
+  return false;
+};
+
 const mapReceipt = (receipt) => ({
   id: receipt.id_order_payment_receipt,
   orderId: receipt.id_order,
@@ -107,14 +137,11 @@ export class UploadOrderPaymentReceiptUseCase {
       return mapReceipt(receipt);
     } catch (error) {
       if (imageUrl) {
-        try {
-          await deleteImage(imageUrl, { bucketName });
-        } catch (cleanupError) {
-          console.error(
-            '[UploadOrderPaymentReceiptUseCase] No se pudo eliminar la imagen huerfana:',
-            cleanupError.message
-          );
-        }
+        await deleteOrphanReceiptImage({
+          imageUrl,
+          bucketName,
+          idOrder,
+        });
       }
 
       if (error instanceof AppError) {

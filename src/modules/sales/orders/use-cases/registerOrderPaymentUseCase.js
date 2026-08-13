@@ -84,6 +84,9 @@ const generateSaleFromPaidOrder = async (repo, idOrder, options = {}) => {
       idOrder: orderWithPayments.id_order,
       idSaleStatus: SALE_STATUSES[1].id,
       paymentMethods,
+      // La venta recuperada y el estado Pagado se confirman juntos en la
+      // transacción de creación de venta.
+      markOrderAsPaid: true,
     },
   });
 
@@ -267,11 +270,6 @@ export class RegisterOrderPaymentUseCase {
           options
         );
 
-        await this.repo.updatePaymentStatus(
-          order.id_order,
-          PAYMENT_STATUSES[2].id
-        );
-
         const finalOrder = await this.repo.findPaymentResultById(
           order.id_order
         );
@@ -348,18 +346,14 @@ export class RegisterOrderPaymentUseCase {
           amount,
           idClient: order.id_customer,
         },
+        receiptReview: options.receiptReview || null,
       });
     } else {
-      await this.repo.createPayment(order.id_order, {
+      await this.repo.registerPartialPayment(order.id_order, {
         ...data,
         amount,
         idClient: order.id_customer,
       });
-
-      await this.repo.updatePaymentStatus(
-        order.id_order,
-        PAYMENT_STATUSES[1].id
-      );
     }
 
     const finalOrder = await this.repo.findPaymentResultById(
