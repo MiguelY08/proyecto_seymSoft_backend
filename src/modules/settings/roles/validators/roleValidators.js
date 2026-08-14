@@ -91,8 +91,8 @@ z.object({
       "La descripción debe tener mínimo 10 caracteres"
     )
     .max(
-      100,
-      "La descripción no puede superar 100 caracteres"
+      50,
+      "La descripción no puede superar 50 caracteres"
     )
     .optional(),
 
@@ -146,8 +146,8 @@ z.object({
       "La descripción debe tener mínimo 10 caracteres"
     )
     .max(
-      100,
-      "La descripción no puede superar 100 caracteres"
+      50,
+      "La descripción no puede superar 50 caracteres"
     )
     .optional(),
 
@@ -223,3 +223,4 @@ z.object({
     )
 
 });
+

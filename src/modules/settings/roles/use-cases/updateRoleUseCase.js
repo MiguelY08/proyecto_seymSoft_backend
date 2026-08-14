@@ -3,7 +3,6 @@ import { RoleResponseDto } from "../dtos/roleDtos.js";
 import {
   NotFoundError,
   BadRequestError,
-  ConflictError,
 } from "../../../../shared/errors/index.js";
 import { validateRolePermissions }
   from "../helpers/validateRolePermissions.js";
@@ -48,15 +47,23 @@ export class UpdateRoleUseCase {
       }
     }
 
+    const permissionsToApply =
+      roleData.permissions.length > 0
+        ? roleData.permissions
+        : currentRole.assigned_permissions.map((permission) => ({
+            id_module: permission.id_module,
+            id_privilege: permission.id_privilege,
+          }));
+
     const moduleIds = [
       ...new Set(
-        roleData.permissions.map((permission) => permission.id_module)
+        permissionsToApply.map((permission) => permission.id_module)
       ),
     ];
 
     const privilegeIds = [
       ...new Set(
-        roleData.permissions.map((permission) => permission.id_privilege)
+        permissionsToApply.map((permission) => permission.id_privilege)
       ),
     ];
 
@@ -71,28 +78,16 @@ export class UpdateRoleUseCase {
       );
 
     validateRolePermissions(
-      roleData.permissions,
+      permissionsToApply,
       modules,
       privileges
     );
-
-    const permissionConflicts =
-      await RoleRepository.findPermissionConflicts(
-        roleData.permissions,
-        id_role
-      );
-
-    if (permissionConflicts.length > 0) {
-      throw new ConflictError(
-        "Uno o mas permisos ya estan asignados a otro rol"
-      );
-    }
 
     const role =
       await RoleRepository.updateRolePermissionsTransaction(
         id_role,
         roleData,
-        roleData.permissions.map((permission) => ({
+        permissionsToApply.map((permission) => ({
           id_role,
           id_module: permission.id_module,
           id_privilege: permission.id_privilege,
