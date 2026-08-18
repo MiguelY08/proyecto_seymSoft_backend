@@ -17,10 +17,6 @@ export const createReturnUseCase = async (
   evidenceDescription = '',
   actorUserId = null
 ) => {
-
-
-
-
   try {
     const sale = await ReturnRepository.findSaleById(returnData.idSale);
     if (!sale) {
@@ -53,7 +49,7 @@ export const createReturnUseCase = async (
       return {
         success: false,
         data: null,
-        error: 'Esta venta ya tiene una devoluciÃ³n registrada',
+        error: 'Esta venta ya tiene una devolución registrada',
         errorCode: 'RETURN_ALREADY_EXISTS',
         existingReturnNumber
       };
@@ -113,7 +109,7 @@ export const createReturnUseCase = async (
         unitPrice: Number(detail.unitPrice || 0),
         imageUrl: detail.imageUrl || null,
         isDefective: isDefectiveReason(detail.reasonName || ''),
-        applyCredit: detail.idReturnMethod === 3 && detail.applyCredit === true,
+        applyCredit: detail.idReturnMethod === 3 || detail.metodo === 'Saldo a favor',
         creditApplied: false,
         stockApplied: false,
         stockDelta: 0
@@ -133,8 +129,6 @@ export const createReturnUseCase = async (
       totalUnits += quantity;
 
       const isDefective = isDefectiveReason(detail.reasonName || '');
-
-      // âœ… OBTENER ESTADO SELECCIONADO - SOLUCIÃ“N ERROR #1
       const statusName = detail.status || 'Pend. envio';
 
       const statusRecord = await ReturnRepository.findReturnStatusByName(statusName);
@@ -147,7 +141,7 @@ export const createReturnUseCase = async (
         quantity: quantity,
         idReturnReason: detail.idReturnReason,
         idReturnMethod: detail.idReturnMethod,
-        idReturnStatus: statusId,  // âœ… SOLUCIÃ“N ERROR #1
+        idReturnStatus: statusId,
         idBarcode: detail.idBarcode,
         reasonName: detail.reasonName || '',
         isDefective: isDefective,
@@ -186,6 +180,20 @@ export const createReturnUseCase = async (
       }
     });
 
+    const readyDetails = createdDetails
+      .filter(detail => detail.return_statuses?.name_status === 'Listo')
+      .map(detail => ({
+        idSaleReturnDetail: detail.id_sale_return_detail,
+        idReturnStatus: detail.id_return_status
+      }));
+
+    const stockEvents = readyDetails.length > 0
+      ? await ReturnRepository.applyStockForDetailUpdates(
+        created.id_sales_return,
+        readyDetails
+      )
+      : [];
+
     const readyCreditDetails = createdDetails
       .filter(detail =>
         detail.return_statuses?.name_status === 'Listo' &&
@@ -218,7 +226,8 @@ export const createReturnUseCase = async (
         status: generalStatus,
         nonConformingCreated: 0,
         creditApplied: creditEvents.reduce((total, event) => total + event.amount, 0),
-        creditEvents
+        creditEvents,
+        stockEvents
       },
       error: null,
       errorCode: null

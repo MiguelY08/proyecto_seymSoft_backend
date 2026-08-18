@@ -14,12 +14,7 @@ const statusCodeByError = {
 
 export const createReturnController = async (req, res) => {
 
-
-
-
   try {
-
-
 
     // Parsear 'data' si viene como string en FormData
     let bodyData = req.body;
@@ -29,7 +24,7 @@ export const createReturnController = async (req, res) => {
       bodyData = req.body.data;
     }
 
-    // âœ… Extraer evidenceDescription
+    // Extraer evidenceDescription
     const evidenceDescription = bodyData.evidenceDescription || '';
 
     const validation = validateCreateReturn({
@@ -40,7 +35,7 @@ export const createReturnController = async (req, res) => {
 
       return res.status(400).json({
         success: false,
-        message: 'Errores de validaciÃ³n.',
+        message: 'Errores de validación.',
         errors: validation.errors,
       });
     }
@@ -68,19 +63,15 @@ export const createReturnController = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'DevoluciÃ³n creada exitosamente.',
+      message: 'Devolución creada exitosamente.',
       data: result.data,
     });
 
   } catch (error) {
 
-
-
-
-
     return res.status(500).json({
       success: false,
-      message: 'Error creando la devoluciÃ³n.',
+      message: 'Error creando la devolución.',
       error: error.message,
       stack: error.stack,
     });
