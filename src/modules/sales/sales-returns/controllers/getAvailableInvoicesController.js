@@ -9,8 +9,8 @@ export const getAvailableInvoicesController = async (req, res) => {
 
     const where = {};
 
-    // âœ… NO FILTRAR - mostrar TODAS (anuladas, con devoluciÃ³n, disponibles)
-    // El frontend las deshabilitarÃ¡ segÃºn corresponda
+    // Mostrar todas las ventas; el frontend deshabilita las que no aplican.
+
 
     if (search && search.trim() !== '') {
       const term = search.trim();
@@ -91,7 +91,7 @@ export const getAvailableInvoicesController = async (req, res) => {
             }
           }
         },
-        // âœ… IMPORTANTE: Incluir sales_returns para saber si tiene devoluciÃ³n
+        // Incluir sales_returns para saber si tiene devolución.
         sales_returns: {
           select: {
             id_sales_return: true,
@@ -112,11 +112,11 @@ export const getAvailableInvoicesController = async (req, res) => {
         const clientPhone = clientUser?.phone || client?.contact_person_number || null;
         const phoneString = clientPhone !== null ? String(clientPhone) : null;
 
-        // âœ… DETECTAR SI TIENE DEVOLUCIÃ“N
+        // Detectar si tiene devolución.
         const hasReturn = (sale.sales_returns?.length || 0) > 0;
         const associatedReturn = sale.sales_returns?.[0] || null;
 
-        // âœ… DETECTAR SI ESTÃ ANULADA
+        // Detectar si está anulada.
         const isAnnulled = sale.id_sale_status === 4;
         const eligibility = evaluateSaleReturnEligibility(sale);
 
@@ -132,8 +132,8 @@ export const getAvailableInvoicesController = async (req, res) => {
           subtotal: Number(sale.subtotal || 0),
           total: Number(order?.total || sale.subtotal || 0),
           returnNumber: associatedReturn?.return_number || '',
-          hasReturn: hasReturn,      // âœ… PARA DESHABILITAR EN FRONTEND
-          isAnnulled: isAnnulled,    // âœ… PARA DESHABILITAR EN FRONTEND
+          hasReturn: hasReturn,
+          isAnnulled: isAnnulled,
           statusId: sale.id_sale_status,
           statusName: sale.sale_statuses?.name_status || '',
           canReturn: eligibility.canReturn && !hasReturn && !isAnnulled,
@@ -161,7 +161,7 @@ export const getAvailableInvoicesController = async (req, res) => {
         success: true,
         data: [],
         total: 0,
-        message: 'Error de conexiÃ³n a la base de datos, intenta de nuevo'
+        message: 'Error de conexión a la base de datos, intenta de nuevo'
       });
     }
 
@@ -172,3 +172,4 @@ export const getAvailableInvoicesController = async (req, res) => {
     });
   }
 };
+

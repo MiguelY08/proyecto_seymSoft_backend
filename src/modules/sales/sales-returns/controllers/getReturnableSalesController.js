@@ -31,7 +31,7 @@ export const getReturnableSalesController = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: 'Error obteniendo las ventas disponibles para devoluciÃ³n.',
+      message: 'Error obteniendo las ventas disponibles para devolución.',
       error: error.message,
     });
   }

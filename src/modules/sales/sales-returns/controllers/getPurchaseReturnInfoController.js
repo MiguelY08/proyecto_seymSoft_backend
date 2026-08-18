@@ -1,10 +1,11 @@
 // src/modules/sales/sales-returns/controllers/getPurchaseReturnInfoController.js
 
 import { ReturnRepository } from '../repositories/returnRepository.js';
+import { normalizeReturnText } from '../helpers/returnHelpers.js';
 
 const isDefectiveReason = (detail) => {
-  const reason = String(detail?.return_reasons?.description || '').toUpperCase();
-  return Number(detail?.id_return_reason) === 5 || reason === 'DEFECTUOSO';
+  const reason = normalizeReturnText(detail?.return_reasons?.description || '');
+  return Number(detail?.id_return_reason) === 5 || reason.includes('DEFECTUOSO');
 };
 
 const isReadyStatus = (detail) =>
@@ -53,7 +54,7 @@ export const getPurchaseReturnInfoController = async (req, res) => {
           success: true,
           data: {
             canReturn: false,
-            reason: 'Solo los productos con motivo DEFECTUOSO aplican para esta gestión.',
+            reason: 'Solo los productos con motivo Producto defectuoso aplican para esta gestión.',
             resolution: null
           }
         });
@@ -87,3 +88,4 @@ export const getPurchaseReturnInfoController = async (req, res) => {
     });
   }
 };
+

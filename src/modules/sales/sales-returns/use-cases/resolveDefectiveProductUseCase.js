@@ -1,6 +1,7 @@
 import { ReturnRepository } from '../repositories/returnRepository.js';
 import { createPurchaseReturnUseCase } from '../../../purchases/purchase-returns/use-cases/create.usecase.js';
 import { salesReturnNotificationService } from '../helpers/salesReturnNotificationService.js';
+import { normalizeReturnText } from '../helpers/returnHelpers.js';
 
 const RESOLUTION_ACTIONS = {
   PURCHASE_RETURN: 'PURCHASE_RETURN',
@@ -11,8 +12,8 @@ const isReadyStatus = (detail) =>
   String(detail?.return_statuses?.name_status || '').toLowerCase() === 'listo';
 
 const isDefectiveReason = (detail) => {
-  const reason = String(detail?.return_reasons?.description || '').toUpperCase();
-  return Number(detail?.id_return_reason) === 5 || reason === 'DEFECTUOSO';
+  const reason = normalizeReturnText(detail?.return_reasons?.description || '');
+  return Number(detail?.id_return_reason) === 5 || reason.includes('DEFECTUOSO');
 };
 
 const validateBaseContext = async (saleReturnId, saleReturnDetailId) => {
@@ -41,7 +42,7 @@ const validateBaseContext = async (saleReturnId, saleReturnDetailId) => {
     return {
       success: false,
       errorCode: 'SALE_RETURN_DETAIL_NOT_DEFECTIVE',
-      error: 'Solo los productos con motivo DEFECTUOSO pueden pasar por esta gestión.'
+      error: 'Solo los productos con motivo Producto defectuoso pueden pasar por esta gestión.'
     };
   }
 
@@ -251,3 +252,5 @@ export const resolveDefectiveProductUseCase = async ({
     };
   }
 };
+
+

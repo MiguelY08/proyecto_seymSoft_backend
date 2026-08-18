@@ -9,7 +9,7 @@ export const cancelReturnSchema = z.object({
   body: z.object({
     cancellationReason: z.string()
       .min(10, 'El motivo debe tener al menos 10 caracteres')
-      .max(500, 'El motivo no puede exceder 500 caracteres')
+      .max(255, 'El motivo no puede exceder 255 caracteres')
   })
 });
 

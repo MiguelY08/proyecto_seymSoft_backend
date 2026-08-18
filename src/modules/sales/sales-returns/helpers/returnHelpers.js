@@ -79,14 +79,38 @@ export const calculateGeneralStatus = (details = []) => {
 /**
  * Valida si el motivo es defectuoso (para generar producto no conforme)
  */
-export const isDefectiveReason = (reason) => {
-  const defectiveReasons = [
-    RETURN_REASONS.DEFECTIVE,
-    RETURN_REASONS.BAD_CONDITION,
-    RETURN_REASONS.INCOMPLETE
-  ];
-  return defectiveReasons.includes(reason);
+export const normalizeReturnText = (value = '') => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/_/g, ' ')
+  .trim()
+  .toUpperCase();
+
+export const isNonSellableReason = (reason) => {
+  const normalized = normalizeReturnText(reason);
+  return [
+    'DEFECTUOSO',
+    'PRODUCTO DEFECTUOSO',
+    'MAL ESTADO',
+    'PRODUCTO EN MAL ESTADO',
+    'PRODUCTO USADO',
+    'USADO',
+    'PRODUCTO INCOMPLETO',
+    'INCOMPLETO'
+  ].some(term => normalized.includes(term));
 };
+
+export const isSellableReason = (reason) => {
+  const normalized = normalizeReturnText(reason);
+  return [
+    'PRODUCTO EQUIVOCADO',
+    'EQUIVOCADO',
+    'OTRO',
+    'OTRO MOTIVO'
+  ].some(term => normalized.includes(term));
+};
+
+export const isDefectiveReason = (reason) => isNonSellableReason(reason);
 
 /**
  * Mapeo de estados para el frontend
@@ -133,12 +157,25 @@ export const formatDate = (date) => {
   });
 };
 
-export const calculateReturnStockDelta = ({ method, isDefective, quantity }) => {
+export const calculateReturnStockDelta = ({ method, reason, isDefective, quantity }) => {
   const units = Math.max(0, Number(quantity || 0));
+  if (units <= 0) return 0;
 
-  if (method === RETURN_METHODS.REPLACEMENT) {
-    return isDefective ? -units : 0;
+  const methodName = normalizeReturnText(method);
+  const reasonIsNonSellable = isNonSellableReason(reason);
+  const reasonIsSellable = isSellableReason(reason);
+  const returnsToSellableStock = reasonIsSellable
+    ? true
+    : reasonIsNonSellable
+      ? false
+      : !isDefective;
+
+  let delta = returnsToSellableStock ? units : 0;
+
+  if (methodName.includes('REEMPLAZO')) {
+    delta -= units;
   }
 
-  return isDefective ? 0 : units;
+  return delta;
 };
+

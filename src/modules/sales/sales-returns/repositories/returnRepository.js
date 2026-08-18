@@ -586,6 +586,13 @@ static async findAll(filters = {}) {
             select: {
               sales_orders: { select: { id_customer: true } }
             }
+          },
+          sale_return_details: {
+            include: {
+              return_statuses: true,
+              return_methods: true,
+              return_reasons: true
+            }
           }
         }
       });
@@ -626,6 +633,8 @@ static async findAll(filters = {}) {
           const index = snapshotDetails.findIndex(
             detail => detail.idSaleReturnDetail === appliedDetail.idSaleReturnDetail
           );
+          if (index < 0) return;
+
           snapshotDetails[index] = {
             ...snapshotDetails[index],
             creditReversed: true,
@@ -653,6 +662,36 @@ static async findAll(filters = {}) {
       }
 
       const stockAppliedDetails = snapshotDetails.filter(detail => detail.stockApplied);
+      const stockAppliedIds = new Set(
+        stockAppliedDetails.map(detail => Number(detail.idSaleReturnDetail)).filter(Boolean)
+      );
+
+      for (const detail of returnForCredit.sale_return_details || []) {
+        if (detail.return_statuses?.name_status !== 'Listo') continue;
+        if (stockAppliedIds.has(Number(detail.id_sale_return_detail))) continue;
+
+        const snapshot = snapshotDetails.find(item =>
+          Number(item.idSaleReturnDetail) === Number(detail.id_sale_return_detail)
+        );
+        if (snapshot?.stockReversed) continue;
+
+        const stockDelta = calculateReturnStockDelta({
+          method: detail.return_methods?.description || '',
+          reason: detail.return_reasons?.description || '',
+          isDefective: snapshot?.isDefective === true,
+          quantity: Number(detail.quantity || 0)
+        });
+
+        stockAppliedDetails.push({
+          ...(snapshot || {}),
+          idSaleReturnDetail: detail.id_sale_return_detail,
+          idBarcode: detail.id_barcode,
+          stockDelta,
+          stockApplied: true
+        });
+        stockAppliedIds.add(Number(detail.id_sale_return_detail));
+      }
+
       for (const stockDetail of stockAppliedDetails) {
         const reverseDelta = -Number(stockDetail.stockDelta || 0);
         if (reverseDelta !== 0 && stockDetail.idBarcode) {
@@ -672,12 +711,14 @@ static async findAll(filters = {}) {
         const index = snapshotDetails.findIndex(
           detail => detail.idSaleReturnDetail === stockDetail.idSaleReturnDetail
         );
-        snapshotDetails[index] = {
-          ...snapshotDetails[index],
-          stockApplied: false,
-          stockReversed: true,
-          stockReversedAt: new Date().toISOString()
-        };
+        if (index >= 0) {
+          snapshotDetails[index] = {
+            ...snapshotDetails[index],
+            stockApplied: false,
+            stockReversed: true,
+            stockReversedAt: new Date().toISOString()
+          };
+        }
       }
 
       const updatedReturn = await tx.sales_returns.update({
@@ -871,8 +912,7 @@ static async findAll(filters = {}) {
         const quantity = Number(currentDetail.quantity || 0);
         const method = currentDetail.return_methods?.description || '';
         const reason = currentDetail.return_reasons?.description || '';
-        const isDefective = snapshot.isDefective === true ||
-          ['DEFECTUOSO', 'MAL_ESTADO', 'PRODUCTO_INCOMPLETO'].includes(reason);
+        const isDefective = snapshot.isDefective === true;
         const isReady = targetStatus?.name_status === 'Listo';
 
         if (!isReady && snapshot.stockApplied) {
@@ -908,6 +948,7 @@ static async findAll(filters = {}) {
 
         const stockDelta = calculateReturnStockDelta({
           method,
+          reason,
           isDefective,
           quantity
         });
@@ -1007,12 +1048,13 @@ static async findAll(filters = {}) {
         const snapshotIndex = snapshotDetails.findIndex(
           detail => detail.idSaleReturnDetail === update.idSaleReturnDetail
         );
+        if (snapshotIndex < 0) continue;
+
         const snapshot = snapshotDetails[snapshotIndex];
 
         if (
           targetStatus?.name_status !== 'Listo' ||
           methodName !== 'Saldo a favor' ||
-          !snapshot?.applyCredit ||
           snapshot?.creditApplied
         ) {
           continue;
@@ -1071,7 +1113,7 @@ static async findAll(filters = {}) {
   }
 
   // ============================================
-  // PRODUCTOS NO CONFORMES Y DEVOLUCIÓN DE COMPRA
+  // PRODUCTOS NO CONFORMES Y devolución de compra
   // ============================================
 
   static async getDefaultNonConformingStatus() {
@@ -1316,12 +1358,28 @@ static async findAll(filters = {}) {
   }
 
   static async hasNonConformingProduct(idBarcode, saleReturnId) {
+    const saleReturn = await prisma.sales_returns.findUnique({
+      where: { id_sales_return: Number(saleReturnId) },
+      select: { return_number: true }
+    });
+
+    const references = [
+      saleReturn?.return_number,
+      `devolución de venta #${saleReturnId}`,
+      `devolución venta #${saleReturnId}`,
+      `devolucion de venta #${saleReturnId}`,
+      `devolucion venta #${saleReturnId}`
+    ].filter(Boolean);
+
     const ncp = await prisma.non_conforming_products.findFirst({
       where: {
         id_barcode: Number(idBarcode),
-        report_reason: {
-          contains: `Devolución venta #${saleReturnId}`
-        }
+        OR: references.map((reference) => ({
+          report_reason: {
+            contains: reference,
+            mode: 'insensitive'
+          }
+        }))
       }
     });
     return ncp !== null;
@@ -1377,3 +1435,5 @@ static async findAll(filters = {}) {
     });
   }
 }
+
+

@@ -59,13 +59,7 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
         }
       });
 
-      stockEvents = await ReturnRepository.applyStockForDetailUpdates(
-        id,
-        updateData.details
-      );
-      stockUpdated = stockEvents.length > 0;
-
-      // Actualizar los estados de los productos
+      // Validar antes de mover stock o saldo.
       for (const detail of updateData.details) {
         // Buscar el detalle actual
         const currentDetail = currentDetails.find(d => d.id_sale_return_detail === detail.idSaleReturnDetail);
@@ -77,13 +71,40 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
             errorCode: 'VALIDATION_ERROR'
           };
         }
+
+        if (
+          currentDetail.return_statuses?.name_status === 'Listo' &&
+          Number(currentDetail.id_return_status) !== Number(detail.idReturnStatus)
+        ) {
+          return {
+            success: false,
+            data: null,
+            error: 'No se puede modificar un producto que ya está en estado Listo.',
+            errorCode: 'READY_DETAIL_LOCKED'
+          };
+        }
+
+      }
+
+      stockEvents = await ReturnRepository.applyStockForDetailUpdates(
+        id,
+        updateData.details
+      );
+      stockUpdated = stockEvents.length > 0;
+
+      // Actualizar los estados de los productos
+      for (const detail of updateData.details) {
+        const detailData = {
+          id_return_status: detail.idReturnStatus
+        };
+
+        if (detail.idReturnMethod) {
+          detailData.id_return_method = detail.idReturnMethod;
+        }
         
         await prisma.sale_return_details.update({
           where: { id_sale_return_detail: detail.idSaleReturnDetail },
-          data: {
-            id_return_status: detail.idReturnStatus,
-            id_return_method: detail.idReturnMethod
-          }
+          data: detailData
         });
       }
 

@@ -8,13 +8,24 @@ const CANCELLED_STATUS_NAME = RETURN_STATUS.CANCELLED;
 
 export const cancelReturnUseCase = async (idReturn, cancellationReason, actorUserId = null) => {
   try {
+    const normalizedReason = cancellationReason?.trim() || '';
+
     // 1. Validar motivo
-    if (!cancellationReason?.trim() || cancellationReason.trim().length < 10) {
+    if (!normalizedReason || normalizedReason.length < 10) {
       return {
         success: false,
         data: null,
         error: 'El motivo de anulación debe tener al menos 10 caracteres.',
         errorCode: 'CANCELLATION_REASON_REQUIRED',
+      };
+    }
+
+    if (normalizedReason.length > 255) {
+      return {
+        success: false,
+        data: null,
+        error: 'El motivo de anulación no puede exceder 255 caracteres.',
+        errorCode: 'VALIDATION_ERROR',
       };
     }
 
@@ -59,21 +70,21 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason, actorUse
     const cancelled = await ReturnRepository.cancelReturn({
       idReturn,
       idReturnStatus: cancelledStatus.id_return_status,
-      cancellationReason: cancellationReason.trim()
+      cancellationReason: normalizedReason
     });
 
     if (cancelled.creditReversalEvents?.length > 0) {
       await salesReturnNotificationService.notifyCreditReversed({
         events: cancelled.creditReversalEvents,
         actorUserId,
-        cancellationReason: cancellationReason.trim(),
+        cancellationReason: normalizedReason,
       });
     }
 
     await salesReturnNotificationService.notifyReturnCancelled({
       returnId: idReturn,
       actorUserId,
-      cancellationReason: cancellationReason.trim(),
+      cancellationReason: normalizedReason,
     });
 
     return {
@@ -82,7 +93,7 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason, actorUse
         id: cancelled.id_sales_return,
         returnNumber: cancelled.return_number,
         status: CANCELLED_STATUS_NAME,
-        cancellationReason: cancellationReason.trim(),
+        cancellationReason: normalizedReason,
         cancelledAt: cancelled.cancelled_at,
         creditReversed: (cancelled.creditReversalEvents || []).reduce(
           (total, event) => total + Number(event.amount || 0),
@@ -106,10 +117,22 @@ export const cancelReturnUseCase = async (idReturn, cancellationReason, actorUse
       };
     }
 
+    if (
+      error.message?.includes('stock recibido') ||
+      error.message?.includes('stock disponible es insuficiente')
+    ) {
+      return {
+        success: false,
+        data: null,
+        error: error.message,
+        errorCode: 'RETURNED_STOCK_ALREADY_USED',
+      };
+    }
+
     return {
       success: false,
       data: null,
-      error: 'Error anulando la devolución.',
+      error: error.message || 'Error anulando la devolución.',
       errorCode: 'DATABASE_ERROR',
     };
   }
