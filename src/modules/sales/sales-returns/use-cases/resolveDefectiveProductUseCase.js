@@ -1,5 +1,6 @@
 import { ReturnRepository } from '../repositories/returnRepository.js';
 import { createPurchaseReturnUseCase } from '../../../purchases/purchase-returns/use-cases/create.usecase.js';
+import { RETURN_DETAIL_STATUS_IDS } from '../../../purchases/purchase-returns/helpers/purchaseReturnHelper.js';
 import { salesReturnNotificationService } from '../helpers/salesReturnNotificationService.js';
 import { normalizeReturnText } from '../helpers/returnHelpers.js';
 
@@ -127,6 +128,7 @@ export const resolveDefectiveProductUseCase = async ({
           quantity: requestedQuantity,
           idReturnReason: Number(idReturnReason || 5),
           idReturnMethod: Number(idReturnMethod || 1),
+          idReturnStatus: RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT,
         }]
       });
 
