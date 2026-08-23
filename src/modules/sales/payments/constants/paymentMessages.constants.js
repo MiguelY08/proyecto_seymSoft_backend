@@ -21,7 +21,7 @@ export const PAYMENT_MESSAGES = {
     "El usuario no existe",
 
   INVALID_PASSWORD:
-    "La contraseña es incorrecta",
+    "Contraseña incorrecta",
 
   AMOUNT_EXCEEDS_DEBT:
     "El monto supera la deuda pendiente",

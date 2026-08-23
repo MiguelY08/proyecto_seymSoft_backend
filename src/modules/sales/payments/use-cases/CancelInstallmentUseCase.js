@@ -4,6 +4,7 @@ import calculateCreditStatus from "../helpers/calculateCreditStatus.js";
 import { PAYMENT_MESSAGES } from "../constants/paymentMessages.constants.js";
 
 import { comparePassword } from "../../../../shared/utils/hashPassword.js";
+import { UnauthorizedError } from "../../../../shared/errors/index.js";
 import { paymentNotificationService } from "../services/paymentNotificationService.js";
 import {
   FAVOR_BALANCE_PAYMENT_METHOD_ID,
@@ -71,8 +72,9 @@ export class CancelInstallmentUseCase {
       );
 
     if (!isPasswordValid) {
-      throw new Error(
-        PAYMENT_MESSAGES.INVALID_PASSWORD
+      throw new UnauthorizedError(
+        PAYMENT_MESSAGES.INVALID_PASSWORD,
+        { errorCode: "INVALID_PASSWORD" }
       );
     }
 
