@@ -1,8 +1,16 @@
+import { AppError } from "../../../../shared/errors/appError.js";
+
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
 
 const firstPresent = (...values) =>
   values.find((value) => value !== undefined && value !== null);
+
+const assertReferenceLength = (reference) => {
+  if (reference !== undefined && String(reference).trim().length > 50) {
+    throw new AppError("La referencia no puede superar los 50 caracteres.", 400);
+  }
+};
 
 const normalizeBarcode = (barcode) => {
   const code = firstDefined(barcode.barcode, barcode.codBarras, barcode.code);
@@ -19,6 +27,7 @@ export class UpdateProductDto {
   constructor(data) {
     this.name = firstDefined(data.name, data.nombre);
     this.reference = firstDefined(data.reference, data.referencia);
+    assertReferenceLength(this.reference);
     this.retailPrice = firstDefined(data.retailPrice, data.precioDetalle, data.retail_price);
     this.wholesalePrice = firstDefined(data.wholesalePrice, data.precioMayorista, data.wholesale_price);
     this.partnerPrice = firstDefined(data.partnerPrice, data.precioColegas, data.partner_price);
@@ -73,8 +82,9 @@ export class UpdateProductDto {
 
     if (this.barcodes.length > 0) {
       for (const barcode of this.barcodes) {
-        if (!barcode.barcode || String(barcode.barcode).length < 8) {
-          throw new Error(`Todos los codigos de barras deben tener minimo 8 caracteres. Recibido: "${barcode.barcode}"`);
+        const length = String(barcode.barcode ?? "").trim().length;
+        if (length < 8 || length > 13) {
+          throw new AppError("Todos los codigos de barras deben tener entre 8 y 13 caracteres.", 400);
         }
       }
     }

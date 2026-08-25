@@ -18,7 +18,7 @@ export class AnnulSupplierPurchaseUseCase {
       error.statusCode = 409;
       throw error;
     }
-    if (existing.id_purchase_status === 2) {
+    if ([2, 6].includes(existing.id_purchase_status)) {
       const error = new Error('Esta compra tiene un proceso de devolución activo y no puede anularse.');
       error.statusCode = 409;
       throw error;

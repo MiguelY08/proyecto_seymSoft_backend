@@ -47,6 +47,22 @@ model barcodes {
   sale_return_details     sale_return_details[]
 }
 
+model inventory_stock_movements {
+  id_stock_movement Int      @id @default(autoincrement())
+  id_barcode        Int
+  quantity_delta    Int
+  stock_before      Int
+  stock_after       Int
+  movement_type     String   @db.VarChar(50)
+  reference_type    String?  @db.VarChar(50)
+  reference_id      Int?
+  metadata          Json?
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([id_barcode, created_at], map: "idx_inventory_stock_movements_barcode_date")
+  @@index([reference_type, reference_id], map: "idx_inventory_stock_movements_reference")
+}
+
 model categories {
   id_category         Int                   @id(map: "categorias_pkey") @default(autoincrement())
   category_name       String                @unique(map: "categorias_nombre_categoria_key") @db.VarChar(100)
