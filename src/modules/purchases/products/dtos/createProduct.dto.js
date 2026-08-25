@@ -1,4 +1,5 @@
 import { AppError } from "../../../../shared/errors/appError.js";
+import { hasCompleteSalePrices } from "../use-cases/productCommercialStatus.js";
 
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
@@ -21,10 +22,22 @@ const normalizeBarcode = (barcode) => ({
   stock: parseInt(barcode?.stock ?? barcode?.cantidad ?? barcode?.quantity, 10) || 0,
 });
 
+const assertBarcodeLengths = (barcodes) => {
+  for (const barcode of barcodes) {
+    const length = String(barcode.barcode ?? "").trim().length;
+    if (length < 8 || length > 13) {
+      throw new AppError("Todos los codigos de barras deben tener entre 8 y 13 caracteres.", 400);
+    }
+  }
+};
+
 export class CreateProductDto {
   constructor(data) {
     this.name = data.nombre ?? data.name;
     this.reference = data.referencia ?? data.reference;
+    if (String(this.reference ?? "").trim().length > 50) {
+      throw new AppError("La referencia no puede superar los 50 caracteres.", 400);
+    }
     this.retailPrice = parseFloat(data.precioDetalle ?? data.retailPrice) || 0;
     this.wholesalePrice = parseFloat(data.precioMayorista ?? data.wholesalePrice) || 0;
     this.partnerPrice = parseFloat(data.precioColegas ?? data.partnerPrice) || 0;
@@ -55,7 +68,8 @@ export class CreateProductDto {
     ));
     this.description = data.description || null;
     this.quantityPerPack = parseInt(data.quantityPerPack, 10) || 0;
-    this.idStatus = parsePositiveInt(data.idStatus) || 1;
+    const requestedStatus = parsePositiveInt(data.idStatus) || 1;
+    this.idStatus = hasCompleteSalePrices(this) ? requestedStatus : 2;
     this.categories = data.categories || [];
     this.subcategories = data.subcategories || [];
     this.barcodes = Array.isArray(data.barcodes)
@@ -81,5 +95,7 @@ export class CreateProductDto {
     if (this.barcodes.length === 0) {
       throw new AppError("Debes proporcionar al menos un codigo de barras.", 400);
     }
+
+    assertBarcodeLengths(this.barcodes);
   }
 }

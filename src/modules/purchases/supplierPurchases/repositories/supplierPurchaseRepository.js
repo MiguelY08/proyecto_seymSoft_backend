@@ -30,6 +30,59 @@ const purchaseWithDetailsInclude = {
   },
 };
 
+export const buildPurchaseStockReverts = (details = []) => {
+  const grouped = new Map();
+
+  for (const detail of details) {
+    const idBarcode = Number(detail.id_barcode);
+    const quantity = Number(detail.stock_added ?? detail.quantity);
+
+    if (!Number.isInteger(idBarcode) || idBarcode <= 0 || !Number.isFinite(quantity) || quantity <= 0) continue;
+    grouped.set(idBarcode, (grouped.get(idBarcode) || 0) + quantity);
+  }
+
+  return [...grouped.entries()].map(([idBarcode, quantity]) => ({ idBarcode, quantity }));
+};
+
+export const decrementPurchaseStockAtomically = async (tx, stockReverts, idPurchase) => {
+  for (const { idBarcode, quantity } of stockReverts) {
+    const current = await tx.barcodes.findUnique({
+      where: { id_barcode: idBarcode },
+      select: { stock: true, barcode: true },
+    });
+    const result = await tx.barcodes.updateMany({
+      where: { id_barcode: idBarcode, stock: { gte: quantity } },
+      data: { stock: { decrement: quantity } },
+    });
+
+    if (result.count !== 1) {
+      const error = new Error(
+        `No se puede anular la compra: stock insuficiente para el codigo ${current?.barcode || idBarcode}. ` +
+        `Disponible: ${current?.stock ?? 0}, requerido: ${quantity}.`
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const updated = await tx.barcodes.findUnique({
+      where: { id_barcode: idBarcode },
+      select: { stock: true },
+    });
+
+    await tx.inventory_stock_movements.create({
+      data: {
+        id_barcode: idBarcode,
+        quantity_delta: -quantity,
+        stock_before: updated.stock + quantity,
+        stock_after: updated.stock,
+        movement_type: 'PURCHASE_ANNULMENT',
+        reference_type: 'PURCHASE',
+        reference_id: Number(idPurchase),
+      },
+    });
+  }
+};
+
 export class SupplierPurchaseRepository {
 
   async findAll({ page, limit, search, startDate, endDate, sortField = 'id_purchase', sortOrder = 'desc' }) {
@@ -238,45 +291,42 @@ export class SupplierPurchaseRepository {
 
   async annul(id, cancellationReason) {
     return prisma.$transaction(async (tx) => {
+      const purchaseId = parseInt(id);
       const details = await tx.purchase_details.findMany({
-        where:   { id_purchase: parseInt(id) },
-        include: {
-          barcodes: {
-            include: {
-              products: {
-                select: { barcodes: { select: { id_barcode: true } } },
-              },
-            },
-          },
+        where: { id_purchase: purchaseId },
+        select: {
+          id_barcode: true,
+          quantity: true,
+          stock_added: true,
         },
       });
 
+      const relatedReturn = await tx.purchases_returns.findFirst({
+        where: { id_purchase: purchaseId, id_return_status: { not: 5 } },
+        select: { id_purchase_return: true },
+      });
+
+      if (relatedReturn) {
+        const error = new Error(
+          `Esta compra tiene la devolucion #${relatedReturn.id_purchase_return} sin anular y no puede anularse.`
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const stockReverts = buildPurchaseStockReverts(details);
+      await decrementPurchaseStockAtomically(tx, stockReverts, purchaseId);
+
       const purchase = await tx.purchases.update({
-        where:   { id_purchase: parseInt(id) },
+        where:   { id_purchase: purchaseId },
         data:    { id_purchase_status: 3 },
         include: purchaseWithDetailsInclude,
       });
 
       await tx.purchase_details.updateMany({
-        where: { id_purchase: parseInt(id) },
+        where: { id_purchase: purchaseId },
         data:  { cancellation_reason: cancellationReason },
       });
-
-      // ========== REVERTIR STOCK USANDO stock_added ==========
-      const stockReverts = details.flatMap((d) => {
-        const ids = d.barcodes?.products?.barcodes?.map((b) => b.id_barcode) ?? [];
-        const quantityToRevert = d.stock_added ?? d.quantity;
-        return ids.map((barcodeId) => ({ id: barcodeId, qty: quantityToRevert }));
-      });
-
-      await Promise.all(
-        stockReverts.map(({ id, qty }) =>
-          tx.barcodes.update({
-            where: { id_barcode: id },
-            data:  { stock: { decrement: qty } },
-          })
-        )
-      );
 
       return purchase;
     }, { timeout: 30000 });
