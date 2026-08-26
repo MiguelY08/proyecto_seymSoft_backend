@@ -13,6 +13,7 @@
     "seed": "node prisma/seed.js",
     "prisma:generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
+    "db:deploy": "npm run migrate:deploy && npm run seed",
     "postinstall": "prisma generate"
   },
   "repository": {

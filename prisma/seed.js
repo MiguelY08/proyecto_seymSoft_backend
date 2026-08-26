@@ -244,6 +244,7 @@ async function main() {
   } catch(error){
 
     console.error("❌ Error en seed:", error);
+    process.exitCode = 1;
 
   } finally{
 

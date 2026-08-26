@@ -4,14 +4,14 @@
 
 - Install/build command: `npm install`
 - Start command: `npm start`
-- Migration command: `npm run migrate:deploy`
+- Production database deploy command: `npm run db:deploy`
 
 `postinstall` runs `prisma generate`, so the Prisma client is generated after installing dependencies.
 
 If you deploy with Render Blueprints, the repository includes `render.yaml` with:
 
 - `buildCommand: npm install`
-- `preDeployCommand: npm run migrate:deploy`
+- `preDeployCommand: npm run db:deploy`
 - `startCommand: npm start`
 - `healthCheckPath: /api/health`
 
@@ -33,7 +33,7 @@ The database is PostgreSQL hosted on Neon. Use the Neon connection string in `DA
 
 1. Configure environment variables in the hosting provider.
 2. Install dependencies with `npm install`.
-3. Run migrations with `npm run migrate:deploy`.
+3. Run migrations and seed data with `npm run db:deploy`.
 4. Start the server with `npm start`.
 5. Verify `/api/health`.
 

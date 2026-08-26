@@ -26,7 +26,7 @@ Usar un cliente de prueba, stock limitado y registros identificables. Tras cada 
 
 1. Crear o actualizar un entorno de staging con una copia anonimizada o datos de prueba y ejecutar la tabla anterior.
 2. Confirmar una copia de seguridad recuperable de producción y que `npm run migrate:deploy` no contiene migraciones pendientes inesperadas.
-3. Desplegar en una ventana de bajo tráfico. Render ejecutará `preDeployCommand: npm run migrate:deploy` y verificará `/api/health`.
+3. Desplegar en una ventana de bajo tráfico. Render ejecutará `preDeployCommand: npm run db:deploy` y verificará `/api/health`.
 4. Durante los primeros 30 minutos, vigilar:
    - respuestas 5xx y latencia de `POST /api/orders`, pagos, comprobantes y `POST /api/vendings`;
    - errores Prisma, especialmente timeout, deadlock y restricciones únicas;

@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install
-    preDeployCommand: npm run migrate:deploy
+    preDeployCommand: npm run db:deploy
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeployTrigger: commit
