@@ -1122,6 +1122,22 @@ export class OrderRepository {
         },
       });
 
+      if (data.receiptReview) {
+        await tx.order_payment_receipts.update({
+          where: {
+            id_order_payment_receipt: Number(data.receiptReview.idReceipt),
+          },
+          data: {
+            verification_status: data.receiptReview.status,
+            review_observations: data.receiptReview.reviewObservations || null,
+            reviewed_at: data.receiptReview.reviewedAt || new Date(),
+            reviewed_by: data.receiptReview.reviewedBy
+              ? Number(data.receiptReview.reviewedBy)
+              : null,
+          },
+        });
+      }
+
       return payment;
     });
   }

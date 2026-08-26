@@ -1,6 +1,7 @@
 import {
   ORDER_PAYMENT_EXPIRATION,
   ORDER_STATUSES,
+  PAYMENT_METHOD_IDS,
   PAYMENT_RECEIPT_STATUSES,
 } from '../../../../shared/constants/generalStatuses.js';
 import { AppError } from '../../../../shared/errors/appError.js';
@@ -188,11 +189,31 @@ export class ReviewOrderPaymentReceiptUseCase {
         );
       }
 
+      if (Number(data.idPaymentMethod) !== PAYMENT_METHOD_IDS.TRANSFER) {
+        throw new AppError(
+          'Los comprobantes de pedido solo pueden aprobarse con el metodo Transferencia.',
+          400
+        );
+      }
+
+      const paymentAmount = roundMoney(data.amount);
+
+      if (paymentAmount <= 0) {
+        throw new AppError('El monto del abono debe ser mayor a cero.', 400);
+      }
+
+      if (paymentAmount > pendingAmount) {
+        throw new AppError(
+          `El monto del abono no puede superar el saldo pendiente de ${pendingAmount}.`,
+          400
+        );
+      }
+
       const registeredPayment = await new RegisterOrderPaymentUseCase(this.repo).execute(
         idOrder,
         {
           idPaymentMethod: data.idPaymentMethod,
-          amount: pendingAmount,
+          amount: paymentAmount,
           paymentDate: data.paymentDate,
           reference: data.reference,
           observations:
