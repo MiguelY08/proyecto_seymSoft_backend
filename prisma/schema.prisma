@@ -36,15 +36,16 @@ model banner_img {
 }
 
 model barcodes {
-  id_barcode              Int                       @id(map: "codigo_de_barras_pkey") @default(autoincrement())
-  barcode                 String                    @unique(map: "codigo_de_barras_codigo_de_barras_key") @db.VarChar(100)
-  barcode_type            String?                   @db.VarChar(50)
-  stock                   Int?                      @default(0)
-  id_product              Int
-  products                products                  @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "codigo_de_barras_id_producto_fkey")
-  non_conforming_products non_conforming_products[]
-  purchase_details        purchase_details[]
-  sale_return_details     sale_return_details[]
+  id_barcode                Int                         @id(map: "codigo_de_barras_pkey") @default(autoincrement())
+  barcode                   String                      @unique(map: "codigo_de_barras_codigo_de_barras_key") @db.VarChar(100)
+  barcode_type              String?                     @db.VarChar(50)
+  stock                     Int?                        @default(0)
+  id_product                Int
+  products                  products                    @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "codigo_de_barras_id_producto_fkey")
+  inventory_stock_movements inventory_stock_movements[]
+  non_conforming_products   non_conforming_products[]
+  purchase_details          purchase_details[]
+  sale_return_details       sale_return_details[]
 }
 
 model inventory_stock_movements {
@@ -58,6 +59,7 @@ model inventory_stock_movements {
   reference_id      Int?
   metadata          Json?
   created_at        DateTime @default(now()) @db.Timestamp(6)
+  barcodes          barcodes @relation(fields: [id_barcode], references: [id_barcode], map: "inventory_stock_movements_barcode_fkey")
 
   @@index([id_barcode, created_at], map: "idx_inventory_stock_movements_barcode_date")
   @@index([reference_type, reference_id], map: "idx_inventory_stock_movements_reference")

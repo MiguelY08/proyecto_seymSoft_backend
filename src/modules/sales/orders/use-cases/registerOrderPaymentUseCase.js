@@ -353,6 +353,7 @@ export class RegisterOrderPaymentUseCase {
         ...data,
         amount,
         idClient: order.id_customer,
+        receiptReview: options.receiptReview || null,
       });
     }
 
