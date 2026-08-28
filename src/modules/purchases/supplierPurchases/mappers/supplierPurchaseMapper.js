@@ -22,10 +22,10 @@ export class SupplierPurchaseMapper {
       .filter((b) => b.id_barcode !== detail.id_barcode)
       .map((b) => b.barcode);
     const returnAvailability = detail.returnAvailability ?? {};
-    const purchasedQuantity = returnAvailability.purchasedQuantity ?? detail.quantity;
+    const purchasedQuantity = returnAvailability.purchasedQuantity ?? detail.stock_added ?? detail.quantity;
     const returnReservedQuantity = returnAvailability.reservedQuantity ?? 0;
     const finalReturnedQuantity = returnAvailability.finalReturnedQuantity ?? 0;
-    const returnAvailableQuantity = returnAvailability.availableQuantity ?? detail.quantity;
+    const returnAvailableQuantity = returnAvailability.availableQuantity ?? detail.stock_added ?? detail.quantity;
     const stockAvailable = Number(detail.barcodes?.stock ?? 0);
     const returnEligibleQuantity = Math.max(
       0,

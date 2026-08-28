@@ -50,6 +50,12 @@ const buildLinkedUserClientPayload = (clientData) => ({
   ciuCode: clientData.ciuCode,
 });
 
+const isValidDocument = (document, documentType) => (
+  documentType === 'NIT'
+    ? /^\d+(?:-\d+)?$/.test(String(document || ''))
+    : isNumericString(document)
+);
+
 export const createClientUseCase = async (clientData) => {
   try {
     const normalizedClientData = normalizeClientPayload(clientData);
@@ -58,10 +64,12 @@ export const createClientUseCase = async (clientData) => {
       ? buildLinkedUserClientPayload(normalizedClientData)
       : normalizedClientData;
 
-    if (!isNumericString(clientPayload.document)) {
+    if (!isValidDocument(clientPayload.document, clientPayload.documentType)) {
       return {
         success: false,
-        error: 'El documento solo debe contener numeros',
+        error: clientPayload.documentType === 'NIT'
+          ? 'El NIT solo puede contener numeros y un guion interno'
+          : 'El documento solo debe contener numeros',
         errorCode: 'VALIDATION_ERROR',
       };
     }

@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
   isNumericString,
   normalizeEmail,
-  normalizeName,
   normalizeNumericString,
+  normalizeSpaces,
 } from "../../../shared/utils/textNormalizer.js";
 
 const numericPhoneSchema = z
@@ -18,7 +18,7 @@ const numericPhoneSchema = z
 
 export const createUserSchema = z.object({
   fullName: z.preprocess(
-    normalizeName,
+    normalizeSpaces,
     z
       .string()
       .min(1, "El nombre completo no puede estar vacio")

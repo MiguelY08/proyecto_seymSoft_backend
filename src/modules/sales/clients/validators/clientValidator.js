@@ -7,6 +7,33 @@ import {
 const numericDocumentMessage =
   'El documento solo debe contener numeros';
 
+const validateDocumentByType = (data, context) => {
+  const document = String(data.document || '').trim();
+  const isNit = data.documentType === 'NIT';
+  const validFormat = isNit
+    ? /^\d+(?:-\d+)?$/.test(document)
+    : /^\d+$/.test(document);
+  const digitCount = document.replace(/\D/g, '').length;
+
+  if (!validFormat) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['document'],
+      message: isNit
+        ? 'El NIT solo puede contener numeros y un guion interno'
+        : numericDocumentMessage,
+    });
+  }
+
+  if (digitCount < 6 || digitCount > 19) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['document'],
+      message: 'El documento debe contener entre 6 y 19 digitos',
+    });
+  }
+};
+
 const emailSchema = z.preprocess(
   normalizeEmail,
   z.string().email('Correo invalido')
@@ -65,13 +92,12 @@ const createClientBaseSchema = z.object({
   userId: z.number().int().positive().optional(),
 
   personType: z.enum(['natural', 'juridica'], {
-    required_error: 'El tipo de persona es obligatorio'
+    error: 'El tipo de persona es obligatorio o no es valido'
   }),
   documentType: z.string().min(1, 'El tipo de documento es obligatorio'),
   document: z.string()
-    .regex(/^\d+$/, numericDocumentMessage)
     .min(6, 'El numero de documento debe tener al menos 6 caracteres')
-    .max(19, 'El numero de documento no puede exceder 19 digitos'),
+    .max(20, 'El numero de documento no puede exceder 19 digitos y un guion'),
 
   firstName: nameSchema('El nombre debe tener al menos 2 caracteres').optional(),
   lastName: nameSchema('El apellido debe tener al menos 2 caracteres').optional(),
@@ -80,15 +106,15 @@ const createClientBaseSchema = z.object({
 
   address: z.string().min(1, 'La direccion es obligatoria'),
   clientType: z.enum(['Detal', 'Mayorista', 'Colegas', 'Por paca'], {
-    required_error: 'El tipo de cliente es obligatorio'
+    error: 'El tipo de cliente es obligatorio o no es valido'
   }),
-  rut: z.enum(['si', 'no'], { required_error: 'Indique si tiene RUT' }),
+  rut: z.enum(['si', 'no'], { error: 'Indique si tiene RUT' }),
   ciuCode: z.string().nullable().optional(),
   contactName: contactNameSchema.optional(),
   contactPhone: z.string().regex(/^[0-9]{7,10}$/, 'Telefono de contacto invalido').optional().or(z.literal('')),
   clientCredit: z.string().optional(),
   credit_balance: z.string().optional()
-});
+}).superRefine(validateDocumentByType);
 
 const createClientWithUserSchema = createClientBaseSchema
   .safeExtend({

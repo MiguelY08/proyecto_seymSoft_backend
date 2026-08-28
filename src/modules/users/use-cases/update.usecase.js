@@ -2,8 +2,8 @@ import { UserRepository } from "../repositories/userRepository.js";
 import { prisma } from "../../../config/prisma.js";
 import {
   normalizeEmail,
-  normalizeName,
   normalizeNumericString,
+  normalizeSpaces,
 } from "../../../shared/utils/textNormalizer.js";
 import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
 import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
@@ -41,7 +41,7 @@ export const updateUserUseCase = async (params) => {
     const normalizedUpdateData = {
       ...updateData,
       ...(updateData.fullName !== undefined && {
-        fullName: normalizeName(updateData.fullName),
+        fullName: normalizeSpaces(updateData.fullName),
       }),
       ...(updateData.email !== undefined && {
         email: normalizeEmail(updateData.email),

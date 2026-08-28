@@ -447,6 +447,7 @@ export class PurchaseReturnRepository {
         },
         select: {
           quantity: true,
+          stock_added: true,
         },
       });
 
@@ -472,7 +473,7 @@ export class PurchaseReturnRepository {
       });
 
     return calculatePurchaseDetailReturnAvailability({
-      purchasedQuantity: purchaseDetail.quantity,
+      purchasedQuantity: purchaseDetail.stock_added ?? purchaseDetail.quantity,
       returnDetails,
     });
   }
@@ -504,6 +505,7 @@ export class PurchaseReturnRepository {
           select: {
             id_purchase_detail: true,
             quantity: true,
+            stock_added: true,
           },
         }),
         client.prd.findMany({
@@ -536,7 +538,7 @@ export class PurchaseReturnRepository {
       availabilityByDetail.set(
         id,
         calculatePurchaseDetailReturnAvailability({
-          purchasedQuantity: detail.quantity,
+          purchasedQuantity: detail.stock_added ?? detail.quantity,
           returnDetails:
             returnDetailsByPurchaseDetail.get(id) ?? [],
         })
@@ -1454,6 +1456,10 @@ export class PurchaseReturnRepository {
           purchase_details: {
             select: {
               id_barcode: true,
+              quantity: true,
+              stock_added: true,
+              purchase_type: true,
+              quantity_per_pack: true,
               barcodes: {
                 select: {
                   stock: true,

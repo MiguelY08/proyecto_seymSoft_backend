@@ -5,8 +5,8 @@ import { RoleRepository } from "../../settings/roles/repositories/roleRepository
 import { env } from "../../../config/env.js";
 import {
   normalizeEmail,
-  normalizeName,
   normalizeNumericString,
+  normalizeSpaces,
 } from "../../../shared/utils/textNormalizer.js";
 import { userErrorCodes } from "../../../shared/constants/userErrorCodes.js";
 import { userErrorPublicMessages } from "../../../shared/constants/userErrorPublicMessages.js";
@@ -63,7 +63,7 @@ export const createUserUseCase = async (userData) => {
   try {
     const { phone, idRole } = userData;
 
-    const fullName = normalizeName(userData.fullName);
+    const fullName = normalizeSpaces(userData.fullName);
     const email = normalizeEmail(userData.email);
     const normalizedPhone =
       phone !== undefined && phone !== null
