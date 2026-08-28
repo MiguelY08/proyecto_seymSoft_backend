@@ -8,15 +8,24 @@ export class ClientMapper {
     if (!dbClient) return null;
     
     const user = dbClient.users;
+    const fullName = user?.full_name || '';
+    const isLegalPerson = dbClient.person_type === 'juridica';
+    const businessName = fullName
+      .replace(/\s+(Empresa|N\/A)$/i, '')
+      .trim();
     
     return {
       id: dbClient.id_client,
       personType: dbClient.person_type,
       documentType: dbClient.doc_type,
       document: ClientMapper.#serializeBigInt(dbClient.doc_number),  // ✅ usa ClientMapper
-      firstName: user?.full_name?.split(' ')[0] || '',
-      lastName: user?.full_name?.split(' ').slice(1).join(' ') || '',
-      fullName: user?.full_name || '',
+      firstName: isLegalPerson
+        ? businessName
+        : fullName.split(' ')[0] || '',
+      lastName: isLegalPerson
+        ? ''
+        : fullName.split(' ').slice(1).join(' '),
+      fullName,
       email: user?.email || '',
       phone: user?.phone ? String(user.phone) : '',
       address: dbClient.address || '',

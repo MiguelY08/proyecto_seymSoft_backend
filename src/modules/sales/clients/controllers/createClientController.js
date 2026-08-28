@@ -10,8 +10,16 @@ export const createClientController = async (req, res, next) => {
 
     const validation = validateCreateClient(req.body);
     if (!validation.success) {
+      const validationMessage = validation.errors
+        .map(({ field, message }) => `${field || 'Solicitud'}: ${message}`)
+        .join(' ');
 
-      return res.status(400).json({ success: false, errors: validation.errors });
+      return res.status(400).json({
+        success: false,
+        message: validationMessage || 'Error de validacion al crear el cliente.',
+        errorCode: 'VALIDATION_ERROR',
+        errors: validation.errors,
+      });
     }
 
     const result = await createClientUseCase(validation.data);
