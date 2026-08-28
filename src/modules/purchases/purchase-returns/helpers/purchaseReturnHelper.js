@@ -269,7 +269,9 @@ export const calculatePurchaseDetailsReturnAvailability = ({
     availabilityByDetail.set(
       idPurchaseDetail,
       calculatePurchaseDetailReturnAvailability({
-        purchasedQuantity: detail.quantity,
+        // Las devoluciones se expresan en unidades físicas. Para compras por
+        // paca `quantity` es la cantidad de pacas y `stock_added` las unidades.
+        purchasedQuantity: detail.stock_added ?? detail.stockAdded ?? detail.quantity,
         returnDetails:
           returnDetailsByPurchaseDetail.get(idPurchaseDetail) ?? [],
       })
