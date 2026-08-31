@@ -1,6 +1,7 @@
 import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
+import { validateProductPrices } from "./productPriceValidation.js";
 
 export class UpdateProductUseCase {
   constructor(repo) {
@@ -13,6 +14,14 @@ export class UpdateProductUseCase {
     if (!product) {
       throw new AppError("Producto no encontrado.", 404);
     }
+
+    validateProductPrices({
+      supplierPrice: dto.supplierPrice !== undefined ? dto.supplierPrice : product.precio_proveedor,
+      retailPrice: dto.retailPrice !== undefined ? dto.retailPrice : product.retail_price,
+      wholesalePrice: dto.wholesalePrice !== undefined ? dto.wholesalePrice : product.wholesale_price,
+      partnerPrice: dto.partnerPrice !== undefined ? dto.partnerPrice : product.partner_price,
+      bulkPrice: dto.bulkPrice !== undefined ? dto.bulkPrice : product.bulk_price,
+    });
 
     if (dto.idUnitMeasure !== undefined) {
       const idUnitMeasure = Number.parseInt(dto.idUnitMeasure, 10);

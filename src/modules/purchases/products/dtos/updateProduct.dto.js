@@ -1,4 +1,5 @@
 import { AppError } from "../../../../shared/errors/appError.js";
+import { validateProductPercentages } from "../use-cases/productPercentageValidation.js";
 
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
@@ -43,6 +44,7 @@ export class UpdateProductDto {
     this.partnerDiscountPct = firstDefined(data.partnerDiscountPct, data.partner_discount_pct);
     this.bulkDiscountPct = firstDefined(data.bulkDiscountPct, data.bulk_discount_pct);
     this.ivaPercentage = firstDefined(data.ivaPercentage, data.iva_percentage);
+    validateProductPercentages(this);
     this.idUnitMeasure = firstDefined(
       data.idUnitMeasure,
       data.id_unit_measure,

@@ -1,6 +1,7 @@
 import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
+import { validateProductPrices } from "./productPriceValidation.js";
 
 export class CreateProductUseCase {
   constructor(repo) {
@@ -11,6 +12,7 @@ export class CreateProductUseCase {
     console.log("[CreateProductUseCase] Iniciando con", files.length, "archivos");
 
     const unitMeasure = await this.repo.findUnitMeasureById(dto.idUnitMeasure);
+    validateProductPrices(dto);
     if (!unitMeasure) {
       throw new AppError("La unidad de medida seleccionada no existe.", 400);
     }
