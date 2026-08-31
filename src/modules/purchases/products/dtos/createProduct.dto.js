@@ -1,5 +1,6 @@
 import { AppError } from "../../../../shared/errors/appError.js";
 import { hasCompleteSalePrices } from "../use-cases/productCommercialStatus.js";
+import { validateProductPercentages } from "../use-cases/productPercentageValidation.js";
 
 const firstDefined = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
@@ -53,6 +54,7 @@ export class CreateProductDto {
     this.partnerDiscountPct = parseFloat(data.partnerDiscountPct) || 0;
     this.bulkDiscountPct = parseFloat(data.bulkDiscountPct) || 0;
     this.ivaPercentage = parseFloat(data.ivaPercentage) || 0;
+    validateProductPercentages(this);
     this.idUnitMeasure = parsePositiveInt(firstDefined(
       data.idUnitMeasure,
       data.id_unit_measure,
