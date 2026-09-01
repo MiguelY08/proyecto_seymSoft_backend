@@ -12,19 +12,23 @@ test('optional empty prices remain valid', () => {
   }));
 });
 
-test('each sale price rejects a value above supplier price', () => {
+test('each sale price rejects a value equal to or below supplier price', () => {
   const fields = ['retailPrice', 'wholesalePrice', 'partnerPrice', 'bulkPrice'];
   for (const field of fields) {
     assert.throws(
-      () => validateProductPrices({ supplierPrice: 100, [field]: 101 }),
+      () => validateProductPrices({ supplierPrice: 100, [field]: 100 }),
+      (error) => error.statusCode === 400 && error.message.includes('proveedor')
+    );
+    assert.throws(
+      () => validateProductPrices({ supplierPrice: 100, [field]: 99 }),
       (error) => error.statusCode === 400 && error.message.includes('proveedor')
     );
   }
 });
 
-test('sale prices equal to supplier price are valid', () => {
+test('sale prices above supplier price are valid', () => {
   assert.doesNotThrow(() => validateProductPrices({
-    supplierPrice: 100,
+    supplierPrice: 70,
     retailPrice: 100,
     wholesalePrice: 90,
     partnerPrice: 80,

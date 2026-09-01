@@ -16,9 +16,9 @@ export const validateProductPrices = (prices = {}) => {
   ];
 
   if (supplier !== null) {
-    const aboveSupplier = salePrices.find(([, value]) => value !== null && value > supplier);
-    if (aboveSupplier) {
-      throw new AppError(`${aboveSupplier[0]} no puede superar el precio de compra al proveedor.`, 400);
+    const withoutProfit = salePrices.find(([, value]) => value !== null && value > 0 && value <= supplier);
+    if (withoutProfit) {
+      throw new AppError(`${withoutProfit[0]} debe ser mayor al precio de compra al proveedor.`, 400);
     }
   }
 
