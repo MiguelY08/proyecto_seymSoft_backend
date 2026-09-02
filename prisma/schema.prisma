@@ -732,6 +732,7 @@ model sales_orders {
   payment_reminder_1h_sent  Boolean                  @default(false)
   payment_expired_at        DateTime?                @db.Timestamp(6)
   payment_expiration_reason String?                  @db.VarChar(255)
+  favor_balance_restored_amount Decimal?             @default(0) @db.Decimal(12, 2)
   id_payment_status         Int
   cancellation_reason       String?                  @db.VarChar(255)
   cancelled_at              DateTime?                @db.Timestamp(6)

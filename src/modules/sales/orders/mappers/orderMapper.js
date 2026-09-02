@@ -124,6 +124,10 @@ export const mapOrder = (order) => {
   );
   const paymentStatus = mapPaymentStatus(order);
   const sale = mapSale(order.sales);
+  const isCancelledPendingWebOrder =
+    saleType === 'web' &&
+    Number(order.id_order_status) === 4 &&
+    paymentStatus.id === PAYMENT_STATUSES[1].id;
   const isPaid =
     paymentStatus.id === PAYMENT_STATUSES[2].id ||
     paymentStatus.name === PAYMENT_STATUSES[2].name;
@@ -131,11 +135,15 @@ export const mapOrder = (order) => {
     (acc, payment) => acc + payment.amount,
     0
   );
-  const paidAmount =
+  const paidAmount = isCancelledPendingWebOrder
+    ? 0
+    :
     isPaid && rawPaidAmount === 0
       ? Number(total)
       : rawPaidAmount;
-  const pendingAmount = Math.max(Number(total) - paidAmount, 0);
+  const pendingAmount = isCancelledPendingWebOrder
+    ? 0
+    : Math.max(Number(total) - paidAmount, 0);
 
   return {
     id: order.id_order,
@@ -198,7 +206,10 @@ export const mapOrder = (order) => {
     paymentExpirationReason: order.payment_expiration_reason || null,
     cancellationReason: order.cancellation_reason || null,
     cancelledAt: order.cancelled_at || null,
-    favorBalanceRestoredAmount: Number(order.favorBalanceRestoredAmount || 0),
+    favorBalanceRestoredAmount: Number(
+      order.favor_balance_restored_amount ?? order.favorBalanceRestoredAmount ?? 0
+    ),
+    paymentDataHidden: isCancelledPendingWebOrder,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
     shippingAmount: Number(shippingAmount),
@@ -209,8 +220,8 @@ export const mapOrder = (order) => {
     pendingAmount,
     hasSale: Boolean(sale),
     sale,
-    payments,
-    paymentReceipts,
+    payments: isCancelledPendingWebOrder ? [] : payments,
+    paymentReceipts: isCancelledPendingWebOrder ? [] : paymentReceipts,
     details: (order.order_details || []).map((detail) => {
       const images = mapProductImages(
         detail.products?.product_images || []
@@ -252,6 +263,10 @@ export const mapOrderSummary = (order) => {
     Number(subtotal) + Number(ivaAmount) + Number(shippingAmount);
   const paymentStatus = mapPaymentStatus(order);
   const sale = mapSale(order.sales);
+  const isCancelledPendingWebOrder =
+    saleType === 'web' &&
+    Number(order.id_order_status) === 4 &&
+    paymentStatus.id === PAYMENT_STATUSES[1].id;
   const isPaid =
     paymentStatus.id === PAYMENT_STATUSES[2].id ||
     paymentStatus.name === PAYMENT_STATUSES[2].name;
@@ -262,12 +277,23 @@ export const mapOrderSummary = (order) => {
           (acc, payment) => acc + Number(payment.amount || 0),
           0
         );
-  const paidAmount =
+  const paidAmount = isCancelledPendingWebOrder
+    ? 0
+    :
     isPaid && rawPaidAmount === 0
       ? Number(total)
       : rawPaidAmount;
-  const pendingAmount = Math.max(Number(total) - paidAmount, 0);
-  const paymentReceiptSummary = {
+  const pendingAmount = isCancelledPendingWebOrder
+    ? 0
+    : Math.max(Number(total) - paidAmount, 0);
+  const paymentReceiptSummary = isCancelledPendingWebOrder
+    ? {
+        totalReceipts: 0,
+        pendingReceipts: 0,
+        approvedReceipts: 0,
+        rejectedReceipts: 0,
+      }
+    : {
     totalReceipts:
       Number(order._paymentReceiptSummary?.totalReceipts || 0),
     pendingReceipts:
@@ -276,7 +302,7 @@ export const mapOrderSummary = (order) => {
       Number(order._paymentReceiptSummary?.approvedReceipts || 0),
     rejectedReceipts:
       Number(order._paymentReceiptSummary?.rejectedReceipts || 0),
-  };
+    };
 
   return {
     id: order.id_order,
@@ -330,7 +356,10 @@ export const mapOrderSummary = (order) => {
     saleType,
     paymentStatus: paymentStatus.name,
     paymentStatusDetail: paymentStatus,
-    favorBalanceRestoredAmount: Number(order.favorBalanceRestoredAmount || 0),
+    favorBalanceRestoredAmount: Number(
+      order.favor_balance_restored_amount ?? order.favorBalanceRestoredAmount ?? 0
+    ),
+    paymentDataHidden: isCancelledPendingWebOrder,
     subtotal: Number(subtotal),
     ivaAmount: Number(ivaAmount),
     shippingAmount: Number(shippingAmount),
