@@ -23,7 +23,7 @@ const hasHtmlTag = (value) =>
 const rejectHtml = (message = "No se permiten etiquetas HTML") =>
   z.string().refine((value) => !hasHtmlTag(value), message);
 
-const emailSchema = (message = "Email inválido") =>
+const emailSchema = (message = "Email invÃ¡lido") =>
   z.preprocess(normalizeEmail, z.string().email(message));
 
 const registerEmailSchema = (message = "Email invalido") =>
