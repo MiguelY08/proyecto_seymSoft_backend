@@ -5,6 +5,7 @@ export { getAllReturnsController } from './getAllReturnsController.js';
 export { getReturnByIdController } from './getReturnByIdController.js';
 export { updateReturnController } from './updateReturnController.js';
 export { cancelReturnController } from './cancelReturnController.js';
+export { cancelReturnDetailController } from './cancelReturnDetailController.js';
 export { getReturnableSalesController } from './getReturnableSalesController.js';
 export { deleteEvidenceController } from './deleteEvidenceController.js';
 export { getPurchaseReturnInfoController } from './getPurchaseReturnInfoController.js';

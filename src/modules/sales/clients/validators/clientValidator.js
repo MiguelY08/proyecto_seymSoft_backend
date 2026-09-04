@@ -45,6 +45,14 @@ const nameSchema = (minMessage) =>
     z.string().min(2, minMessage)
   );
 
+const optionalNameSchema = (minMessage) =>
+  z.preprocess(
+    (value) => value === '' || value === null || value === undefined
+      ? undefined
+      : normalizeName(value),
+    z.string().min(2, minMessage).optional()
+  );
+
 const contactNameSchema = z.preprocess(
   (value) => value === '' ? value : normalizeName(value),
   z.string().max(255)
@@ -54,16 +62,18 @@ const ownClientProfileSchema = z.object({
   personType: z.enum(['natural', 'juridica']),
   documentType: z.string().trim().min(1, 'El tipo de documento es obligatorio'),
   document: z.string()
-    .regex(/^\d+$/, numericDocumentMessage)
     .min(6, 'El documento debe tener al menos 6 caracteres')
     .max(20, 'El documento no puede superar 20 caracteres'),
   firstName: nameSchema('El nombre debe tener al menos 2 caracteres'),
-  lastName: nameSchema('El apellido debe tener al menos 2 caracteres'),
+  lastName: z.preprocess(
+    (value) => value === '' ? value : normalizeName(value),
+    z.string()
+  ),
   phone: z.string().regex(/^[0-9]{7,10}$/, 'Telefono invalido (7-10 digitos)'),
   email: emailSchema,
   address: z.string().trim().min(5, 'La direccion debe tener al menos 5 caracteres'),
   rut: z.enum(['si', 'no']),
-  ciuCode: z.string().trim().max(25, 'El codigo CIU no puede superar 25 caracteres')
+  ciuCode: z.string().trim().max(4, 'El codigo CIU no puede superar 4 caracteres')
     .optional()
     .or(z.literal('')),
   contactName: contactNameSchema.optional().or(z.literal('')),
@@ -72,6 +82,32 @@ const ownClientProfileSchema = z.object({
     .optional()
     .or(z.literal('')),
 }).superRefine((data, context) => {
+  validateDocumentByType(data, context);
+
+  if (data.personType === 'juridica' && data.documentType !== 'NIT') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['documentType'],
+      message: 'Una persona juridica debe usar NIT',
+    });
+  }
+
+  if (data.personType === 'natural' && data.documentType === 'NIT') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['documentType'],
+      message: 'Una persona natural no puede usar NIT',
+    });
+  }
+
+  if (data.personType === 'natural' && (!data.lastName || data.lastName.trim().length < 2)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['lastName'],
+      message: 'El apellido debe tener al menos 2 caracteres',
+    });
+  }
+
   if ((data.contactName && !data.contactPhone) || (!data.contactName && data.contactPhone)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -79,11 +115,11 @@ const ownClientProfileSchema = z.object({
       message: 'Completa ambos datos de la persona de contacto',
     });
   }
-  if (data.rut === 'si' && (!data.ciuCode || data.ciuCode.length < 3)) {
+  if (data.rut === 'si' && (!data.ciuCode || !/^\d{4}$/.test(data.ciuCode))) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['ciuCode'],
-      message: 'El codigo CIU es obligatorio y debe tener al menos 3 caracteres',
+      message: 'El codigo CIU es obligatorio y debe tener exactamente 4 numeros',
     });
   }
 });
@@ -99,8 +135,8 @@ const createClientBaseSchema = z.object({
     .min(6, 'El numero de documento debe tener al menos 6 caracteres')
     .max(20, 'El numero de documento no puede exceder 19 digitos y un guion'),
 
-  firstName: nameSchema('El nombre debe tener al menos 2 caracteres').optional(),
-  lastName: nameSchema('El apellido debe tener al menos 2 caracteres').optional(),
+  firstName: optionalNameSchema('El nombre debe tener al menos 2 caracteres'),
+  lastName: optionalNameSchema('El apellido debe tener al menos 2 caracteres'),
   phone: z.string().regex(/^[0-9]{7,10}$/, 'Telefono invalido (7-10 digitos)').optional(),
   email: emailSchema.optional(),
 
@@ -114,7 +150,33 @@ const createClientBaseSchema = z.object({
   contactPhone: z.string().regex(/^[0-9]{7,10}$/, 'Telefono de contacto invalido').optional().or(z.literal('')),
   clientCredit: z.string().optional(),
   credit_balance: z.string().optional()
-}).superRefine(validateDocumentByType);
+}).superRefine((data, context) => {
+  validateDocumentByType(data, context);
+
+  if (data.personType === 'juridica' && data.documentType !== 'NIT') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['documentType'],
+      message: 'Una persona jurídica debe usar NIT',
+    });
+  }
+
+  if (data.personType === 'natural' && data.documentType === 'NIT') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['documentType'],
+      message: 'Una persona natural no puede usar NIT',
+    });
+  }
+
+  if (data.personType === 'natural' && (!data.lastName || data.lastName.trim().length < 2)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['lastName'],
+      message: 'El apellido debe tener al menos 2 caracteres',
+    });
+  }
+});
 
 const createClientWithUserSchema = createClientBaseSchema
   .safeExtend({
@@ -130,9 +192,14 @@ const createClientWithUserSchema = createClientBaseSchema
 
 const createStandaloneClientSchema = createClientBaseSchema
   .refine(data => (
-    Boolean(data.firstName && data.lastName && data.phone && data.email)
+    Boolean(
+      data.firstName &&
+      data.phone &&
+      data.email &&
+      (data.personType === 'juridica' || data.lastName)
+    )
   ), {
-    message: 'firstName, lastName, phone y email son obligatorios cuando no se proporciona userId',
+    message: 'Nombre, telefono, correo y apellido para persona natural son obligatorios cuando no se proporciona userId',
     path: ['firstName']
   })
   .refine(data => {

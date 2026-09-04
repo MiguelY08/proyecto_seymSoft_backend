@@ -55,8 +55,8 @@ export class ClientRepository {
     return client ? ClientMapper.toDTO(client) : null;
   }
 
-  static async create(clientData, userId) {
-    const client = await prisma.clients.create({
+  static async create(clientData, userId, db = prisma) {
+    const client = await db.clients.create({
       data: {
         person_type: clientData.personType,
         doc_type: clientData.documentType,

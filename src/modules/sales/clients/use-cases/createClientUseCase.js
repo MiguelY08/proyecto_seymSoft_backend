@@ -1,6 +1,9 @@
 import { ClientRepository } from '../repositories/clientRepository.js';
-import { createUserUseCase } from '../../../users/use-cases/createUser.usecase.js';
 import { UserRepository } from '../../../users/repositories/userRepository.js';
+import { prisma } from '../../../../config/prisma.js';
+import { env } from '../../../../config/env.js';
+import { hashPassword } from '../../../../shared/utils/hashPassword.js';
+import { EmailService } from '../../../../shared/services/emailService.js';
 import {
   isNumericString,
   normalizeEmail,
@@ -56,6 +59,36 @@ const isValidDocument = (document, documentType) => (
     : isNumericString(document)
 );
 
+const generateRandomPassword = () => {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const allChars = uppercase + lowercase + numbers;
+
+  let password = '';
+
+  for (let i = 0; i < 10; i++) {
+    password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+  }
+
+  return password;
+};
+
+const sendWelcomeEmailInBackground = ({ email, tempPassword, fullName }) => {
+  setImmediate(async () => {
+    try {
+      await EmailService.sendWelcomeEmail(email, tempPassword, fullName, env.FRONTEND_URL);
+    } catch (emailError) {
+      console.error('[CreateClientUseCase] Email error:', {
+        message: emailError.message,
+        code: emailError.code,
+        command: emailError.command,
+        responseCode: emailError.responseCode,
+      });
+    }
+  });
+};
+
 export const createClientUseCase = async (clientData) => {
   try {
     const normalizedClientData = normalizeClientPayload(clientData);
@@ -96,21 +129,83 @@ export const createClientUseCase = async (clientData) => {
       return { success: true, data: newClient };
     }
 
-    const userResult = await createUserUseCase({
-      fullName: `${normalizedClientData.firstName} ${normalizedClientData.lastName}`,
-      email: normalizedClientData.email,
-      phone: normalizedClientData.phone || null,
-    });
+    const isLegalPerson = normalizedClientData.personType === 'juridica';
+    const fullName = isLegalPerson
+      ? String(normalizedClientData.firstName || '').trim()
+      : `${normalizedClientData.firstName} ${normalizedClientData.lastName}`.trim();
+    const email = normalizedClientData.email;
+    const existingEmail = await UserRepository.findByEmail(email);
 
-    if (!userResult.success) {
-      return { success: false, error: userResult.error, errorCode: userResult.errorCode };
+    if (existingEmail) {
+      const alreadyClient = await ClientRepository.isUserAlreadyClient(existingEmail.id_user);
+
+      if (!alreadyClient) {
+        const linkedClient = await prisma.$transaction(async (tx) => {
+          await tx.users.update({
+            where: { id_user: existingEmail.id_user },
+            data: {
+              full_name: fullName,
+              phone: normalizedClientData.phone ? BigInt(normalizedClientData.phone) : null,
+              id_status: 1
+            }
+          });
+
+          return ClientRepository.create(normalizedClientData, existingEmail.id_user, tx);
+        });
+
+        return { success: true, data: linkedClient };
+      }
+
+      return {
+        success: false,
+        error: 'El correo ya está registrado',
+        errorCode: 'DUPLICATE_EMAIL'
+      };
     }
 
-    const userId = userResult.data.idUser;
-    const newClient = await ClientRepository.create(normalizedClientData, userId);
+    const tempPassword = generateRandomPassword();
+    const hashedPassword = await hashPassword(tempPassword);
+
+    const newClient = await prisma.$transaction(async (tx) => {
+      const user = await tx.users.create({
+        data: {
+          id_google: null,
+          token_version: 0,
+          full_name: fullName,
+          email,
+          pass_word: hashedPassword,
+          phone: normalizedClientData.phone ? BigInt(normalizedClientData.phone) : null,
+          id_status: 1
+        }
+      });
+
+      return ClientRepository.create(normalizedClientData, user.id_user, tx);
+    });
+
+    sendWelcomeEmailInBackground({
+      email,
+      tempPassword,
+      fullName,
+    });
+
     return { success: true, data: newClient };
 
   } catch (error) {
+    if (error.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target)
+        ? error.meta.target.join(', ')
+        : String(error.meta?.target || '');
+
+      if (target.includes('email')) {
+        return {
+          success: false,
+          error: 'El correo ya está registrado',
+          errorCode: 'DUPLICATE_EMAIL'
+        };
+      }
+    }
+
     return { success: false, error: error.message, errorCode: 'DATABASE_ERROR' };
   }
 };
+

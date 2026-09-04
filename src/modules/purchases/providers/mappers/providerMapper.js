@@ -14,14 +14,23 @@ export class ProviderMapper {
       name: pc.categories?.category_name
     })) || [];
     
+    const isLegalPerson = dbProvider.person_type === 'juridica';
+    const lastname = String(dbProvider.lastname || '').trim();
+    const displayLastname = isLegalPerson && lastname.toLowerCase() === 'empresa'
+      ? ''
+      : lastname;
+    const fullName = isLegalPerson
+      ? String(dbProvider.name_provider || '').trim()
+      : `${dbProvider.name_provider || ''} ${displayLastname}`.trim();
+
     return {
       id: dbProvider.id_provider,
       personType: dbProvider.person_type,
       documentType: dbProvider.document_type,
       documentNumber: dbProvider.document_number,
       nameProvider: dbProvider.name_provider,
-      lastname: dbProvider.lastname,
-      fullName: `${dbProvider.name_provider || ''} ${dbProvider.lastname || ''}`.trim(),
+      lastname: displayLastname,
+      fullName,
       email: dbProvider.email,
       phone: dbProvider.phone,
       address: dbProvider.address,
@@ -44,7 +53,7 @@ export class ProviderMapper {
       document_type: dto.documentType,
       document_number: dto.documentNumber,
       name_provider: dto.nameProvider,
-      lastname: dto.lastname,
+      lastname: dto.personType === 'juridica' ? null : dto.lastname,
       email: dto.email,
       phone: dto.phone,
       address: dto.address,

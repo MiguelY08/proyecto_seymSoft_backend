@@ -4,14 +4,112 @@ const TIPO_PERSONA = ['natural', 'juridica'];
 const TIPO_DOCUMENTO_NATURAL = ['CC', 'CE', 'PP'];
 const TIPO_DOCUMENTO_JURIDICA = ['NIT'];
 
-// ==================== CREATE PROVIDER VALIDATOR ====================
+const LETTERS_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+const COMPANY_NAME_REGEX = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s&.,#'-]+$/;
+const NIT_REGEX = /^\d+(?:-\d+)?$/;
+const NUMERIC_DOCUMENT_REGEX = /^\d+$/;
+
+const validateDocumentByPersonType = (data, ctx) => {
+  if (data.personType === 'juridica') {
+    if (!TIPO_DOCUMENTO_JURIDICA.includes(data.documentType)) {
+      ctx.addIssue({
+        path: ['documentType'],
+        message: 'La persona jurídica debe usar tipo de documento NIT',
+        code: 'custom'
+      });
+    }
+
+    if (!COMPANY_NAME_REGEX.test(data.nameProvider)) {
+      ctx.addIssue({
+        path: ['nameProvider'],
+        message: 'El nombre de la empresa contiene caracteres no permitidos',
+        code: 'custom'
+      });
+    }
+
+    if (!NIT_REGEX.test(data.documentNumber)) {
+      ctx.addIssue({
+        path: ['documentNumber'],
+        message: 'El NIT solo puede contener números y un guion interno',
+        code: 'custom'
+      });
+    }
+  }
+
+  if (data.personType === 'natural') {
+    if (data.documentType === 'NIT') {
+      ctx.addIssue({
+        path: ['documentType'],
+        message: 'La persona natural no puede usar tipo de documento NIT',
+        code: 'custom'
+      });
+    }
+
+    if (!TIPO_DOCUMENTO_NATURAL.includes(data.documentType)) {
+      ctx.addIssue({
+        path: ['documentType'],
+        message: 'La persona natural debe usar CC, CE o PP',
+        code: 'custom'
+      });
+    }
+
+    if (!NUMERIC_DOCUMENT_REGEX.test(data.documentNumber)) {
+      ctx.addIssue({
+        path: ['documentNumber'],
+        message: 'El documento solo debe contener números',
+        code: 'custom'
+      });
+    }
+
+    if (!LETTERS_REGEX.test(data.nameProvider)) {
+      ctx.addIssue({
+        path: ['nameProvider'],
+        message: 'El nombre solo debe contener letras',
+        code: 'custom'
+      });
+    }
+
+    if (!data.lastname || data.lastname.trim().length < 2) {
+      ctx.addIssue({
+        path: ['lastname'],
+        message: 'El apellido es obligatorio',
+        code: 'custom'
+      });
+    } else if (!LETTERS_REGEX.test(data.lastname)) {
+      ctx.addIssue({
+        path: ['lastname'],
+        message: 'El apellido solo debe contener letras',
+        code: 'custom'
+      });
+    }
+  }
+};
+
+const validateRutCiu = (data, ctx) => {
+  if (data.rut === true && !data.ciuCode) {
+    ctx.addIssue({
+      path: ['ciuCode'],
+      message: 'El código CIU es obligatorio cuando RUT es Sí',
+      code: 'custom'
+    });
+  }
+
+  if (data.rut === true && data.ciuCode && !/^\d{4}$/.test(data.ciuCode)) {
+    ctx.addIssue({
+      path: ['ciuCode'],
+      message: 'El código CIU debe tener exactamente 4 números',
+      code: 'custom'
+    });
+  }
+};
+
 export const createProviderValidator = z.object({
   body: z.object({
     personType: z.enum(TIPO_PERSONA),
     documentType: z.string(),
-    documentNumber: z.string().min(6).max(20).regex(/^[0-9-]+$/, 'Solo números y guiones'),
-    nameProvider: z.string().min(2).max(100).regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/),
-    lastname: z.string().min(2).max(100).regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/),
+    documentNumber: z.string().min(6).max(20),
+    nameProvider: z.string().min(2).max(100),
+    lastname: z.string().max(100).optional().or(z.literal('')),
     email: z.string().email().max(150),
     phone: z.string().regex(/^[0-9]{7,10}$/),
     address: z.string().min(5).max(255),
@@ -22,50 +120,11 @@ export const createProviderValidator = z.object({
     maxReturnPeriod: z.number().int().positive().optional().nullable(),
     idStatus: z.number().int().min(1).max(2).default(1)
   }).superRefine((data, ctx) => {
-    // ========== VALIDACIÓN PARA PERSONA JURÍDICA ==========
-    if (data.personType === 'juridica') {
-      // Debe usar tipo de documento NIT
-      if (!TIPO_DOCUMENTO_JURIDICA.includes(data.documentType)) {
-        ctx.addIssue({
-          path: ['documentType'],
-          message: 'La persona jurídica debe usar tipo de documento NIT',
-          code: 'custom'
-        });
-      }
-    }
-    
-    // ========== VALIDACIÓN PARA PERSONA NATURAL ==========
-    if (data.personType === 'natural') {
-      // No puede usar tipo de documento NIT
-      if (data.documentType === 'NIT') {
-        ctx.addIssue({
-          path: ['documentType'],
-          message: 'La persona natural no puede usar tipo de documento NIT',
-          code: 'custom'
-        });
-      }
-      // Debe usar CC, CE o PP
-      if (!TIPO_DOCUMENTO_NATURAL.includes(data.documentType)) {
-        ctx.addIssue({
-          path: ['documentType'],
-          message: 'La persona natural debe usar CC, CE o PP',
-          code: 'custom'
-        });
-      }
-    }
-    
-    // ========== VALIDACIÓN: RUT = true => CIU OBLIGATORIO ==========
-    if (data.rut === true && !data.ciuCode) {
-      ctx.addIssue({
-        path: ['ciuCode'],
-        message: 'El código CIU es obligatorio cuando RUT es Sí',
-        code: 'custom'
-      });
-    }
+    validateDocumentByPersonType(data, ctx);
+    validateRutCiu(data, ctx);
   })
 });
 
-// ==================== UPDATE PROVIDER VALIDATOR ====================
 export const updateProviderValidator = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, 'ID debe ser un número válido')
@@ -82,18 +141,10 @@ export const updateProviderValidator = z.object({
     maxReturnPeriod: z.number().int().positive().optional().nullable(),
     idStatus: z.number().int().min(1).max(2).optional()
   }).superRefine((data, ctx) => {
-    // Validación: Si se está actualizando rut a true y no hay ciuCode
-    if (data.rut === true && !data.ciuCode) {
-      ctx.addIssue({
-        path: ['ciuCode'],
-        message: 'El código CIU es obligatorio cuando RUT es Sí',
-        code: 'custom'
-      });
-    }
+    validateRutCiu(data, ctx);
   })
 });
 
-// ==================== GET PROVIDERS VALIDATOR ====================
 export const getProvidersValidator = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
@@ -106,21 +157,18 @@ export const getProvidersValidator = z.object({
   })
 });
 
-// ==================== GET PROVIDER BY ID VALIDATOR ====================
 export const getProviderByIdValidator = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, 'ID debe ser un número válido')
   })
 });
 
-// ==================== DELETE PROVIDER VALIDATOR ====================
 export const deleteProviderValidator = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, 'ID debe ser un número válido')
   })
 });
 
-// ==================== TOGGLE PROVIDER STATUS VALIDATOR ====================
 export const toggleProviderStatusValidator = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, 'ID debe ser un número válido')
