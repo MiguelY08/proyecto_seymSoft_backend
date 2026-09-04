@@ -20,7 +20,15 @@ export const notificationIdSchema = z.object({
 export const createNotificationSchema = z.object({
   idUser: numericIdSchema,
   title: z.string().trim().min(1).max(120),
-  message: z.string().trim().min(1).max(500),
+  message: z
+    .string()
+    .trim()
+    .min(1)
+    .max(500)
+    .refine(
+      (message) => !/(undefined|null|NaN)/i.test(message),
+      'El mensaje de la notificacion contiene un valor invalido.'
+    ),
   type: z.enum(NOTIFICATION_TYPE_VALUES).default("info"),
   actionUrl: z.string().trim().max(500).nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
