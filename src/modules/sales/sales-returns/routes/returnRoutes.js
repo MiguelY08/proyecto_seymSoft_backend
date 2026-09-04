@@ -8,6 +8,7 @@ import {
   getReturnByIdController,
   updateReturnController,
   cancelReturnController,
+  cancelReturnDetailController,
   getAvailableInvoicesController,
   getPurchaseReturnInfoController,
   getReturnableSalesController,
@@ -59,6 +60,7 @@ router.get('/available-invoices', getAvailableInvoicesController);
 router.get('/purchase-return-info', getPurchaseReturnInfoController);
 router.delete('/evidence/:id', deleteEvidenceController);
 router.post('/:id/details/:detailId/defective-resolution', resolveDefectiveProductController);
+router.patch('/:id/details/:detailId/cancel', cancelReturnDetailController);
 
 router.get('/:id', getReturnByIdController);
 router.put('/:id', uploadEvidences, updateReturnController);

@@ -1,12 +1,10 @@
 // src/modules/sales/sales-returns/controllers/getPurchaseReturnInfoController.js
 
 import { ReturnRepository } from '../repositories/returnRepository.js';
-import { normalizeReturnText } from '../helpers/returnHelpers.js';
+import { isNonSellableReason } from '../helpers/returnHelpers.js';
 
-const isDefectiveReason = (detail) => {
-  const reason = normalizeReturnText(detail?.return_reasons?.description || '');
-  return Number(detail?.id_return_reason) === 5 || reason.includes('DEFECTUOSO');
-};
+const isNonSellableDetailReason = (detail) =>
+  isNonSellableReason(detail?.return_reasons?.description || '');
 
 const isReadyStatus = (detail) =>
   String(detail?.return_statuses?.name_status || '').toLowerCase() === 'listo';
@@ -49,7 +47,7 @@ export const getPurchaseReturnInfoController = async (req, res) => {
         });
       }
 
-      if (!isDefectiveReason(context.detail)) {
+      if (!isNonSellableDetailReason(context.detail)) {
         return res.status(200).json({
           success: true,
           data: {

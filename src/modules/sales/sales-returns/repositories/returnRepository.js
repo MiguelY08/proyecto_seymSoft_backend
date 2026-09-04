@@ -3,7 +3,7 @@
 import { prisma } from '../../../../config/prisma.js';
 import { ReturnMapper } from '../mappers/returnMapper.js';
 import { processAndSaveImage, deleteImage } from '../../../../shared/utils/imageProcessor.js';
-import { calculateReturnStockDelta } from '../helpers/returnHelpers.js';
+import { calculateGeneralStatus, calculateReturnStockDelta } from '../helpers/returnHelpers.js';
 import { evaluateSaleReturnEligibility } from '../helpers/saleReturnEligibility.js';
 import {
   PURCHASE_STATUS_IDS,
@@ -750,6 +750,191 @@ static async findAll(filters = {}) {
     });
   }
 
+  static async cancelReturnDetail({
+    idReturn,
+    idDetail,
+    idReturnStatus,
+    cancellationReason
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const saleReturn = await tx.sales_returns.findUnique({
+        where: { id_sales_return: Number(idReturn) },
+        include: {
+          return_statuses: true,
+          sales: {
+            select: {
+              sales_orders: { select: { id_customer: true } }
+            }
+          },
+          sale_return_details: {
+            include: {
+              return_statuses: true,
+              return_methods: true,
+              return_reasons: true
+            }
+          }
+        }
+      });
+
+      if (!saleReturn) {
+        throw new Error('Devolución no encontrada.');
+      }
+
+      if (saleReturn.return_statuses?.name_status === 'Anulado') {
+        throw new Error('No se puede anular un producto de una devolución ya anulada.');
+      }
+
+      const detail = saleReturn.sale_return_details.find(
+        item => Number(item.id_sale_return_detail) === Number(idDetail)
+      );
+
+      if (!detail) {
+        throw new Error('El producto no pertenece a esta devolución.');
+      }
+
+      if (detail.return_statuses?.name_status === 'Anulado') {
+        throw new Error('Este producto ya se encuentra anulado.');
+      }
+
+      const saleData = saleReturn.returnable_sale_data || {};
+      const snapshotDetails = Array.isArray(saleData.details) ? [...saleData.details] : [];
+      const creditEvents = Array.isArray(saleData.creditEvents) ? [...saleData.creditEvents] : [];
+      const snapshotIndex = snapshotDetails.findIndex(
+        item => Number(item.idSaleReturnDetail) === Number(idDetail)
+      );
+      const snapshot = snapshotIndex >= 0 ? snapshotDetails[snapshotIndex] : {};
+      const cancelledAt = new Date().toISOString();
+      const creditReversalEvents = [];
+      const stockEvents = [];
+
+      if (snapshot?.creditApplied && !snapshot?.creditReversed) {
+        const clientId = saleReturn.sales?.sales_orders?.id_customer || Number(saleData.clientId);
+        const amount = Number(snapshot.creditAmount || 0);
+
+        if (clientId && amount > 0) {
+          const client = await tx.clients.findUnique({
+            where: { id_client: Number(clientId) },
+            select: { credit_balance: true }
+          });
+
+          if (Number(client?.credit_balance || 0) < amount) {
+            throw new Error('No se puede anular el producto: el cliente ya utilizó parte del saldo a favor aplicado.');
+          }
+
+          await tx.clients.update({
+            where: { id_client: Number(clientId) },
+            data: { credit_balance: { decrement: amount } }
+          });
+
+          const reversalEvent = {
+            id: `return-${idReturn}-detail-${idDetail}-reversal`,
+            type: 'REVERSAL',
+            clientId: Number(clientId),
+            returnId: Number(idReturn),
+            returnNumber: saleReturn.return_number,
+            invoiceNumber: saleData.invoiceNumber || String(saleReturn.id_sale),
+            detailId: Number(idDetail),
+            productName: snapshot.productName || detail.barcode || 'Producto',
+            quantity: Number(detail.quantity || 0),
+            unitPrice: Number(snapshot.unitPrice || 0),
+            amount,
+            reason: 'Reversión de saldo por anulación de producto devuelto',
+            processedBy: saleData.employeeName || 'Sistema',
+            createdAt: cancelledAt
+          };
+
+          creditEvents.push(reversalEvent);
+          creditReversalEvents.push(reversalEvent);
+        }
+      }
+
+      if (snapshot?.stockApplied && !snapshot?.stockReversed) {
+        const reverseDelta = -Number(snapshot.stockDelta || 0);
+        const idBarcode = snapshot.idBarcode || detail.id_barcode;
+
+        if (reverseDelta !== 0 && idBarcode) {
+          const barcode = await tx.barcodes.findUnique({
+            where: { id_barcode: Number(idBarcode) },
+            select: { stock: true }
+          });
+
+          if (reverseDelta < 0 && Number(barcode?.stock || 0) < Math.abs(reverseDelta)) {
+            throw new Error('No se puede anular el producto: el stock recibido en la devolución ya no está disponible.');
+          }
+
+          await tx.barcodes.update({
+            where: { id_barcode: Number(idBarcode) },
+            data: { stock: { increment: reverseDelta } }
+          });
+
+          stockEvents.push({
+            detailId: Number(idDetail),
+            type: 'REVERTED',
+            delta: reverseDelta
+          });
+        }
+      }
+
+      if (snapshotIndex >= 0) {
+        snapshotDetails[snapshotIndex] = {
+          ...snapshotDetails[snapshotIndex],
+          status: 'Anulado',
+          statusId: idReturnStatus,
+          cancellationReason,
+          cancelledAt,
+          creditReversed: snapshot?.creditApplied ? true : snapshot?.creditReversed,
+          creditReversedAt: snapshot?.creditApplied ? cancelledAt : snapshot?.creditReversedAt,
+          stockApplied: false,
+          stockReversed: snapshot?.stockApplied ? true : snapshot?.stockReversed,
+          stockReversedAt: snapshot?.stockApplied ? cancelledAt : snapshot?.stockReversedAt
+        };
+      }
+
+      await tx.sale_return_details.update({
+        where: { id_sale_return_detail: Number(idDetail) },
+        data: {
+          id_return_status: idReturnStatus,
+          cancellation_reason: cancellationReason
+        }
+      });
+
+      const detailsForStatus = saleReturn.sale_return_details.map((item) => ({
+        estado: Number(item.id_sale_return_detail) === Number(idDetail)
+          ? 'Anulado'
+          : item.return_statuses?.name_status || 'En Proceso'
+      }));
+      const newStatusName = calculateGeneralStatus(detailsForStatus);
+      const newStatus = await tx.return_statuses.findFirst({
+        where: { name_status: { equals: newStatusName, mode: 'insensitive' } }
+      });
+
+      if (!newStatus) {
+        throw new Error(`Estado "${newStatusName}" no encontrado.`);
+      }
+
+      const updatedReturn = await tx.sales_returns.update({
+        where: { id_sales_return: Number(idReturn) },
+        data: {
+          id_return_status: newStatus.id_return_status,
+          updated_at: new Date(),
+          returnable_sale_data: {
+            ...saleData,
+            details: snapshotDetails,
+            creditEvents
+          }
+        }
+      });
+
+      return {
+        ...updatedReturn,
+        newStatusName,
+        creditReversalEvents,
+        stockEvents,
+        cancelledDetailId: Number(idDetail)
+      };
+    });
+  }
+
   // ============================================
   // ELIMINAR EVIDENCIA INDIVIDUAL
   // ============================================
@@ -971,18 +1156,21 @@ static async findAll(filters = {}) {
         snapshotDetails[snapshotIndex] = {
           ...snapshot,
           isDefective,
-          stockApplied: true,
+          stockApplied: stockDelta !== 0,
           stockDelta,
-          stockAppliedAt: appliedAt
+          stockAppliedAt: stockDelta !== 0 ? appliedAt : null,
+          stockCheckedAt: stockDelta === 0 ? appliedAt : snapshot.stockCheckedAt
         };
-        stockEvents.push({
-          detailId: update.idSaleReturnDetail,
-          type: 'APPLIED',
-          method,
-          isDefective,
-          delta: stockDelta,
-          appliedAt
-        });
+        if (stockDelta !== 0) {
+          stockEvents.push({
+            detailId: update.idSaleReturnDetail,
+            type: 'APPLIED',
+            method,
+            isDefective,
+            delta: stockDelta,
+            appliedAt
+          });
+        }
       }
 
       if (stockEvents.length > 0) {
