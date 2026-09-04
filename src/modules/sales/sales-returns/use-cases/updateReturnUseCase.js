@@ -84,6 +84,15 @@ export const updateReturnUseCase = async (id, updateData, evidenceFiles = [], ac
           };
         }
 
+        if (currentDetail.return_statuses?.name_status === 'Anulado') {
+          return {
+            success: false,
+            data: null,
+            error: 'No se puede modificar un producto anulado.',
+            errorCode: 'CANCELLED_DETAIL_LOCKED'
+          };
+        }
+
       }
 
       stockEvents = await ReturnRepository.applyStockForDetailUpdates(

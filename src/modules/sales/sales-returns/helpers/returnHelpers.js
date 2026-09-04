@@ -56,13 +56,15 @@ export const calculateGeneralStatus = (details = []) => {
 
   const completedStatuses = ['Aprobada', 'Entregado', 'Listo', 'Procesada'];
   const cancelledStatuses = ['Anulado'];
-  
-  const allCompleted = details.every(detail => 
-    completedStatuses.includes(detail.estado)
-  );
 
-  const allCancelled = details.every(detail => 
+  const allCancelled = details.every(detail =>
     cancelledStatuses.includes(detail.estado)
+  );
+  const activeDetails = details.filter(detail =>
+    !cancelledStatuses.includes(detail.estado)
+  );
+  const allCompleted = activeDetails.length > 0 && activeDetails.every(detail =>
+    completedStatuses.includes(detail.estado)
   );
 
   if (allCancelled) {
@@ -161,7 +163,7 @@ export const calculateReturnStockDelta = ({ method, reason, isDefective, quantit
   const units = Math.max(0, Number(quantity || 0));
   if (units <= 0) return 0;
 
-  const methodName = normalizeReturnText(method);
+  const normalizedMethod = normalizeReturnText(method);
   const reasonIsNonSellable = isNonSellableReason(reason);
   const reasonIsSellable = isSellableReason(reason);
   const returnsToSellableStock = reasonIsSellable
@@ -170,12 +172,10 @@ export const calculateReturnStockDelta = ({ method, reason, isDefective, quantit
       ? false
       : !isDefective;
 
-  let delta = returnsToSellableStock ? units : 0;
-
-  if (methodName.includes('REEMPLAZO')) {
-    delta -= units;
+  if (normalizedMethod.includes('REEMPLAZO')) {
+    return returnsToSellableStock ? 0 : -units;
   }
 
-  return delta;
+  return returnsToSellableStock ? units : 0;
 };
 
