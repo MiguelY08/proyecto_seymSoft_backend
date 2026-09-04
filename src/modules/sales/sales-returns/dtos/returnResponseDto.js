@@ -75,6 +75,12 @@ export class ReturnResponseDto {
       imageUrl: detail.barcodes?.products?.product_images?.[0]?.image_url || getDetailSnapshot(data, detail).imageUrl || null,
       applyCredit: getDetailSnapshot(data, detail).applyCredit === true,
       creditApplied: getDetailSnapshot(data, detail).creditApplied === true,
+      creditReversed: getDetailSnapshot(data, detail).creditReversed === true,
+      stockApplied: getDetailSnapshot(data, detail).stockApplied === true,
+      stockDelta: Number(getDetailSnapshot(data, detail).stockDelta || 0),
+      stockReversed: getDetailSnapshot(data, detail).stockReversed === true,
+      cancellationReason: detail.cancellation_reason || getDetailSnapshot(data, detail).cancellationReason || '',
+      cancelledAt: getDetailSnapshot(data, detail).cancelledAt || null,
       description: detail.description || ''  // ✅ AGREGADO
     })) || [];
     
@@ -132,6 +138,12 @@ export class ReturnListResponseDto {
       imageUrl: detail.barcodes?.products?.product_images?.[0]?.image_url || getDetailSnapshot(data, detail).imageUrl || null,
       applyCredit: getDetailSnapshot(data, detail).applyCredit === true,
       creditApplied: getDetailSnapshot(data, detail).creditApplied === true,
+      creditReversed: getDetailSnapshot(data, detail).creditReversed === true,
+      stockApplied: getDetailSnapshot(data, detail).stockApplied === true,
+      stockDelta: Number(getDetailSnapshot(data, detail).stockDelta || 0),
+      stockReversed: getDetailSnapshot(data, detail).stockReversed === true,
+      cancellationReason: detail.cancellation_reason || getDetailSnapshot(data, detail).cancellationReason || '',
+      cancelledAt: getDetailSnapshot(data, detail).cancelledAt || null,
       barcode: detail.barcode || '',
       idBarcode: detail.id_barcode,
       quantity: Number(detail.quantity || 0),
