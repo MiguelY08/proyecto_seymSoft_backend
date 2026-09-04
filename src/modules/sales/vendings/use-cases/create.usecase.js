@@ -44,6 +44,30 @@ const DIRECT_VENDING_TYPE = "direct";
 const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 
+export const buildSaleCreatedNotification = ({ sale, total }) => {
+  const saleId = sale?.idSale;
+
+  if (!Number.isInteger(Number(saleId)) || Number(saleId) <= 0) {
+    throw new Error(
+      "No se puede crear la notificacion de venta: el ID de la venta no esta disponible."
+    );
+  }
+
+  const message = `Se registró la venta #${saleId} por $${total}.`;
+
+  return {
+    title: "Nueva venta registrada",
+    message,
+    type: "sale",
+    actionUrl: "/admin/sales/vendings",
+    metadata: {
+      module: "sales",
+      idSale: Number(saleId),
+      event: "sale_created",
+    },
+  };
+};
+
 const roundMoney = (value) => {
   return Math.round(Number(value || 0) * 100) / 100;
 };
@@ -398,6 +422,8 @@ export const createVendingUseCase = async (params) => {
       source = SALE_CREATION_SOURCES.PAID_ORDER,
       data,
     } = params;
+
+    console.debug("[CreateVendingUseCase] Datos recibidos para crear venta:", params);
 
     const normalizedType =
       String(vendingType || "")
@@ -937,6 +963,9 @@ export const createVendingUseCase = async (params) => {
           })
         : await VendingRepository.create(saleData);
 
+      console.debug("[CreateVendingUseCase] Venta creada:", sale);
+      console.debug("[CreateVendingUseCase] ID real de la venta:", sale?.idSale);
+
       if (createsOrderFromSale) {
         idOrder = getOrderId(sale);
       }
@@ -947,18 +976,21 @@ export const createVendingUseCase = async (params) => {
     await notifyLowStockProductsInCarts(orderDetails);
 
     try {
-      await notifyAdmins({
-        title: "Nueva venta registrada",
-        message: `Se registró la venta #${sale.id_sale} por $${totals.total}.`,
-        type: "sale",
-        actionUrl: "/admin/sales/vendings",
-        metadata: {
-          module: "sales",
-          idSale: sale.id_sale,
-          idOrder,
-          event: "sale_created",
-        },
+      const notificationPayload = buildSaleCreatedNotification({
+        sale,
+        total: totals.total,
       });
+      notificationPayload.metadata.idOrder = idOrder;
+      console.debug(
+        "[CreateVendingUseCase] Datos enviados al servicio de notificaciones:",
+        notificationPayload
+      );
+
+      const savedNotifications = await notifyAdmins(notificationPayload);
+      console.debug(
+        "[CreateVendingUseCase] Mensaje final guardado:",
+        savedNotifications.map(({ message }) => message)
+      );
     } catch (notificationError) {
       console.error(
         "[CreateVendingUseCase] Sale notification error:",
