@@ -10,6 +10,7 @@ import {
   calculatePurchaseDetailsReturnAvailability,
   calculatePurchaseStatusFromReturns,
   calculateReturnLifecycle,
+  canUseSupplierRejectionReasonByDescription,
   getAllowedNextStatuses,
   getPurchaseMaxReturnDate,
   shouldRestoreStockOnReady,
@@ -170,6 +171,21 @@ test("validateDetailStatusTransition respeta flujo segun metodo de devolucion", 
     "SUPPLIER_REJECTION_REASON_NOT_ALLOWED",
   );
   assert.equal(invalidFlow.errorCode, "INVALID_RETURN_STATUS_FLOW");
+});
+
+test("motivos de rechazo del proveedor se reconocen por descripcion", () => {
+  assert.equal(
+    canUseSupplierRejectionReasonByDescription("MAL_ESTADO"),
+    true,
+  );
+  assert.equal(
+    canUseSupplierRejectionReasonByDescription("DEFECTUOSO"),
+    true,
+  );
+  assert.equal(
+    canUseSupplierRejectionReasonByDescription("OTRO"),
+    false,
+  );
 });
 
 test("reglas de restauracion de stock distinguen reemplazo listo y anulacion", () => {

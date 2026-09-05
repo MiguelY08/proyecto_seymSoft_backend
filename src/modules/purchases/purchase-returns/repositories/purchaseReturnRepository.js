@@ -274,6 +274,11 @@ export class PurchaseReturnRepository {
         quantity: true,
         id_return_method: true,
         id_return_status: true,
+        return_reasons: {
+          select: {
+            description: true,
+          },
+        },
         purchase_details: {
           select: {
             id_barcode: true,
