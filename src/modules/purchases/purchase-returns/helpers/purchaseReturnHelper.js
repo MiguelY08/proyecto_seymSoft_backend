@@ -331,6 +331,13 @@ export const isResolvedReturnStatus = (idReturnStatus) =>
 export const canUseSupplierRejectionReason = (idReturnReason) =>
   [5, 8].includes(Number(idReturnReason));
 
+export const canUseSupplierRejectionReasonByDescription = (
+  description
+) =>
+  ["DEFECTUOSO", "MAL_ESTADO"].includes(
+    String(description || "").trim().toUpperCase()
+  );
+
 export const validateDetailIsEditable = (detail) => {
   if (isReadyStatus(detail?.id_return_status ?? detail?.returnStatusId)) {
     return {
@@ -375,6 +382,7 @@ export const getAllowedNextStatuses = (idReturnMethod, currentStatusId) => {
 export const validateDetailStatusTransition = ({
   idReturnMethod,
   idReturnReason,
+  returnReasonDescription,
   currentStatusId,
   nextStatusId,
 }) => {
@@ -394,7 +402,10 @@ export const validateDetailStatusTransition = ({
 
   if (
     isSupplierRejectionStatus(nextStatusId) &&
-    !canUseSupplierRejectionReason(idReturnReason)
+    !canUseSupplierRejectionReason(idReturnReason) &&
+    !canUseSupplierRejectionReasonByDescription(
+      returnReasonDescription
+    )
   ) {
     return {
       success: false,
