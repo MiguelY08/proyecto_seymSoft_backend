@@ -296,6 +296,8 @@ const buildDetailsToUpdate = async ({
           currentDetail.id_return_method,
         idReturnReason:
           currentDetail.id_return_reason,
+        returnReasonDescription:
+          currentDetail.return_reasons?.description,
         currentStatusId:
           currentDetail.id_return_status,
         nextStatusId:
