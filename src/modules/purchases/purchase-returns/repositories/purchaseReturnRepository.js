@@ -17,15 +17,9 @@ const getHeaderStatusFromLifecycle = (lifecycle) =>
 export class PurchaseReturnRepository {
   static async createNonConformingForRejectedDetail(
     tx,
-    {
-      idPurchaseReturn,
-      idPurchaseReturnDetail,
-      idBarcode,
-      quantity,
-    }
+    { idPurchaseReturn, idPurchaseReturnDetail, idBarcode, quantity },
   ) {
-    const reportReason =
-      `Proveedor rechazó devolución de compra #${idPurchaseReturn}, detalle #${idPurchaseReturnDetail}.`;
+    const reportReason = `Proveedor rechazó devolución de compra #${idPurchaseReturn}, detalle #${idPurchaseReturnDetail}.`;
 
     const existing = await tx.non_conforming_products.findFirst({
       where: {
@@ -111,20 +105,17 @@ export class PurchaseReturnRepository {
       prisma.purchases_returns.count({ where }),
     ]);
 
-    const progressByReturn =
-      await this.getListProgressByReturnIds(
-        items.map((item) => item.id_purchase_return)
-      );
+    const progressByReturn = await this.getListProgressByReturnIds(
+      items.map((item) => item.id_purchase_return),
+    );
 
     return {
       items: items.map((item) =>
         PurchaseReturnMapper.toListResponse({
           ...item,
           progress:
-            progressByReturn.get(
-              Number(item.id_purchase_return)
-            ) ?? null,
-        })
+            progressByReturn.get(Number(item.id_purchase_return)) ?? null,
+        }),
       ),
       total,
     };
@@ -230,9 +221,7 @@ export class PurchaseReturnRepository {
   static async findRawPurchaseDetailsByIds(idPurchaseDetails) {
     const uniqueIds = [
       ...new Set(
-        (idPurchaseDetails ?? [])
-          .map((id) => Number(id))
-          .filter(Boolean)
+        (idPurchaseDetails ?? []).map((id) => Number(id)).filter(Boolean),
       ),
     ];
 
@@ -265,8 +254,7 @@ export class PurchaseReturnRepository {
   static async findRawReturnDetailById(idPurchaseReturnDetail) {
     return prisma.prd.findUnique({
       where: {
-        id_purchase_return_details:
-          Number(idPurchaseReturnDetail),
+        id_purchase_return_details: Number(idPurchaseReturnDetail),
       },
       select: {
         id_purchase_return_details: true,
@@ -291,9 +279,7 @@ export class PurchaseReturnRepository {
   static async findRawReturnDetailsByIds(idPurchaseReturnDetails) {
     const uniqueIds = [
       ...new Set(
-        (idPurchaseReturnDetails ?? [])
-          .map((id) => Number(id))
-          .filter(Boolean)
+        (idPurchaseReturnDetails ?? []).map((id) => Number(id)).filter(Boolean),
       ),
     ];
 
@@ -312,6 +298,7 @@ export class PurchaseReturnRepository {
         id_purchase_return: true,
         quantity: true,
         id_return_method: true,
+        id_return_reason: true,
         id_return_status: true,
         purchase_details: {
           select: {
@@ -344,9 +331,7 @@ export class PurchaseReturnRepository {
   static async findReturnMethodsByIds(idReturnMethods) {
     const uniqueIds = [
       ...new Set(
-        (idReturnMethods ?? [])
-          .map((id) => Number(id))
-          .filter(Boolean)
+        (idReturnMethods ?? []).map((id) => Number(id)).filter(Boolean),
       ),
     ];
 
@@ -388,9 +373,7 @@ export class PurchaseReturnRepository {
   static async findReturnReasonsByIds(idReturnReasons) {
     const uniqueIds = [
       ...new Set(
-        (idReturnReasons ?? [])
-          .map((id) => Number(id))
-          .filter(Boolean)
+        (idReturnReasons ?? []).map((id) => Number(id)).filter(Boolean),
       ),
     ];
 
@@ -431,30 +414,24 @@ export class PurchaseReturnRepository {
 
   static async getReturnedQuantityByPurchaseDetail(idPurchaseDetail) {
     const availability =
-      await this.getReturnAvailabilityByPurchaseDetail(
-        idPurchaseDetail
-      );
+      await this.getReturnAvailabilityByPurchaseDetail(idPurchaseDetail);
 
-    return (
-      availability.reservedQuantity +
-      availability.finalReturnedQuantity
-    );
+    return availability.reservedQuantity + availability.finalReturnedQuantity;
   }
 
   static async getReturnAvailabilityByPurchaseDetail(
     idPurchaseDetail,
-    client = prisma
+    client = prisma,
   ) {
-    const purchaseDetail =
-      await client.purchase_details.findUnique({
-        where: {
-          id_purchase_detail: Number(idPurchaseDetail),
-        },
-        select: {
-          quantity: true,
-          stock_added: true,
-        },
-      });
+    const purchaseDetail = await client.purchase_details.findUnique({
+      where: {
+        id_purchase_detail: Number(idPurchaseDetail),
+      },
+      select: {
+        quantity: true,
+        stock_added: true,
+      },
+    });
 
     if (!purchaseDetail) {
       return {
@@ -465,17 +442,16 @@ export class PurchaseReturnRepository {
       };
     }
 
-    const returnDetails =
-      await client.prd.findMany({
-        where: {
-          id_purchase_detail: Number(idPurchaseDetail),
-        },
-        select: {
-          quantity: true,
-          id_return_method: true,
-          id_return_status: true,
-        },
-      });
+    const returnDetails = await client.prd.findMany({
+      where: {
+        id_purchase_detail: Number(idPurchaseDetail),
+      },
+      select: {
+        quantity: true,
+        id_return_method: true,
+        id_return_status: true,
+      },
+    });
 
     return calculatePurchaseDetailReturnAvailability({
       purchasedQuantity: purchaseDetail.stock_added ?? purchaseDetail.quantity,
@@ -485,13 +461,11 @@ export class PurchaseReturnRepository {
 
   static async getReturnAvailabilityByPurchaseDetails(
     idPurchaseDetails,
-    client = prisma
+    client = prisma,
   ) {
     const uniqueIds = [
       ...new Set(
-        (idPurchaseDetails ?? [])
-          .map((id) => Number(id))
-          .filter(Boolean)
+        (idPurchaseDetails ?? []).map((id) => Number(id)).filter(Boolean),
       ),
     ];
 
@@ -499,43 +473,44 @@ export class PurchaseReturnRepository {
       return new Map();
     }
 
-    const [purchaseDetails, returnDetails] =
-      await Promise.all([
-        client.purchase_details.findMany({
-          where: {
-            id_purchase_detail: {
-              in: uniqueIds,
-            },
+    const [purchaseDetails, returnDetails] = await Promise.all([
+      client.purchase_details.findMany({
+        where: {
+          id_purchase_detail: {
+            in: uniqueIds,
           },
-          select: {
-            id_purchase_detail: true,
-            quantity: true,
-            stock_added: true,
+        },
+        select: {
+          id_purchase_detail: true,
+          quantity: true,
+          stock_added: true,
+        },
+      }),
+      client.prd.findMany({
+        where: {
+          id_purchase_detail: {
+            in: uniqueIds,
           },
-        }),
-        client.prd.findMany({
-          where: {
-            id_purchase_detail: {
-              in: uniqueIds,
-            },
-          },
-          select: {
-            id_purchase_detail: true,
-            quantity: true,
-            id_return_method: true,
-            id_return_status: true,
-          },
-        }),
-      ]);
+        },
+        select: {
+          id_purchase_detail: true,
+          quantity: true,
+          id_return_method: true,
+          id_return_status: true,
+        },
+      }),
+    ]);
 
-    const returnDetailsByPurchaseDetail =
-      returnDetails.reduce((grouped, detail) => {
+    const returnDetailsByPurchaseDetail = returnDetails.reduce(
+      (grouped, detail) => {
         const id = Number(detail.id_purchase_detail);
         const details = grouped.get(id) ?? [];
         details.push(detail);
         grouped.set(id, details);
         return grouped;
-      }, new Map());
+      },
+      new Map(),
+    );
 
     return purchaseDetails.reduce((availabilityByDetail, detail) => {
       const id = Number(detail.id_purchase_detail);
@@ -544,9 +519,8 @@ export class PurchaseReturnRepository {
         id,
         calculatePurchaseDetailReturnAvailability({
           purchasedQuantity: detail.stock_added ?? detail.quantity,
-          returnDetails:
-            returnDetailsByPurchaseDetail.get(id) ?? [],
-        })
+          returnDetails: returnDetailsByPurchaseDetail.get(id) ?? [],
+        }),
       );
 
       return availabilityByDetail;
@@ -680,7 +654,7 @@ export class PurchaseReturnRepository {
       const groupKey = Number(item[key]);
       grouped.set(
         groupKey,
-        (grouped.get(groupKey) || 0) + Number(item.quantity)
+        (grouped.get(groupKey) || 0) + Number(item.quantity),
       );
       return grouped;
     }, new Map());
@@ -689,9 +663,7 @@ export class PurchaseReturnRepository {
   static groupQuantitiesByBarcode(items = []) {
     return items.reduce((grouped, item) => {
       const idBarcode = Number(
-        item.idBarcode ??
-        item.id_barcode ??
-        item.purchase_details?.id_barcode
+        item.idBarcode ?? item.id_barcode ?? item.purchase_details?.id_barcode,
       );
 
       if (!idBarcode) {
@@ -700,8 +672,7 @@ export class PurchaseReturnRepository {
 
       grouped.set(
         idBarcode,
-        (grouped.get(idBarcode) || 0) +
-          Number(item.quantity || 0)
+        (grouped.get(idBarcode) || 0) + Number(item.quantity || 0),
       );
 
       return grouped;
@@ -713,111 +684,83 @@ export class PurchaseReturnRepository {
       return;
     }
 
-    const requestedByPurchaseDetail =
-      this.groupQuantitiesBy(
-        changeset.detailsToAdd,
-        "idPurchaseDetail"
-      );
+    const requestedByPurchaseDetail = this.groupQuantitiesBy(
+      changeset.detailsToAdd,
+      "idPurchaseDetail",
+    );
 
-    const requestedByBarcode =
-      this.groupQuantitiesBy(
-        changeset.detailsToAdd,
-        "idBarcode"
-      );
+    const requestedByBarcode = this.groupQuantitiesBy(
+      changeset.detailsToAdd,
+      "idBarcode",
+    );
 
-    const idPurchaseDetails = [
-      ...requestedByPurchaseDetail.keys(),
-    ];
-    const idBarcodes = [
-      ...requestedByBarcode.keys(),
-    ];
+    const idPurchaseDetails = [...requestedByPurchaseDetail.keys()];
+    const idBarcodes = [...requestedByBarcode.keys()];
 
-    const [
-      purchaseDetails,
-      availabilityByPurchaseDetail,
-      barcodes,
-    ] = await Promise.all([
-      tx.purchase_details.findMany({
-        where: {
-          id_purchase_detail: {
-            in: idPurchaseDetails,
+    const [purchaseDetails, availabilityByPurchaseDetail, barcodes] =
+      await Promise.all([
+        tx.purchase_details.findMany({
+          where: {
+            id_purchase_detail: {
+              in: idPurchaseDetails,
+            },
           },
-        },
-        select: {
-          id_purchase_detail: true,
-          id_purchase: true,
-        },
-      }),
-      this.getReturnAvailabilityByPurchaseDetails(
-        idPurchaseDetails,
-        tx
-      ),
-      tx.barcodes.findMany({
-        where: {
-          id_barcode: {
-            in: idBarcodes,
+          select: {
+            id_purchase_detail: true,
+            id_purchase: true,
           },
-        },
-        select: {
-          id_barcode: true,
-          stock: true,
-        },
-      }),
-    ]);
+        }),
+        this.getReturnAvailabilityByPurchaseDetails(idPurchaseDetails, tx),
+        tx.barcodes.findMany({
+          where: {
+            id_barcode: {
+              in: idBarcodes,
+            },
+          },
+          select: {
+            id_barcode: true,
+            stock: true,
+          },
+        }),
+      ]);
 
-    const purchaseDetailsById =
-      purchaseDetails.reduce((indexed, detail) => {
-        indexed.set(
-          Number(detail.id_purchase_detail),
-          detail
-        );
-        return indexed;
-      }, new Map());
+    const purchaseDetailsById = purchaseDetails.reduce((indexed, detail) => {
+      indexed.set(Number(detail.id_purchase_detail), detail);
+      return indexed;
+    }, new Map());
 
-    const barcodesById =
-      barcodes.reduce((indexed, barcode) => {
-        indexed.set(
-          Number(barcode.id_barcode),
-          barcode
-        );
-        return indexed;
-      }, new Map());
+    const barcodesById = barcodes.reduce((indexed, barcode) => {
+      indexed.set(Number(barcode.id_barcode), barcode);
+      return indexed;
+    }, new Map());
 
     for (const [
       idPurchaseDetail,
       requestedQuantity,
     ] of requestedByPurchaseDetail.entries()) {
-      const purchaseDetail =
-        purchaseDetailsById.get(
-          Number(idPurchaseDetail)
-        );
+      const purchaseDetail = purchaseDetailsById.get(Number(idPurchaseDetail));
 
       if (!purchaseDetail) {
         throw this.createDomainError(
           `El detalle de compra ${idPurchaseDetail} no existe.`,
-          "PURCHASE_DETAIL_NOT_FOUND"
+          "PURCHASE_DETAIL_NOT_FOUND",
         );
       }
 
-      if (
-        Number(purchaseDetail.id_purchase) !==
-        Number(changeset.idPurchase)
-      ) {
+      if (Number(purchaseDetail.id_purchase) !== Number(changeset.idPurchase)) {
         throw this.createDomainError(
           `El detalle de compra ${idPurchaseDetail} no pertenece a la compra de la devolucion.`,
-          "PURCHASE_DETAIL_DOES_NOT_BELONG_TO_PURCHASE"
+          "PURCHASE_DETAIL_DOES_NOT_BELONG_TO_PURCHASE",
         );
       }
 
-      const returnAvailability =
-        availabilityByPurchaseDetail.get(
-          Number(idPurchaseDetail)
-        ) ?? {
-          availableQuantity: 0,
-        };
+      const returnAvailability = availabilityByPurchaseDetail.get(
+        Number(idPurchaseDetail),
+      ) ?? {
+        availableQuantity: 0,
+      };
 
-      const availableQuantity =
-        returnAvailability.availableQuantity;
+      const availableQuantity = returnAvailability.availableQuantity;
 
       if (requestedQuantity > availableQuantity) {
         throw this.createDomainError(
@@ -826,20 +769,15 @@ export class PurchaseReturnRepository {
           {
             idPurchaseDetail,
             availableQuantity,
-          }
+          },
         );
       }
     }
 
-    for (const [
-      idBarcode,
-      requestedQuantity,
-    ] of requestedByBarcode.entries()) {
-      const barcode =
-        barcodesById.get(Number(idBarcode));
+    for (const [idBarcode, requestedQuantity] of requestedByBarcode.entries()) {
+      const barcode = barcodesById.get(Number(idBarcode));
 
-      const availableStock =
-        Number(barcode?.stock || 0);
+      const availableStock = Number(barcode?.stock || 0);
 
       if (requestedQuantity > availableStock) {
         throw this.createDomainError(
@@ -848,58 +786,50 @@ export class PurchaseReturnRepository {
           {
             idBarcode,
             availableStock,
-          }
+          },
         );
       }
     }
   }
 
   static async recalculateUpdateStatuses(tx, changeset) {
-    const currentReturn =
-      await tx.purchases_returns.findUnique({
-        where: {
-          id_purchase_return:
-            changeset.idPurchaseReturn,
-        },
-        select: {
-          prd: {
-            select: {
-              id_return_status: true,
-            },
+    const currentReturn = await tx.purchases_returns.findUnique({
+      where: {
+        id_purchase_return: changeset.idPurchaseReturn,
+      },
+      select: {
+        prd: {
+          select: {
+            id_return_status: true,
           },
         },
-      });
+      },
+    });
 
-    const lifecycle =
-      calculateReturnLifecycle({
-        details: currentReturn?.prd || [],
-      });
+    const lifecycle = calculateReturnLifecycle({
+      details: currentReturn?.prd || [],
+    });
 
-    const idReturnStatus =
-      getHeaderStatusFromLifecycle(lifecycle);
+    const idReturnStatus = getHeaderStatusFromLifecycle(lifecycle);
 
     await tx.purchases_returns.update({
       where: {
-        id_purchase_return:
-          changeset.idPurchaseReturn,
+        id_purchase_return: changeset.idPurchaseReturn,
       },
       data: {
         id_return_status: idReturnStatus,
       },
     });
 
-    const purchaseReturns =
-      await tx.purchases_returns.findMany({
-        where: {
-          id_purchase: changeset.idPurchase,
-        },
-        select: this.getRawReturnForPurchaseStatusSelect(),
-      });
+    const purchaseReturns = await tx.purchases_returns.findMany({
+      where: {
+        id_purchase: changeset.idPurchase,
+      },
+      select: this.getRawReturnForPurchaseStatusSelect(),
+    });
 
     const idPurchaseStatus =
-      calculatePurchaseStatusFromReturns(
-        purchaseReturns
-      );
+      calculatePurchaseStatusFromReturns(purchaseReturns);
 
     await tx.purchases.update({
       where: {
@@ -914,105 +844,92 @@ export class PurchaseReturnRepository {
   static async applyUpdateChangeset(changeset) {
     this.assertValidUpdateChangeset(changeset);
 
-    const updatedReturn =
-      await prisma.$transaction(async (tx) => {
-        await this.assertFreshDetailsToAdd(
-          tx,
-          changeset
-        );
+    const updatedReturn = await prisma.$transaction(async (tx) => {
+      await this.assertFreshDetailsToAdd(tx, changeset);
 
-        for (const stockIncrement of changeset.stockIncrements) {
-          if (
-            Number(stockIncrement.idReturnMethod) !==
-            RETURN_METHOD_IDS.REPLACEMENT
-          ) {
-            continue;
-          }
-
-          await tx.barcodes.update({
-            where: {
-              id_barcode: Number(stockIncrement.idBarcode),
-            },
-            data: {
-              stock: {
-                increment: Number(stockIncrement.quantity),
-              },
-            },
-          });
+      for (const stockIncrement of changeset.stockIncrements) {
+        if (
+          Number(stockIncrement.idReturnMethod) !==
+          RETURN_METHOD_IDS.REPLACEMENT
+        ) {
+          continue;
         }
 
-        for (const detail of changeset.detailStatusUpdates) {
-          await tx.prd.update({
-            where: {
-              id_purchase_return_details:
-                Number(detail.idPurchaseReturnDetail),
-            },
-            data: {
-              id_return_status:
-                Number(detail.idReturnStatus),
-            },
-          });
-
-          if (
-            Number(detail.idReturnStatus) ===
-            RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION
-          ) {
-            await this.createNonConformingForRejectedDetail(tx, {
-              idPurchaseReturn: changeset.idPurchaseReturn,
-              idPurchaseReturnDetail: detail.idPurchaseReturnDetail,
-              idBarcode: detail.currentDetail.purchase_details.id_barcode,
-              quantity: detail.currentDetail.quantity,
-            });
-          }
-        }
-
-        if (changeset.detailsToAdd.length > 0) {
-          await tx.prd.createMany({
-            data: changeset.detailsToAdd.map((detail) => ({
-              id_purchase_return:
-                changeset.idPurchaseReturn,
-              barcode: detail.barcode,
-              quantity: detail.quantity,
-              supplier_date: detail.supplierDate ?? null,
-              id_return_reason: detail.idReturnReason,
-              id_return_method: detail.idReturnMethod,
-              id_return_status: detail.idReturnStatus,
-              id_product: detail.idProduct,
-              id_purchase_detail: detail.idPurchaseDetail,
-            })),
-          });
-        }
-
-        for (const stockDecrement of changeset.stockDecrements) {
-          await tx.barcodes.update({
-            where: {
-              id_barcode: Number(stockDecrement.idBarcode),
-            },
-            data: {
-              stock: {
-                decrement: Number(stockDecrement.quantity),
-              },
-            },
-          });
-        }
-
-        await this.recalculateUpdateStatuses(
-          tx,
-          changeset
-        );
-
-        return tx.purchases_returns.findUnique({
+        await tx.barcodes.update({
           where: {
-            id_purchase_return:
-              changeset.idPurchaseReturn,
+            id_barcode: Number(stockIncrement.idBarcode),
           },
-          select: this.getUpdateResponseSelect(),
+          data: {
+            stock: {
+              increment: Number(stockIncrement.quantity),
+            },
+          },
         });
-      });
+      }
 
-    return PurchaseReturnMapper.toDetailResponse(
-      updatedReturn
-    );
+      for (const detail of changeset.detailStatusUpdates) {
+        await tx.prd.update({
+          where: {
+            id_purchase_return_details: Number(detail.idPurchaseReturnDetail),
+          },
+          data: {
+            id_return_status: Number(detail.idReturnStatus),
+          },
+        });
+
+        if (
+          Number(detail.idReturnStatus) ===
+          RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION
+        ) {
+          await this.createNonConformingForRejectedDetail(tx, {
+            idPurchaseReturn: changeset.idPurchaseReturn,
+            idPurchaseReturnDetail: detail.idPurchaseReturnDetail,
+            idBarcode: detail.currentDetail.purchase_details.id_barcode,
+            quantity: detail.currentDetail.quantity,
+          });
+        }
+      }
+
+      if (changeset.detailsToAdd.length > 0) {
+        await tx.prd.createMany({
+          data: changeset.detailsToAdd.map((detail) => ({
+            id_purchase_return: changeset.idPurchaseReturn,
+            barcode: detail.barcode,
+            quantity: detail.quantity,
+            supplier_date: detail.supplierDate ?? null,
+            id_return_reason: detail.idReturnReason,
+            id_return_method: detail.idReturnMethod,
+            id_return_status: detail.idReturnStatus,
+            id_product: detail.idProduct,
+            id_purchase_detail: detail.idPurchaseDetail,
+          })),
+        });
+      }
+
+      for (const stockDecrement of changeset.stockDecrements) {
+        await tx.barcodes.update({
+          where: {
+            id_barcode: Number(stockDecrement.idBarcode),
+          },
+          data: {
+            stock: {
+              decrement: Number(stockDecrement.quantity),
+            },
+          },
+        });
+      }
+
+      await this.recalculateUpdateStatuses(tx, changeset);
+
+      return tx.purchases_returns.findUnique({
+        where: {
+          id_purchase_return: changeset.idPurchaseReturn,
+        },
+        select: this.getUpdateResponseSelect(),
+      });
+    });
+
+    return PurchaseReturnMapper.toDetailResponse(updatedReturn);
   }
 
   static async updateDetailStatus(idPurchaseReturnDetail, idReturnStatus) {
@@ -1088,8 +1005,7 @@ export class PurchaseReturnRepository {
           },
         }));
 
-      const stockIncrements =
-        this.groupQuantitiesByBarcode(stockDetails);
+      const stockIncrements = this.groupQuantitiesByBarcode(stockDetails);
 
       for (const [idBarcode, quantity] of stockIncrements.entries()) {
         await tx.barcodes.update({
@@ -1119,8 +1035,7 @@ export class PurchaseReturnRepository {
         },
         data: {
           id_return_status: idReturnStatus,
-          cancellation_reason:
-            cancellationReason,
+          cancellation_reason: cancellationReason,
           cancelled_at: cancelledAt,
           cancelled_by: cancelledBy,
         },
@@ -1140,22 +1055,14 @@ export class PurchaseReturnRepository {
       if (auditLog) {
         await tx.purchase_return_audit_logs.create({
           data: {
-            id_purchase_return:
-              updatedReturn.id_purchase_return,
-            id_user:
-              auditLog.idUser,
-            action:
-              auditLog.action,
-            previous_return_status:
-              auditLog.previousReturnStatus,
-            new_return_status:
-              auditLog.newReturnStatus,
-            reason:
-              auditLog.reason,
-            metadata:
-              auditLog.metadata,
-            created_at:
-              cancelledAt,
+            id_purchase_return: updatedReturn.id_purchase_return,
+            id_user: auditLog.idUser,
+            action: auditLog.action,
+            previous_return_status: auditLog.previousReturnStatus,
+            new_return_status: auditLog.newReturnStatus,
+            reason: auditLog.reason,
+            metadata: auditLog.metadata,
+            created_at: cancelledAt,
           },
         });
       }
@@ -1170,27 +1077,23 @@ export class PurchaseReturnRepository {
   }
 
   static async getMetrics() {
-    const groupedByStatus =
-      await prisma.purchases_returns.groupBy({
-        by: ["id_return_status"],
-        _count: {
-          id_purchase_return: true,
-        },
-      });
+    const groupedByStatus = await prisma.purchases_returns.groupBy({
+      by: ["id_return_status"],
+      _count: {
+        id_purchase_return: true,
+      },
+    });
 
-    const byStatus =
-      groupedByStatus.reduce((acc, item) => {
-        acc[item.id_return_status] =
-          item._count.id_purchase_return;
+    const byStatus = groupedByStatus.reduce((acc, item) => {
+      acc[item.id_return_status] = item._count.id_purchase_return;
 
-        return acc;
-      }, {});
+      return acc;
+    }, {});
 
-    const total =
-      Object.values(byStatus).reduce(
-        (sum, count) => sum + count,
-        0
-      );
+    const total = Object.values(byStatus).reduce(
+      (sum, count) => sum + count,
+      0,
+    );
 
     return {
       total,
@@ -1201,9 +1104,7 @@ export class PurchaseReturnRepository {
   static async getListProgressByReturnIds(idPurchaseReturns) {
     const uniqueIds = [
       ...new Set(
-        (idPurchaseReturns ?? [])
-          .map((id) => Number(id))
-          .filter(Boolean)
+        (idPurchaseReturns ?? []).map((id) => Number(id)).filter(Boolean),
       ),
     ];
 
@@ -1211,38 +1112,36 @@ export class PurchaseReturnRepository {
       return new Map();
     }
 
-    const [totals, completedTotals] =
-      await Promise.all([
-        prisma.prd.groupBy({
-          by: ["id_purchase_return"],
-          where: {
-            id_purchase_return: {
-              in: uniqueIds,
-            },
+    const [totals, completedTotals] = await Promise.all([
+      prisma.prd.groupBy({
+        by: ["id_purchase_return"],
+        where: {
+          id_purchase_return: {
+            in: uniqueIds,
           },
-          _count: {
-            id_purchase_return_details: true,
+        },
+        _count: {
+          id_purchase_return_details: true,
+        },
+      }),
+      prisma.prd.groupBy({
+        by: ["id_purchase_return"],
+        where: {
+          id_purchase_return: {
+            in: uniqueIds,
           },
-        }),
-        prisma.prd.groupBy({
-          by: ["id_purchase_return"],
-          where: {
-            id_purchase_return: {
-              in: uniqueIds,
-            },
-            id_return_status:
-              {
-                in: [
-                  RETURN_DETAIL_STATUS_IDS.READY,
-                  RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
-                ],
-              },
+          id_return_status: {
+            in: [
+              RETURN_DETAIL_STATUS_IDS.READY,
+              RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
+            ],
           },
-          _count: {
-            id_purchase_return_details: true,
-          },
-        }),
-      ]);
+        },
+        _count: {
+          id_purchase_return_details: true,
+        },
+      }),
+    ]);
 
     const progressByReturn = uniqueIds.reduce((progress, id) => {
       progress.set(id, {
@@ -1255,30 +1154,26 @@ export class PurchaseReturnRepository {
 
     for (const total of totals) {
       const id = Number(total.id_purchase_return);
-      const progress =
-        progressByReturn.get(id) ?? {
-          completed: 0,
-          total: 0,
-          label: "0/0",
-        };
+      const progress = progressByReturn.get(id) ?? {
+        completed: 0,
+        total: 0,
+        label: "0/0",
+      };
 
-      progress.total =
-        total._count.id_purchase_return_details;
+      progress.total = total._count.id_purchase_return_details;
       progress.label = `${progress.completed}/${progress.total}`;
       progressByReturn.set(id, progress);
     }
 
     for (const completed of completedTotals) {
       const id = Number(completed.id_purchase_return);
-      const progress =
-        progressByReturn.get(id) ?? {
-          completed: 0,
-          total: 0,
-          label: "0/0",
-        };
+      const progress = progressByReturn.get(id) ?? {
+        completed: 0,
+        total: 0,
+        label: "0/0",
+      };
 
-      progress.completed =
-        completed._count.id_purchase_return_details;
+      progress.completed = completed._count.id_purchase_return_details;
       progress.label = `${progress.completed}/${progress.total}`;
       progressByReturn.set(id, progress);
     }
@@ -1521,19 +1416,13 @@ export class PurchaseReturnRepository {
     const select = this.getByIdSelect();
 
     delete select.purchases.select.id_provider;
-    delete select.purchases.select.purchase_statuses.select
-      .id_purchase_status;
+    delete select.purchases.select.purchase_statuses.select.id_purchase_status;
     delete select.prd.select.id_product;
-    delete select.prd.select.return_reasons.select
-      .id_return_reason;
-    delete select.prd.select.return_methods.select
-      .id_return_method;
-    delete select.prd.select.return_statuses.select
-      .id_return_status;
-    delete select.prd.select.purchase_details.select
-      .id_purchase_detail;
-    delete select.prd.select.purchase_details.select
-      .barcodes.select.id_barcode;
+    delete select.prd.select.return_reasons.select.id_return_reason;
+    delete select.prd.select.return_methods.select.id_return_method;
+    delete select.prd.select.return_statuses.select.id_return_status;
+    delete select.prd.select.purchase_details.select.id_purchase_detail;
+    delete select.prd.select.purchase_details.select.barcodes.select.id_barcode;
 
     return select;
   }

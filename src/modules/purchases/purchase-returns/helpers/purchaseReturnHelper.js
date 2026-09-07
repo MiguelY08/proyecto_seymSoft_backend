@@ -57,9 +57,7 @@ const DETAIL_STATUS_FLOW_BY_METHOD = {
     [RETURN_DETAIL_STATUS_IDS.PENDING_SHIPMENT]: [
       RETURN_DETAIL_STATUS_IDS.PENDING_REFUND,
     ],
-    [RETURN_DETAIL_STATUS_IDS.PENDING_REFUND]: [
-      RETURN_DETAIL_STATUS_IDS.READY,
-    ],
+    [RETURN_DETAIL_STATUS_IDS.PENDING_REFUND]: [RETURN_DETAIL_STATUS_IDS.READY],
   },
 };
 
@@ -74,7 +72,7 @@ const toDateOnly = (date) => {
   return new Date(
     parsedDate.getFullYear(),
     parsedDate.getMonth(),
-    parsedDate.getDate()
+    parsedDate.getDate(),
   );
 };
 
@@ -85,15 +83,12 @@ const addDays = (date, days) => {
 };
 
 export const getPurchaseMaxReturnDate = (purchase) => {
-  const maxReturnDate =
-    toDateOnly(purchase?.max_return_date);
+  const maxReturnDate = toDateOnly(purchase?.max_return_date);
 
   if (maxReturnDate) return maxReturnDate;
 
-  const purchaseDate =
-    toDateOnly(purchase?.purchase_date);
-  const maxReturnPeriod =
-    purchase?.providers?.max_return_period;
+  const purchaseDate = toDateOnly(purchase?.purchase_date);
+  const maxReturnPeriod = purchase?.providers?.max_return_period;
 
   if (
     !purchaseDate ||
@@ -103,29 +98,25 @@ export const getPurchaseMaxReturnDate = (purchase) => {
     return null;
   }
 
-  return addDays(
-    purchaseDate,
-    maxReturnPeriod
-  );
+  return addDays(purchaseDate, maxReturnPeriod);
 };
 
 export const validatePurchaseReturnPeriod = (
   purchase,
-  currentDate = new Date()
+  currentDate = new Date(),
 ) => {
-  const maxReturnDate =
-    getPurchaseMaxReturnDate(purchase);
+  const maxReturnDate = getPurchaseMaxReturnDate(purchase);
 
   if (!maxReturnDate) {
     return {
       success: false,
       errorCode: "PURCHASE_RETURN_PERIOD_NOT_CONFIGURED",
-      error: "La compra no tiene configurado un periodo valido para registrar devoluciones.",
+      error:
+        "La compra no tiene configurado un periodo valido para registrar devoluciones.",
       meta: {
         purchaseDate: purchase?.purchase_date ?? null,
         maxReturnDate: purchase?.max_return_date ?? null,
-        maxReturnPeriod:
-          purchase?.providers?.max_return_period ?? null,
+        maxReturnPeriod: purchase?.providers?.max_return_period ?? null,
       },
     };
   }
@@ -136,13 +127,13 @@ export const validatePurchaseReturnPeriod = (
     return {
       success: false,
       errorCode: "PURCHASE_RETURN_PERIOD_EXPIRED",
-      error: "El periodo permitido para registrar devoluciones de esta compra ya vencio.",
+      error:
+        "El periodo permitido para registrar devoluciones de esta compra ya vencio.",
       meta: {
         currentDate: today,
         maxReturnDate,
         purchaseDate: purchase?.purchase_date ?? null,
-        maxReturnPeriod:
-          purchase?.providers?.max_return_period ?? null,
+        maxReturnPeriod: purchase?.providers?.max_return_period ?? null,
       },
     };
   }
@@ -155,8 +146,7 @@ export const validatePurchaseReturnPeriod = (
       currentDate: today,
       maxReturnDate,
       purchaseDate: purchase?.purchase_date ?? null,
-      maxReturnPeriod:
-        purchase?.providers?.max_return_period ?? null,
+      maxReturnPeriod: purchase?.providers?.max_return_period ?? null,
     },
   };
 };
@@ -165,9 +155,7 @@ export const calculateAvailableQuantity = ({
   purchasedQuantity,
   returnedQuantity = 0,
 }) => {
-  const available =
-    toNumber(purchasedQuantity) -
-    toNumber(returnedQuantity);
+  const available = toNumber(purchasedQuantity) - toNumber(returnedQuantity);
 
   return Math.max(available, 0);
 };
@@ -176,10 +164,9 @@ export const isAnnulledStatus = (idReturnStatus) =>
   Number(idReturnStatus) === RETURN_DETAIL_STATUS_IDS.ANNULLED;
 
 export const isFinalDeductibleReturnMethod = (idReturnMethod) =>
-  [
-    RETURN_METHOD_IDS.REFUND,
-    RETURN_METHOD_IDS.CREDIT_BALANCE,
-  ].includes(Number(idReturnMethod));
+  [RETURN_METHOD_IDS.REFUND, RETURN_METHOD_IDS.CREDIT_BALANCE].includes(
+    Number(idReturnMethod),
+  );
 
 export const calculatePurchaseDetailReturnAvailability = ({
   purchasedQuantity,
@@ -194,14 +181,10 @@ export const calculatePurchaseDetailReturnAvailability = ({
   const totals = returnDetails.reduce((acc, detail) => {
     const quantity = toNumber(detail.quantity);
     const idReturnStatus = Number(
-      detail.id_return_status ??
-      detail.returnStatusId ??
-      detail.idReturnStatus
+      detail.id_return_status ?? detail.returnStatusId ?? detail.idReturnStatus,
     );
     const idReturnMethod = Number(
-      detail.id_return_method ??
-      detail.returnMethodId ??
-      detail.idReturnMethod
+      detail.id_return_method ?? detail.returnMethodId ?? detail.idReturnMethod,
     );
 
     if (quantity <= 0 || isAnnulledStatus(idReturnStatus)) {
@@ -235,12 +218,12 @@ export const calculatePurchaseDetailsReturnAvailability = ({
   purchaseDetails = [],
   returnDetails = [],
 }) => {
-  const returnDetailsByPurchaseDetail =
-    returnDetails.reduce((grouped, detail) => {
+  const returnDetailsByPurchaseDetail = returnDetails.reduce(
+    (grouped, detail) => {
       const idPurchaseDetail = Number(
         detail.id_purchase_detail ??
-        detail.purchaseDetailId ??
-        detail.idPurchaseDetail
+          detail.purchaseDetailId ??
+          detail.idPurchaseDetail,
       );
 
       if (!idPurchaseDetail) {
@@ -252,14 +235,16 @@ export const calculatePurchaseDetailsReturnAvailability = ({
       grouped.set(idPurchaseDetail, details);
 
       return grouped;
-    }, new Map());
+    },
+    new Map(),
+  );
 
   return purchaseDetails.reduce((availabilityByDetail, detail) => {
     const idPurchaseDetail = Number(
       detail.id_purchase_detail ??
-      detail.purchaseDetailId ??
-      detail.idPurchaseDetail ??
-      detail.id
+        detail.purchaseDetailId ??
+        detail.idPurchaseDetail ??
+        detail.id,
     );
 
     if (!idPurchaseDetail) {
@@ -271,10 +256,11 @@ export const calculatePurchaseDetailsReturnAvailability = ({
       calculatePurchaseDetailReturnAvailability({
         // Las devoluciones se expresan en unidades físicas. Para compras por
         // paca `quantity` es la cantidad de pacas y `stock_added` las unidades.
-        purchasedQuantity: detail.stock_added ?? detail.stockAdded ?? detail.quantity,
+        purchasedQuantity:
+          detail.stock_added ?? detail.stockAdded ?? detail.quantity,
         returnDetails:
           returnDetailsByPurchaseDetail.get(idPurchaseDetail) ?? [],
-      })
+      }),
     );
 
     return availabilityByDetail;
@@ -286,11 +272,10 @@ export const validateReturnQuantity = ({
   purchasedQuantity,
   returnedQuantity = 0,
 }) => {
-  const availableQuantity =
-    calculateAvailableQuantity({
-      purchasedQuantity,
-      returnedQuantity,
-    });
+  const availableQuantity = calculateAvailableQuantity({
+    purchasedQuantity,
+    returnedQuantity,
+  });
 
   if (toNumber(requestedQuantity) < 1) {
     return {
@@ -325,17 +310,16 @@ export const isSupplierRejectionStatus = (idReturnStatus) =>
   Number(idReturnStatus) === RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION;
 
 export const isResolvedReturnStatus = (idReturnStatus) =>
-  isReadyStatus(idReturnStatus) ||
-  isSupplierRejectionStatus(idReturnStatus);
+  isReadyStatus(idReturnStatus) || isSupplierRejectionStatus(idReturnStatus);
 
 export const canUseSupplierRejectionReason = (idReturnReason) =>
   [5, 8].includes(Number(idReturnReason));
 
-export const canUseSupplierRejectionReasonByDescription = (
-  description
-) =>
+export const canUseSupplierRejectionReasonByDescription = (description) =>
   ["DEFECTUOSO", "MAL_ESTADO"].includes(
-    String(description || "").trim().toUpperCase()
+    String(description || "")
+      .trim()
+      .toUpperCase(),
   );
 
 export const validateDetailIsEditable = (detail) => {
@@ -349,7 +333,7 @@ export const validateDetailIsEditable = (detail) => {
 
   if (
     isSupplierRejectionStatus(
-      detail?.id_return_status ?? detail?.returnStatusId
+      detail?.id_return_status ?? detail?.returnStatusId,
     )
   ) {
     return {
@@ -367,16 +351,11 @@ export const validateDetailIsEditable = (detail) => {
 };
 
 export const getAllowedNextStatuses = (idReturnMethod, currentStatusId) => {
-  const flow =
-    DETAIL_STATUS_FLOW_BY_METHOD[
-      Number(idReturnMethod)
-    ];
+  const flow = DETAIL_STATUS_FLOW_BY_METHOD[Number(idReturnMethod)];
 
   if (!flow) return [];
 
-  return flow[
-    Number(currentStatusId)
-  ] || [];
+  return flow[Number(currentStatusId)] || [];
 };
 
 export const validateDetailStatusTransition = ({
@@ -394,25 +373,22 @@ export const validateDetailStatusTransition = ({
     };
   }
 
-  const allowedNextStatuses =
-    getAllowedNextStatuses(
-      idReturnMethod,
-      currentStatusId
-    );
+  const allowedNextStatuses = getAllowedNextStatuses(
+    idReturnMethod,
+    currentStatusId,
+  );
 
   if (
     isSupplierRejectionStatus(nextStatusId) &&
-    !canUseSupplierRejectionReason(idReturnReason) &&
-    !canUseSupplierRejectionReasonByDescription(
-      returnReasonDescription
-    )
+    !canUseSupplierRejectionReason(idReturnReason)
   ) {
     return {
       success: false,
       errorCode: "SUPPLIER_REJECTION_REASON_NOT_ALLOWED",
-      error: "Prov. rechazó solo aplica para productos insatisfechos o en mal estado.",
+      error:
+        "Prov. rechazó solo aplica para productos insatisfechos o en mal estado.",
       allowedNextStatuses: allowedNextStatuses.filter(
-        (statusId) => statusId !== RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION
+        (statusId) => statusId !== RETURN_DETAIL_STATUS_IDS.SUPPLIER_REJECTION,
       ),
     };
   }
@@ -446,10 +422,7 @@ export const shouldRestoreStockOnReady = ({
 export const getReturnProgress = (details = []) => {
   const total = details.length;
   const completed = details.filter((detail) =>
-    isResolvedReturnStatus(
-      detail.id_return_status ??
-      detail.returnStatusId
-    )
+    isResolvedReturnStatus(detail.id_return_status ?? detail.returnStatusId),
   ).length;
 
   return {
@@ -470,10 +443,7 @@ export const calculateReturnLifecycle = ({
   if (
     details.length > 0 &&
     details.every((detail) =>
-      isResolvedReturnStatus(
-        detail.id_return_status ??
-        detail.returnStatusId
-      )
+      isResolvedReturnStatus(detail.id_return_status ?? detail.returnStatusId),
     )
   ) {
     return RETURN_LIFECYCLE.COMPLETED;
@@ -487,32 +457,24 @@ export const calculatePurchaseStatusFromReturns = (returns = []) => {
     return PURCHASE_STATUS_IDS.COMPLETED;
   }
 
-  const lifecycles = returns.map((purchaseReturn) =>
-    purchaseReturn.lifecycle ||
-    calculateReturnLifecycle({
-      details:
-        purchaseReturn.prd ??
-        purchaseReturn.details ??
-        [],
-      isAnnulled:
-        purchaseReturn.isAnnulled ||
-        isAnnulledStatus(
-          purchaseReturn.id_return_status ??
-          purchaseReturn.returnStatusId ??
-          purchaseReturn.statusId
-        ),
-    })
+  const lifecycles = returns.map(
+    (purchaseReturn) =>
+      purchaseReturn.lifecycle ||
+      calculateReturnLifecycle({
+        details: purchaseReturn.prd ?? purchaseReturn.details ?? [],
+        isAnnulled:
+          purchaseReturn.isAnnulled ||
+          isAnnulledStatus(
+            purchaseReturn.id_return_status ??
+              purchaseReturn.returnStatusId ??
+              purchaseReturn.statusId,
+          ),
+      }),
   );
 
-  const hasInProcess =
-    lifecycles.includes(
-      RETURN_LIFECYCLE.IN_PROCESS
-    );
+  const hasInProcess = lifecycles.includes(RETURN_LIFECYCLE.IN_PROCESS);
 
-  const hasAnnulled =
-    lifecycles.includes(
-      RETURN_LIFECYCLE.ANNULLED
-    );
+  const hasAnnulled = lifecycles.includes(RETURN_LIFECYCLE.ANNULLED);
 
   if (hasInProcess && hasAnnulled) {
     return PURCHASE_STATUS_IDS.RETURN_IN_PROCESS_WITH_ANNULLED_RETURNS;
