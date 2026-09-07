@@ -44,18 +44,18 @@ const resolveSaleType = async (normalizedType) => {
  *
  * Responsabilidades:
  * - Validar el tipo de venta solicitado.
- * - Resolver el tipo de venta contra el catálogo sale_types.
+ * - Resolver el tipo de venta contra el catÃ¡logo sale_types.
  * - Reutilizar el listado de ventas con filtros.
- * - Retornar paginación y ventas del tipo indicado.
+ * - Retornar paginaciÃ³n y ventas del tipo indicado.
  *
  * Reglas de negocio:
  * - Los tipos permitidos desde ruta son: manual, direct, web.
  * - No se usan IDs quemados; el ID real se toma desde sale_types.
- * - Puede combinarse con filtros generales como estado, método de pago,
+ * - Puede combinarse con filtros generales como estado, mÃ©todo de pago,
  *   empleado, pedido y rango de fechas.
  *
  * @param {string} vendingType - Tipo de venta solicitado
- * @param {Object} filters - Filtros de búsqueda validados
+ * @param {Object} filters - Filtros de bÃºsqueda validados
  *
  * @returns {Promise<Object>} Resultado con estructura:
  * {
@@ -80,7 +80,7 @@ export const getVendingsByTypeUseCase = async (
         success: false,
         data: null,
         error:
-          "Tipo de venta inválido",
+          "Tipo de venta invÃ¡lido",
         errorCode:
           "INVALID_SALE_TYPE",
       };
@@ -114,7 +114,7 @@ export const getVendingsByTypeUseCase = async (
         success: false,
         data: null,
         error:
-          "Error: estructura de datos inválida del repository",
+          "Error: estructura de datos invÃ¡lida del repository",
         errorCode:
           "INVALID_REPOSITORY_RESPONSE",
       };

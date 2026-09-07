@@ -40,25 +40,6 @@ const getRefundableFavorBalanceAmount = (order) => {
   return getFavorBalancePaymentAmount(order.order_payments || []);
 };
 
-const getOrderPaymentsTotal = (payments = []) =>
-  Math.round(
-    payments.reduce((total, payment) => total + Number(payment.amount || 0), 0) * 100
-  ) / 100;
-
-const getFavorBalanceCreditOnCancellation = (order) => {
-  if (!order || order.sales) {
-    return 0;
-  }
-
-  const isCancelledPendingWebOrder =
-    String(order.sale_type || '').trim().toLowerCase() === 'web' &&
-    Number(order.id_payment_status) === PAYMENT_STATUSES[1].id;
-
-  return isCancelledPendingWebOrder
-    ? getOrderPaymentsTotal(order.order_payments)
-    : getRefundableFavorBalanceAmount(order);
-};
-
 const normalizeDeliveryTypeFilter = (value) => {
   try {
     return normalizeDeliveryType(value);
@@ -172,7 +153,6 @@ const orderSummarySelect = {
   payment_reminder_1h_sent: true,
   payment_expired_at: true,
   payment_expiration_reason: true,
-  favor_balance_restored_amount: true,
   id_payment_status: true,
   assigned_employee: true,
   cancellation_reason: true,
@@ -311,7 +291,6 @@ const orderPaymentResultSelect = {
   payment_reminder_1h_sent: true,
   payment_expired_at: true,
   payment_expiration_reason: true,
-  favor_balance_restored_amount: true,
   id_payment_status: true,
   assigned_employee: true,
   cancellation_reason: true,
@@ -1022,8 +1001,6 @@ export class OrderRepository {
         },
         select: {
           id_customer: true,
-          sale_type: true,
-          id_payment_status: true,
           sales: {
             select: {
               id_sale: true,
@@ -1038,8 +1015,8 @@ export class OrderRepository {
         },
       });
 
-      const creditAmount = getFavorBalanceCreditOnCancellation(order);
-      favorBalanceRestoredAmount = creditAmount;
+      const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
+      favorBalanceRestoredAmount = refundableFavorBalance;
 
       await tx.sales_orders.update({
         where: {
@@ -1053,14 +1030,13 @@ export class OrderRepository {
           },
           cancellation_reason: reason,
           cancelled_at: new Date(),
-          favor_balance_restored_amount: creditAmount,
         },
       });
 
-      if (creditAmount > 0) {
+      if (refundableFavorBalance > 0) {
         await restoreClientFavorBalanceAmount(tx, {
           idClient: order.id_customer,
-          amount: creditAmount,
+          amount: refundableFavorBalance,
         });
       }
     });
@@ -1416,8 +1392,6 @@ export class OrderRepository {
         },
         select: {
           id_customer: true,
-          sale_type: true,
-          id_payment_status: true,
           sales: {
             select: {
               id_sale: true,
@@ -1432,8 +1406,8 @@ export class OrderRepository {
         },
       });
 
-      const creditAmount = getFavorBalanceCreditOnCancellation(order);
-      favorBalanceRestoredAmount = creditAmount;
+      const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
+      favorBalanceRestoredAmount = refundableFavorBalance;
 
       await tx.sales_orders.update({
         where: {
@@ -1449,14 +1423,13 @@ export class OrderRepository {
           payment_expiration_reason: reason,
           cancellation_reason: reason,
           cancelled_at: new Date(),
-          favor_balance_restored_amount: creditAmount,
         },
       });
 
-      if (creditAmount > 0) {
+      if (refundableFavorBalance > 0) {
         await restoreClientFavorBalanceAmount(tx, {
           idClient: order.id_customer,
-          amount: creditAmount,
+          amount: refundableFavorBalance,
         });
       }
     });
