@@ -29,6 +29,10 @@ const storefrontProductSelect = {
       barcode: true,
       barcode_type: true,
       stock: true,
+      variant_name: true,
+      variant_image_url: true,
+      is_active: true,
+      is_default: true,
     },
     orderBy: { id_barcode: "asc" },
   },
@@ -121,23 +125,32 @@ export const storefrontRepository = {
     return findCartByClient(db, idClient);
   },
 
-  async setCartItem(idClient, productId, quantity) {
+  async setCartItem(idClient, productId, barcodeId, quantity) {
     return prisma.shopping_cart_items.upsert({
       where: {
-        id_client_id_product: {
+        id_client_id_barcode: {
           id_client: idClient,
-          id_product: productId,
+          id_barcode: barcodeId,
         },
       },
-      create: { id_client: idClient, id_product: productId, quantity },
+      create: {
+        id_client: idClient,
+        id_product: productId,
+        id_barcode: barcodeId,
+        quantity,
+      },
       update: { quantity },
       include: cartInclude,
     });
   },
 
-  async removeCartItem(idClient, productId) {
+  async removeCartItem(idClient, productId, barcodeId) {
     return prisma.shopping_cart_items.deleteMany({
-      where: { id_client: idClient, id_product: productId },
+      where: {
+        id_client: idClient,
+        id_product: productId,
+        ...(barcodeId ? { id_barcode: barcodeId } : {}),
+      },
     });
   },
 
@@ -153,14 +166,17 @@ export const storefrontRepository = {
         const product = await this.findAvailableProduct(item.productId, tx);
         if (!product) continue;
 
-        const stock = calculateStock(product);
+        const barcode = product.barcodes?.find((entry) => entry.id_barcode === item.barcodeId);
+        if (!barcode) continue;
+
+        const stock = Number(barcode.stock || 0);
         if (stock < 1) continue;
 
         const existing = await tx.shopping_cart_items.findUnique({
           where: {
-            id_client_id_product: {
+            id_client_id_barcode: {
               id_client: idClient,
-              id_product: item.productId,
+              id_barcode: item.barcodeId,
             },
           },
           select: { quantity: true },
@@ -178,6 +194,7 @@ export const storefrontRepository = {
           create: {
             id_client: idClient,
             id_product: item.productId,
+            id_barcode: item.barcodeId,
             quantity,
           },
           update: { quantity },

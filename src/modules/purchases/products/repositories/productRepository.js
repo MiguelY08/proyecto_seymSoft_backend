@@ -25,7 +25,16 @@ const productInclude = {
     unit_measures: { select: { id_unit_measure: true, name_unit_measure: true, abbreviation: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
     barcodes: {
-      select: { id_barcode: true, barcode: true, barcode_type: true, stock: true },
+      select: {
+        id_barcode: true,
+        barcode: true,
+        barcode_type: true,
+        stock: true,
+        variant_name: true,
+        variant_image_url: true,
+        is_active: true,
+        is_default: true,
+      },
       orderBy: { id_barcode: "asc" },
     },
     product_images: {
@@ -187,6 +196,9 @@ export class ProductRepository {
             barcode: String(b.barcode),
             barcode_type: b.barcode_type || "EAN13",
             stock: parseIntOrZero(b.stock),
+            variant_name: b.variant_name || "Estilo pendiente",
+            variant_image_url: b.variant_image_url || null,
+            is_default: b.is_default === true,
             id_product: product.id_product,
           })),
         });
@@ -292,6 +304,11 @@ export class ProductRepository {
           const barcodeData = {
             barcode_type: barcode.barcode_type || "EAN13",
             stock: Math.max(0, parseIntOrZero(barcode.stock)),
+            variant_name: barcode.variant_name || "Estilo pendiente",
+            ...(barcode.variant_image_url !== undefined
+              ? { variant_image_url: barcode.variant_image_url || null }
+              : {}),
+            is_default: barcode.is_default === true,
           };
 
           if (existing) {
@@ -373,6 +390,16 @@ export class ProductRepository {
         image_url: url,
         is_primary: idx === 0,
       })),
+    });
+  }
+
+  async updateBarcodeVariant(barcodeId, data) {
+    return prisma.barcodes.update({
+      where: { id_barcode: parseInt(barcodeId) },
+      data: {
+        ...(data.variantName !== undefined ? { variant_name: data.variantName } : {}),
+        ...(data.variantImageUrl !== undefined ? { variant_image_url: data.variantImageUrl } : {}),
+      },
     });
   }
 }

@@ -10,7 +10,8 @@ import {
   setCartItemUseCase,
 } from "../use-cases/storefrontUseCases.js";
 import {
-  cartQuantitySchema,
+  cartItemSchema,
+  barcodeIdParamsSchema,
   mergeCartSchema,
   productIdParamsSchema,
 } from "../validators/storefrontValidators.js";
@@ -80,10 +81,11 @@ export const getCartController = async (req, res, next) => {
 export const setCartItemController = async (req, res, next) => {
   try {
     const { productId } = validate(productIdParamsSchema, req.params);
-    const { quantity } = validate(cartQuantitySchema, req.body);
+    const { barcodeId, quantity } = validate(cartItemSchema, req.body);
     const data = await setCartItemUseCase(
       req.client.idClient,
       productId,
+      barcodeId,
       quantity,
     );
 
@@ -99,8 +101,9 @@ export const setCartItemController = async (req, res, next) => {
 
 export const removeCartItemController = async (req, res, next) => {
   try {
-    const { productId } = validate(productIdParamsSchema, req.params);
-    const data = await removeCartItemUseCase(req.client.idClient, productId);
+    const paramsSchema = req.params.barcodeId ? barcodeIdParamsSchema : productIdParamsSchema;
+    const { productId, barcodeId } = validate(paramsSchema, req.params);
+    const data = await removeCartItemUseCase(req.client.idClient, productId, barcodeId);
     return res.status(200).json({
       success: true,
       message: "Producto eliminado del carrito",

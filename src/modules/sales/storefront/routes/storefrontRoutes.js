@@ -23,6 +23,7 @@ router.delete("/favorites/:productId", removeFavoriteController);
 router.get("/cart", getCartController);
 router.post("/cart/merge", mergeCartController);
 router.put("/cart/:productId", setCartItemController);
+router.delete("/cart/:productId/:barcodeId", removeCartItemController);
 router.delete("/cart/:productId", removeCartItemController);
 router.delete("/cart", clearCartController);
 

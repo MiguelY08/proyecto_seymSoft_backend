@@ -32,6 +32,10 @@ export const mapStorefrontProduct = (product) => {
       barcode: barcode.barcode,
       barcodeType: barcode.barcode_type,
       stock: barcode.stock,
+      variantName: barcode.variant_name,
+      variantImageUrl: barcode.variant_image_url,
+      isActive: barcode.is_active,
+      isDefault: barcode.is_default,
     })),
     unitMeasure: product.unit_measures
       ? {
@@ -67,6 +71,11 @@ export const mapCartItem = (item) => ({
   quantity: item.quantity,
   createdAt: item.created_at,
   updatedAt: item.updated_at,
+  barcodeId: item.id_barcode,
+  barcode: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.barcode ?? null,
+  variantName: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.variant_name ?? null,
+  variantImageUrl: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.variant_image_url ?? null,
+  variantStock: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.stock ?? null,
   product: mapStorefrontProduct(item.products),
 });
 

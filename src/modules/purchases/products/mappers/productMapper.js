@@ -54,6 +54,10 @@ export const mapProduct = (product) => {
       barcode: b.barcode,
       barcodeType: b.barcode_type,
       stock: b.stock,
+      variantName: b.variant_name,
+      variantImageUrl: b.variant_image_url,
+      isActive: b.is_active,
+      isDefault: b.is_default,
     })),
     images: (product.product_images || []).map((img) => ({
       id: img.id_image,
