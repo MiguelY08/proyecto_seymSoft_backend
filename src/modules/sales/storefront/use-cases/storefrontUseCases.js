@@ -42,10 +42,17 @@ export const getCartUseCase = async (idClient) => {
 export const setCartItemUseCase = async (
   idClient,
   productId,
+  barcodeId,
   requestedQuantity,
 ) => {
   const product = await requireAvailableProduct(productId);
-  const stock = storefrontRepository.calculateStock(product);
+  const barcode = product.barcodes?.find((item) => item.id_barcode === barcodeId);
+
+  if (!barcode) {
+    throw new NotFoundError("Codigo de barras no encontrado para este producto");
+  }
+
+  const stock = Number(barcode.stock || 0);
 
   if (stock < 1) {
     throw new BadRequestError("El producto no tiene existencias disponibles");
@@ -60,6 +67,7 @@ export const setCartItemUseCase = async (
   const changedItem = await storefrontRepository.setCartItem(
     idClient,
     productId,
+    barcodeId,
     requestedQuantity,
   );
   const items = await storefrontRepository.getCart(idClient);
@@ -69,8 +77,8 @@ export const setCartItemUseCase = async (
   });
 };
 
-export const removeCartItemUseCase = async (idClient, productId) => {
-  const result = await storefrontRepository.removeCartItem(idClient, productId);
+export const removeCartItemUseCase = async (idClient, productId, barcodeId) => {
+  const result = await storefrontRepository.removeCartItem(idClient, productId, barcodeId);
   const items = await storefrontRepository.getCart(idClient);
 
   return mapCartResponse(items, {
@@ -90,12 +98,17 @@ export const clearCartUseCase = async (idClient) => {
 
 export const mergeCartUseCase = async (idClient, incomingItems) => {
   const combinedItems = Array.from(
-    incomingItems.reduce((itemsByProduct, item) => {
-      const current = itemsByProduct.get(item.productId) || 0;
-      itemsByProduct.set(item.productId, current + item.quantity);
-      return itemsByProduct;
+    incomingItems.reduce((itemsByVariant, item) => {
+      const key = `${item.productId}:${item.barcodeId}`;
+      const current = itemsByVariant.get(key);
+      itemsByVariant.set(key, {
+        productId: item.productId,
+        barcodeId: item.barcodeId,
+        quantity: (current?.quantity || 0) + item.quantity,
+      });
+      return itemsByVariant;
     }, new Map()),
-    ([productId, quantity]) => ({ productId, quantity }),
+    ([, item]) => item,
   );
 
   const items = await storefrontRepository.mergeCart(idClient, combinedItems);

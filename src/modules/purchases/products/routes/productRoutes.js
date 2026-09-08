@@ -15,7 +15,13 @@ import {
 const router = Router();
 
 // Configurar multer
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    files: 20,
+    fileSize: 10 * 1024 * 1024,
+  },
+});
 
 // Otras rutas
 router.get('/', getAllProducts);
@@ -23,8 +29,8 @@ router.get('/unit-measures', getUnitMeasures);
 router.get('/:id', getProductById);
 
 // Rutas administrativas
-router.post('/', authMiddleware, upload.array('images', 10), createProduct);
-router.put('/:id', authMiddleware, upload.array('images', 10), updateProduct);
+router.post('/', authMiddleware, upload.any(), createProduct);
+router.put('/:id', authMiddleware, upload.any(), updateProduct);
 router.patch('/:id/toggle', authMiddleware, toggleProductStatus);
 router.delete('/:id', authMiddleware, deleteProduct);
 

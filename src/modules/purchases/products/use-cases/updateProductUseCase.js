@@ -2,6 +2,7 @@ import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
 import { validateProductPrices } from "./productPriceValidation.js";
+import { getProductImageFiles, saveVariantImages } from "./productImageFiles.js";
 
 export class UpdateProductUseCase {
   constructor(repo) {
@@ -58,10 +59,12 @@ export class UpdateProductUseCase {
 
     const updated = await this.repo.update(id, dto);
 
-    if (files.length > 0) {
+    const productFiles = getProductImageFiles(files);
+
+    if (productFiles.length > 0) {
       const imageUrls = [];
 
-      for (const file of files) {
+      for (const file of productFiles) {
         const url = await processAndSaveImage(file.buffer, {
           bucketName: process.env.SUPABASE_BUCKET_PRODUCTS,
           config: PRODUCT_IMAGE_CONFIG,
@@ -73,6 +76,14 @@ export class UpdateProductUseCase {
       await this.repo.createProductImages(id, imageUrls);
     }
 
-    return mapProduct(updated);
+    await saveVariantImages({
+      repo: this.repo,
+      product: updated,
+      barcodes: dto.barcodes,
+      files,
+    });
+
+    const productWithImages = await this.repo.findById(id);
+    return mapProduct(productWithImages);
   }
 }

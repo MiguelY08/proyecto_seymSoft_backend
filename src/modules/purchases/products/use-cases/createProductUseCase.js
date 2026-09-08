@@ -1,6 +1,7 @@
 import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
+import { getProductImageFiles, saveVariantImages } from "./productImageFiles.js";
 import { validateProductPrices } from "./productPriceValidation.js";
 
 export class CreateProductUseCase {
@@ -46,12 +47,14 @@ export class CreateProductUseCase {
     const product = await this.repo.create(dto);
     console.log("Producto creado:", product.id_product);
 
-    if (files && files.length > 0) {
+    const productFiles = getProductImageFiles(files);
+
+    if (productFiles.length > 0) {
       console.log(`[CreateProductUseCase] Procesando ${files.length} imagenes...`);
       const imageUrls = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < productFiles.length; i++) {
+        const file = productFiles[i];
         try {
           const imageUrl = await processAndSaveImage(file.buffer, {
             bucketName: process.env.SUPABASE_BUCKET_PRODUCTS || "products",
@@ -77,6 +80,15 @@ export class CreateProductUseCase {
         }
       }
     }
+
+    const productWithBarcodes = await this.repo.findById(product.id_product);
+
+    await saveVariantImages({
+      repo: this.repo,
+      product: productWithBarcodes,
+      barcodes: dto.barcodes,
+      files,
+    });
 
     const productWithImages = await this.repo.findById(product.id_product);
     return mapProduct(productWithImages);

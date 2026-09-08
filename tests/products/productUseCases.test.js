@@ -222,3 +222,42 @@ test("mapProduct calcula stock total desde todos los codigos de barras", () => {
   );
 });
 
+test("los datos de variante de barcode sobreviven al DTO y al mapper", () => {
+  const dto = new CreateProductDto({
+    nombre: "Producto con variante",
+    referencia: "REF-VARIANTE-001",
+    precioDetalle: 12000,
+    precioMayorista: 10000,
+    precioColegas: 9000,
+    precioPacas: 8000,
+    idUnitMeasure: 1,
+    idCategorie: 1,
+    barcodes: [{
+      barcode: "12345678",
+      variantName: "Rojo",
+      variantImageUrl: "https://example.com/rojo.webp",
+      isDefault: true,
+    }],
+  });
+
+  const result = mapProduct({
+    ...productFromDatabase,
+    barcodes: [{
+      id_barcode: 1,
+      barcode: "12345678",
+      barcode_type: "EAN13",
+      stock: 5,
+      variant_name: dto.barcodes[0].variant_name,
+      variant_image_url: dto.barcodes[0].variant_image_url,
+      is_default: dto.barcodes[0].is_default,
+      is_active: true,
+    }],
+  });
+
+  assert.equal(dto.barcodes[0].variant_name, "Rojo");
+  assert.equal(dto.barcodes[0].variant_image_url, "https://example.com/rojo.webp");
+  assert.equal(result.barcodes[0].variantName, "Rojo");
+  assert.equal(result.barcodes[0].variantImageUrl, "https://example.com/rojo.webp");
+  assert.equal(result.barcodes[0].isDefault, true);
+});
+

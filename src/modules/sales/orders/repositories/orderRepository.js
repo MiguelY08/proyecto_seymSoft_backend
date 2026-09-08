@@ -235,6 +235,7 @@ const orderSummarySelect = {
     select: {
       id_order_detail: true,
       id_product: true,
+        id_barcode: true,
       barcode: true,
       quantity: true,
       unit_price: true,
