@@ -50,8 +50,9 @@ export class CreateProductUseCase {
       console.log(`[CreateProductUseCase] Procesando ${files.length} imagenes...`);
       const imageUrls = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      const generalImageFiles = files.filter((file) => file.fieldname === 'images');
+      for (let i = 0; i < generalImageFiles.length; i++) {
+        const file = generalImageFiles[i];
         try {
           const imageUrl = await processAndSaveImage(file.buffer, {
             bucketName: process.env.SUPABASE_BUCKET_PRODUCTS || "products",
@@ -76,6 +77,19 @@ export class CreateProductUseCase {
           throw new AppError(`Error guardando imagenes: ${error.message}`, 500);
         }
       }
+    }
+
+    const variantFiles = files.filter((file) => /^variantImage_\d+$/.test(file.fieldname));
+    for (const file of variantFiles) {
+      const index = Number(file.fieldname.replace('variantImage_', ''));
+      const barcode = dto.barcodes[index];
+      if (!barcode) continue;
+      const imageUrl = await processAndSaveImage(file.buffer, {
+        bucketName: process.env.SUPABASE_BUCKET_PRODUCTS || "products",
+        config: { ...PRODUCT_IMAGE_CONFIG, prefix: `product_${product.id_product}_variant_${barcode.barcode}` },
+      });
+      const createdBarcode = await this.repo.findByBarcode(barcode.barcode);
+      if (createdBarcode) await this.repo.updateBarcodeVariantImage(createdBarcode.id_barcode, imageUrl);
     }
 
     const productWithImages = await this.repo.findById(product.id_product);

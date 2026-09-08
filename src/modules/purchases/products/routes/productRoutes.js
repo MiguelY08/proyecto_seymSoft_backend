@@ -23,8 +23,8 @@ router.get('/unit-measures', getUnitMeasures);
 router.get('/:id', getProductById);
 
 // Rutas administrativas
-router.post('/', authMiddleware, upload.array('images', 10), createProduct);
-router.put('/:id', authMiddleware, upload.array('images', 10), updateProduct);
+router.post('/', authMiddleware, upload.any(), createProduct);
+router.put('/:id', authMiddleware, upload.any(), updateProduct);
 router.patch('/:id/toggle', authMiddleware, toggleProductStatus);
 router.delete('/:id', authMiddleware, deleteProduct);
 

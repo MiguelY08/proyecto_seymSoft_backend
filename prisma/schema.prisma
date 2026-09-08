@@ -40,18 +40,20 @@ model barcodes {
   barcode                   String                      @unique(map: "codigo_de_barras_codigo_de_barras_key") @db.VarChar(100)
   barcode_type              String?                     @db.VarChar(50)
   stock                     Int?                        @default(0)
-  variant_name              String                      @default("Estilo pendiente") @db.VarChar(120)
+  id_product                Int
+  variant_name              String                      @db.VarChar(120)
   variant_image_url         String?                     @db.VarChar(500)
   is_active                 Boolean                     @default(true)
   is_default                Boolean                     @default(false)
-  id_product                Int
   products                  products                    @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "codigo_de_barras_id_producto_fkey")
   inventory_stock_movements inventory_stock_movements[]
   non_conforming_products   non_conforming_products[]
+  order_details             order_details[]
   purchase_details          purchase_details[]
   sale_return_details       sale_return_details[]
   shopping_cart_items       shopping_cart_items[]
-  order_details             order_details[]
+
+  @@index([id_product, is_active], map: "idx_barcodes_product_active")
 }
 
 model inventory_stock_movements {
@@ -278,15 +280,17 @@ model order_details {
   id_order_detail Int          @id(map: "detalles_pedidos_pkey") @default(autoincrement())
   id_order        Int
   barcode         String       @db.VarChar(100)
-  id_barcode      Int?
   quantity        Int
   unit_price      Decimal      @db.Decimal(10, 2)
   subtotal        Decimal      @db.Decimal(10, 2)
   iva_amount      Decimal      @db.Decimal(10, 2)
   id_product      Int
+  id_barcode      Int?
   sales_orders    sales_orders @relation(fields: [id_order], references: [id_order], onDelete: NoAction, onUpdate: NoAction, map: "detalles_pedidos_id_pedido_fkey")
   products        products     @relation(fields: [id_product], references: [id_product], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalle_producto")
-  barcodes        barcodes?    @relation(fields: [id_barcode], references: [id_barcode], onDelete: Restrict, onUpdate: Cascade, map: "order_details_barcode_fkey")
+  barcodes        barcodes?    @relation(fields: [id_barcode], references: [id_barcode], onDelete: Restrict, map: "order_details_barcode_fkey")
+
+  @@index([id_barcode], map: "idx_order_details_barcode")
 }
 
 model order_payment_receipts {
@@ -798,13 +802,13 @@ model shopping_cart_items {
   id_cart_item Int       @id @default(autoincrement())
   id_client    Int
   id_product   Int
-  id_barcode   Int?
   quantity     Int
   created_at   DateTime  @default(now()) @db.Timestamp(6)
   updated_at   DateTime  @default(now()) @db.Timestamp(6)
+  id_barcode   Int?
   clients      clients   @relation(fields: [id_client], references: [id_client], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_client")
   products     products  @relation(fields: [id_product], references: [id_product], onDelete: Cascade, onUpdate: NoAction, map: "fk_shopping_cart_items_product")
-  barcodes     barcodes? @relation(fields: [id_barcode], references: [id_barcode], onDelete: Restrict, onUpdate: Cascade, map: "shopping_cart_items_barcode_fkey")
+  barcodes     barcodes? @relation(fields: [id_barcode], references: [id_barcode], onDelete: Restrict, map: "shopping_cart_items_barcode_fkey")
 
   @@unique([id_client, id_barcode], map: "uq_shopping_cart_items_client_barcode")
   @@index([id_client], map: "idx_shopping_cart_items_client")

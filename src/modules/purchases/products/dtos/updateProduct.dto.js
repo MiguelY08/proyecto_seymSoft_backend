@@ -21,6 +21,10 @@ const normalizeBarcode = (barcode) => {
     barcode: code !== undefined ? String(code) : undefined,
     barcode_type: firstDefined(barcode.barcode_type, barcode.barcodeType) || "EAN13",
     stock: firstDefined(barcode.stock, barcode.cantidad, barcode.quantity),
+    variant_name: firstDefined(barcode.variant_name, barcode.variantName, barcode.name),
+    variant_image_url: firstDefined(barcode.variant_image_url, barcode.variantImageUrl),
+    is_active: barcode.is_active !== false && barcode.isActive !== false,
+    is_default: barcode.is_default === true || barcode.isDefault === true,
   };
 };
 

@@ -128,6 +128,15 @@ export class ProductRepository {
     });
   }
 
+  async findBarcodeByProduct(productId, barcode) {
+    return prisma.barcodes.findFirst({
+      where: {
+        id_product: Number(productId),
+        barcode: { equals: barcode, mode: "insensitive" },
+      },
+    });
+  }
+
   async findUnitMeasureById(id) {
     return prisma.unit_measures.findUnique({
       where: { id_unit_measure: parseInt(id) },
@@ -408,6 +417,13 @@ export class ProductRepository {
         image_url: url,
         is_primary: idx === 0,
       })),
+    });
+  }
+
+  async updateBarcodeVariantImage(barcodeId, imageUrl) {
+    return prisma.barcodes.update({
+      where: { id_barcode: Number(barcodeId) },
+      data: { variant_image_url: imageUrl },
     });
   }
 }

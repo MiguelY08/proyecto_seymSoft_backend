@@ -58,10 +58,11 @@ export class UpdateProductUseCase {
 
     const updated = await this.repo.update(id, dto);
 
-    if (files.length > 0) {
+    const generalImageFiles = files.filter((item) => item.fieldname === 'images');
+    if (generalImageFiles.length > 0) {
       const imageUrls = [];
 
-      for (const file of files) {
+      for (const file of generalImageFiles) {
         const url = await processAndSaveImage(file.buffer, {
           bucketName: process.env.SUPABASE_BUCKET_PRODUCTS,
           config: PRODUCT_IMAGE_CONFIG,
@@ -73,6 +74,19 @@ export class UpdateProductUseCase {
       await this.repo.createProductImages(id, imageUrls);
     }
 
-    return mapProduct(updated);
+    for (const file of files.filter((item) => /^variantImage_\d+$/.test(item.fieldname))) {
+      const index = Number(file.fieldname.replace('variantImage_', ''));
+      const barcode = dto.barcodes[index];
+      if (!barcode) continue;
+      const imageUrl = await processAndSaveImage(file.buffer, {
+        bucketName: process.env.SUPABASE_BUCKET_PRODUCTS || 'products',
+        config: { ...PRODUCT_IMAGE_CONFIG, prefix: `product_${id}_variant_${barcode.barcode}` },
+      });
+      const barcodeRecord = await this.repo.findBarcodeByProduct(id, barcode.barcode);
+      if (barcodeRecord) await this.repo.updateBarcodeVariantImage(barcodeRecord.id_barcode, imageUrl);
+    }
+
+    const productWithImages = await this.repo.findById(id);
+    return mapProduct(productWithImages);
   }
 }
