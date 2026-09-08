@@ -15,7 +15,13 @@ import {
 const router = Router();
 
 // Configurar multer
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    files: 20,
+    fileSize: 10 * 1024 * 1024,
+  },
+});
 
 // Otras rutas
 router.get('/', getAllProducts);

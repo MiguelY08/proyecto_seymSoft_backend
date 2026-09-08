@@ -76,6 +76,11 @@ export const mapCartItem = (item) => ({
   variantStock: item.barcodes?.stock || 0,
   createdAt: item.created_at,
   updatedAt: item.updated_at,
+  barcodeId: item.id_barcode,
+  barcode: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.barcode ?? null,
+  variantName: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.variant_name ?? null,
+  variantImageUrl: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.variant_image_url ?? null,
+  variantStock: item.products?.barcodes?.find((barcode) => barcode.id_barcode === item.id_barcode)?.stock ?? null,
   product: mapStorefrontProduct(item.products),
 });
 

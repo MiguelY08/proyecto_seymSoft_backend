@@ -8,8 +8,19 @@ import { GetProductByIdUseCase } from "../use-cases/getProductByIdUseCase.js";
 import { UpdateProductUseCase } from "../use-cases/updateProductUseCase.js";
 import { ToggleProductStatusUseCase } from "../use-cases/toggleProductStatusUseCase.js";
 import { DeleteProductUseCase } from "../use-cases/deleteProductUseCase.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 
 const repo = new ProductRepository();
+
+const assertProductImageFields = (files) => {
+  const invalidFile = files.find(
+    (file) => file.fieldname !== "images" && !/^variantImage_\d+$/.test(file.fieldname),
+  );
+
+  if (invalidFile) {
+    throw new AppError(`Campo de imagen no permitido: ${invalidFile.fieldname}`, 400);
+  }
+};
 
 // ─── Create Product ───────────────────────────────────────────────────────────
 export const createProduct = async (req, res, next) => {
@@ -18,6 +29,7 @@ export const createProduct = async (req, res, next) => {
     console.log('📝 req.body:', req.body);
     
     const files = req.files || [];
+    assertProductImageFields(files);
     
     const parseArrayField = (value) => {
   if (!value) return [];
@@ -126,6 +138,7 @@ const subcategories = parseArrayField(
 const barcodes = parseArrayField(req.body.barcodes);
 
 const files = req.files || [];
+  assertProductImageFields(files);
       console.log('📝 req.body:', req.body);
     console.log('✅ categories:', categories);
     console.log('✅ subcategories:', subcategories);

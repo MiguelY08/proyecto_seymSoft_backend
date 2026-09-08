@@ -35,7 +35,11 @@ const productInclude = {
         is_active: true,
         is_default: true,
       },
+<<<<<<< HEAD
       orderBy: [{ is_default: "desc" }, { id_barcode: "asc" }],
+=======
+      orderBy: { id_barcode: "asc" },
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
     },
     product_images: {
       select: { id_image: true, image_url: true, is_primary: true },
@@ -207,7 +211,10 @@ export class ProductRepository {
             stock: parseIntOrZero(b.stock),
             variant_name: b.variant_name || "Estilo pendiente",
             variant_image_url: b.variant_image_url || null,
+<<<<<<< HEAD
             is_active: b.is_active !== false,
+=======
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
             is_default: b.is_default === true,
             id_product: product.id_product,
           })),
@@ -333,8 +340,14 @@ export class ProductRepository {
             barcode_type: barcode.barcode_type || "EAN13",
             stock: Math.max(0, parseIntOrZero(barcode.stock)),
             variant_name: barcode.variant_name || "Estilo pendiente",
+<<<<<<< HEAD
             variant_image_url: barcode.variant_image_url || null,
             is_active: barcode.is_active !== false,
+=======
+            ...(barcode.variant_image_url !== undefined
+              ? { variant_image_url: barcode.variant_image_url || null }
+              : {}),
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
             is_default: barcode.is_default === true,
           };
 
@@ -420,10 +433,20 @@ export class ProductRepository {
     });
   }
 
+<<<<<<< HEAD
   async updateBarcodeVariantImage(barcodeId, imageUrl) {
     return prisma.barcodes.update({
       where: { id_barcode: Number(barcodeId) },
       data: { variant_image_url: imageUrl },
+=======
+  async updateBarcodeVariant(barcodeId, data) {
+    return prisma.barcodes.update({
+      where: { id_barcode: parseInt(barcodeId) },
+      data: {
+        ...(data.variantName !== undefined ? { variant_name: data.variantName } : {}),
+        ...(data.variantImageUrl !== undefined ? { variant_image_url: data.variantImageUrl } : {}),
+      },
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
     });
   }
 }

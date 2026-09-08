@@ -1,6 +1,7 @@
 import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
+import { getProductImageFiles, saveVariantImages } from "./productImageFiles.js";
 import { validateProductPrices } from "./productPriceValidation.js";
 
 export class CreateProductUseCase {
@@ -46,13 +47,20 @@ export class CreateProductUseCase {
     const product = await this.repo.create(dto);
     console.log("Producto creado:", product.id_product);
 
-    if (files && files.length > 0) {
+    const productFiles = getProductImageFiles(files);
+
+    if (productFiles.length > 0) {
       console.log(`[CreateProductUseCase] Procesando ${files.length} imagenes...`);
       const imageUrls = [];
 
+<<<<<<< HEAD
       const generalImageFiles = files.filter((file) => file.fieldname === 'images');
       for (let i = 0; i < generalImageFiles.length; i++) {
         const file = generalImageFiles[i];
+=======
+      for (let i = 0; i < productFiles.length; i++) {
+        const file = productFiles[i];
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
         try {
           const imageUrl = await processAndSaveImage(file.buffer, {
             bucketName: process.env.SUPABASE_BUCKET_PRODUCTS || "products",
@@ -79,6 +87,7 @@ export class CreateProductUseCase {
       }
     }
 
+<<<<<<< HEAD
     const variantFiles = files.filter((file) => /^variantImage_\d+$/.test(file.fieldname));
     for (const file of variantFiles) {
       const index = Number(file.fieldname.replace('variantImage_', ''));
@@ -91,6 +100,16 @@ export class CreateProductUseCase {
       const createdBarcode = await this.repo.findByBarcode(barcode.barcode);
       if (createdBarcode) await this.repo.updateBarcodeVariantImage(createdBarcode.id_barcode, imageUrl);
     }
+=======
+    const productWithBarcodes = await this.repo.findById(product.id_product);
+
+    await saveVariantImages({
+      repo: this.repo,
+      product: productWithBarcodes,
+      barcodes: dto.barcodes,
+      files,
+    });
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
 
     const productWithImages = await this.repo.findById(product.id_product);
     return mapProduct(productWithImages);

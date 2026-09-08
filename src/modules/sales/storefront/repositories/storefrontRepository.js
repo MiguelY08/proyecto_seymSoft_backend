@@ -160,9 +160,19 @@ export const storefrontRepository = {
     });
   },
 
+<<<<<<< HEAD
   async removeCartItem(idClient, barcodeId) {
     return prisma.shopping_cart_items.deleteMany({
       where: { id_client: idClient, id_barcode: barcodeId },
+=======
+  async removeCartItem(idClient, productId, barcodeId) {
+    return prisma.shopping_cart_items.deleteMany({
+      where: {
+        id_client: idClient,
+        id_product: productId,
+        ...(barcodeId ? { id_barcode: barcodeId } : {}),
+      },
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
     });
   },
 
@@ -181,6 +191,12 @@ export const storefrontRepository = {
         );
         if (!product || !barcode) continue;
 
+<<<<<<< HEAD
+=======
+        const barcode = product.barcodes?.find((entry) => entry.id_barcode === item.barcodeId);
+        if (!barcode) continue;
+
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
         const stock = Number(barcode.stock || 0);
         if (stock < 1) continue;
 

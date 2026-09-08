@@ -2,6 +2,7 @@ import { AppError } from "../../../../shared/errors/appError.js";
 import { mapProduct } from "../mappers/productMapper.js";
 import { processAndSaveImage, PRODUCT_IMAGE_CONFIG } from "../../../../shared/utils/imageProcessor.js";
 import { validateProductPrices } from "./productPriceValidation.js";
+import { getProductImageFiles, saveVariantImages } from "./productImageFiles.js";
 
 export class UpdateProductUseCase {
   constructor(repo) {
@@ -58,11 +59,20 @@ export class UpdateProductUseCase {
 
     const updated = await this.repo.update(id, dto);
 
+<<<<<<< HEAD
     const generalImageFiles = files.filter((item) => item.fieldname === 'images');
     if (generalImageFiles.length > 0) {
       const imageUrls = [];
 
       for (const file of generalImageFiles) {
+=======
+    const productFiles = getProductImageFiles(files);
+
+    if (productFiles.length > 0) {
+      const imageUrls = [];
+
+      for (const file of productFiles) {
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
         const url = await processAndSaveImage(file.buffer, {
           bucketName: process.env.SUPABASE_BUCKET_PRODUCTS,
           config: PRODUCT_IMAGE_CONFIG,
@@ -74,6 +84,7 @@ export class UpdateProductUseCase {
       await this.repo.createProductImages(id, imageUrls);
     }
 
+<<<<<<< HEAD
     for (const file of files.filter((item) => /^variantImage_\d+$/.test(item.fieldname))) {
       const index = Number(file.fieldname.replace('variantImage_', ''));
       const barcode = dto.barcodes[index];
@@ -85,6 +96,14 @@ export class UpdateProductUseCase {
       const barcodeRecord = await this.repo.findBarcodeByProduct(id, barcode.barcode);
       if (barcodeRecord) await this.repo.updateBarcodeVariantImage(barcodeRecord.id_barcode, imageUrl);
     }
+=======
+    await saveVariantImages({
+      repo: this.repo,
+      product: updated,
+      barcodes: dto.barcodes,
+      files,
+    });
+>>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
 
     const productWithImages = await this.repo.findById(id);
     return mapProduct(productWithImages);
