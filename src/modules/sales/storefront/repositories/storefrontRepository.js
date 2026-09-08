@@ -29,8 +29,13 @@ const storefrontProductSelect = {
       barcode: true,
       barcode_type: true,
       stock: true,
+      variant_name: true,
+      variant_image_url: true,
+      is_active: true,
+      is_default: true,
     },
-    orderBy: { id_barcode: "asc" },
+    where: { is_active: true },
+    orderBy: [{ is_default: "desc" }, { id_barcode: "asc" }],
   },
   product_images: {
     select: {
@@ -74,7 +79,19 @@ const calculateStock = (product) => (
 const findCartByClient = (db, idClient) => (
   db.shopping_cart_items.findMany({
     where: { id_client: idClient },
-    include: cartInclude,
+    include: {
+      ...cartInclude,
+      barcodes: {
+        select: {
+          id_barcode: true,
+          barcode: true,
+          variant_name: true,
+          variant_image_url: true,
+          stock: true,
+          is_active: true,
+        },
+      },
+    },
     orderBy: { created_at: "asc" },
   })
 );
@@ -121,23 +138,31 @@ export const storefrontRepository = {
     return findCartByClient(db, idClient);
   },
 
-  async setCartItem(idClient, productId, quantity) {
+  async setCartItem(idClient, productId, barcodeId, quantity) {
     return prisma.shopping_cart_items.upsert({
       where: {
-        id_client_id_product: {
+        id_client_id_barcode: {
           id_client: idClient,
-          id_product: productId,
+          id_barcode: barcodeId,
         },
       },
-      create: { id_client: idClient, id_product: productId, quantity },
+      create: {
+        id_client: idClient,
+        id_product: productId,
+        id_barcode: barcodeId,
+        quantity,
+      },
       update: { quantity },
-      include: cartInclude,
+      include: {
+        ...cartInclude,
+        barcodes: true,
+      },
     });
   },
 
-  async removeCartItem(idClient, productId) {
+  async removeCartItem(idClient, barcodeId) {
     return prisma.shopping_cart_items.deleteMany({
-      where: { id_client: idClient, id_product: productId },
+      where: { id_client: idClient, id_barcode: barcodeId },
     });
   },
 
@@ -151,16 +176,19 @@ export const storefrontRepository = {
     return prisma.$transaction(async (tx) => {
       for (const item of items) {
         const product = await this.findAvailableProduct(item.productId, tx);
-        if (!product) continue;
+        const barcode = product?.barcodes?.find(
+          (entry) => entry.id_barcode === item.barcodeId,
+        );
+        if (!product || !barcode) continue;
 
-        const stock = calculateStock(product);
+        const stock = Number(barcode.stock || 0);
         if (stock < 1) continue;
 
         const existing = await tx.shopping_cart_items.findUnique({
           where: {
-            id_client_id_product: {
+            id_client_id_barcode: {
               id_client: idClient,
-              id_product: item.productId,
+              id_barcode: item.barcodeId,
             },
           },
           select: { quantity: true },
@@ -170,14 +198,15 @@ export const storefrontRepository = {
 
         await tx.shopping_cart_items.upsert({
           where: {
-            id_client_id_product: {
+            id_client_id_barcode: {
               id_client: idClient,
-              id_product: item.productId,
+              id_barcode: item.barcodeId,
             },
           },
           create: {
             id_client: idClient,
             id_product: item.productId,
+            id_barcode: item.barcodeId,
             quantity,
           },
           update: { quantity },

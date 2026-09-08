@@ -587,6 +587,8 @@ export class VendingMapper {
         detail.id_order_detail,
       idOrder:
         detail.id_order,
+      idBarcode:
+        detail.id_barcode,
       barcode:
         detail.barcode,
       quantity:

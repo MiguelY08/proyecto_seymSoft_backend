@@ -25,8 +25,17 @@ const productInclude = {
     unit_measures: { select: { id_unit_measure: true, name_unit_measure: true, abbreviation: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
     barcodes: {
-      select: { id_barcode: true, barcode: true, barcode_type: true, stock: true },
-      orderBy: { id_barcode: "asc" },
+      select: {
+        id_barcode: true,
+        barcode: true,
+        barcode_type: true,
+        stock: true,
+        variant_name: true,
+        variant_image_url: true,
+        is_active: true,
+        is_default: true,
+      },
+      orderBy: [{ is_default: "desc" }, { id_barcode: "asc" }],
     },
     product_images: {
       select: { id_image: true, image_url: true, is_primary: true },
@@ -187,6 +196,10 @@ export class ProductRepository {
             barcode: String(b.barcode),
             barcode_type: b.barcode_type || "EAN13",
             stock: parseIntOrZero(b.stock),
+            variant_name: b.variant_name || "Estilo pendiente",
+            variant_image_url: b.variant_image_url || null,
+            is_active: b.is_active !== false,
+            is_default: b.is_default === true,
             id_product: product.id_product,
           })),
         });
@@ -273,31 +286,53 @@ export class ProductRepository {
         const currentBarcodes = await tx.barcodes.findMany({
           where: { id_product: productId },
         });
-        const incomingCodes = data.barcodes.map((b) => String(b.barcode));
-        const codesToDelete = currentBarcodes
-          .filter((b) => !incomingCodes.includes(b.barcode))
+        const currentById = new Map(currentBarcodes.map((b) => [b.id_barcode, b]));
+        const currentByCode = new Map(currentBarcodes.map((b) => [b.barcode, b]));
+        const matchedIds = new Set();
+        const barcodeUpdates = data.barcodes.map((barcode, index) => {
+          const barcodeId = Number.parseInt(barcode.id, 10);
+          let existing = Number.isInteger(barcodeId)
+            ? currentById.get(barcodeId)
+            : undefined;
+
+          if (!existing) {
+            existing = currentByCode.get(String(barcode.barcode));
+          }
+
+          if (!existing && currentBarcodes.length === data.barcodes.length) {
+            existing = currentBarcodes[index];
+          }
+
+          if (existing) matchedIds.add(existing.id_barcode);
+          return { barcode, existing };
+        });
+
+        const codesToDeactivate = currentBarcodes
+          .filter((b) => !matchedIds.has(b.id_barcode))
           .map((b) => b.id_barcode);
 
-        if (codesToDelete.length > 0) {
-          await tx.barcodes.deleteMany({
-            where: { id_barcode: { in: codesToDelete } },
+        if (codesToDeactivate.length > 0) {
+          await tx.barcodes.updateMany({
+            where: { id_barcode: { in: codesToDeactivate } },
+            data: { is_active: false, is_default: false },
           });
         }
 
-        const currentByCode = new Map(currentBarcodes.map((b) => [b.barcode, b]));
-
-        for (const barcode of data.barcodes) {
+        for (const { barcode, existing } of barcodeUpdates) {
           const code = String(barcode.barcode);
-          const existing = currentByCode.get(code);
           const barcodeData = {
             barcode_type: barcode.barcode_type || "EAN13",
             stock: Math.max(0, parseIntOrZero(barcode.stock)),
+            variant_name: barcode.variant_name || "Estilo pendiente",
+            variant_image_url: barcode.variant_image_url || null,
+            is_active: barcode.is_active !== false,
+            is_default: barcode.is_default === true,
           };
 
           if (existing) {
             await tx.barcodes.update({
               where: { id_barcode: existing.id_barcode },
-              data: barcodeData,
+              data: { barcode: code, ...barcodeData },
             });
           } else {
             await tx.barcodes.create({

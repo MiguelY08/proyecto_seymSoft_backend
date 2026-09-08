@@ -219,6 +219,7 @@ export const mapOrder = (order) => {
       return {
         id: detail.id_order_detail,
         productId: detail.id_product,
+        barcodeId: detail.id_barcode,
         productName: detail.products?.name || null,
         barcode: detail.barcode,
         quantity: detail.quantity,

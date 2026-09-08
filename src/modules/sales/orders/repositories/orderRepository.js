@@ -832,6 +832,7 @@ export class OrderRepository {
         data: data.items.map((item) => ({
           id_order: order.id_order,
           id_product: Number(item.idProduct ?? item.id_product),
+          id_barcode: Number(item.idBarcode ?? item.id_barcode) || null,
           barcode: item.barcode,
           quantity: Number(item.quantity),
           unit_price: item.unitPrice,
@@ -1487,11 +1488,12 @@ export class OrderRepository {
 
   async findBarcodesByProducts(items = []) {
     const normalizedItems = items
-      .map((item) => ({
-        idProduct: Number(item.idProduct ?? item.id_product),
-        barcode: String(item.barcode || '').trim(),
-      }))
-      .filter((item) => item.idProduct && item.barcode);
+        .map((item) => ({
+          idBarcode: Number(item.idBarcode ?? item.id_barcode ?? item.barcodeId),
+          idProduct: Number(item.idProduct ?? item.id_product),
+          barcode: String(item.barcode || '').trim(),
+        }))
+        .filter((item) => item.idBarcode || (item.idProduct && item.barcode));
 
     if (!normalizedItems.length) {
       return [];
@@ -1499,10 +1501,9 @@ export class OrderRepository {
 
     return prisma.barcodes.findMany({
       where: {
-        OR: normalizedItems.map((item) => ({
-          id_product: item.idProduct,
-          barcode: item.barcode,
-        })),
+          OR: normalizedItems.map((item) => item.idBarcode
+            ? { id_barcode: item.idBarcode }
+            : { id_product: item.idProduct, barcode: item.barcode }),
       },
       include: {
         products: {
