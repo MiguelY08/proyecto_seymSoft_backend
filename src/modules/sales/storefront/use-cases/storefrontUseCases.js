@@ -58,16 +58,7 @@ export const setCartItemUseCase = async (
   requestedQuantity,
 ) => {
   const product = await requireAvailableProduct(productId);
-<<<<<<< HEAD
   const barcode = requireAvailableBarcode(product, barcodeId);
-=======
-  const barcode = product.barcodes?.find((item) => item.id_barcode === barcodeId);
-
-  if (!barcode) {
-    throw new NotFoundError("Codigo de barras no encontrado para este producto");
-  }
-
->>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
   const stock = Number(barcode.stock || 0);
 
   if (stock < 1) {
@@ -83,11 +74,7 @@ export const setCartItemUseCase = async (
   const changedItem = await storefrontRepository.setCartItem(
     idClient,
     productId,
-<<<<<<< HEAD
     barcode.id_barcode,
-=======
-    barcodeId,
->>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
     requestedQuantity,
   );
   const items = await storefrontRepository.getCart(idClient);
@@ -97,13 +84,8 @@ export const setCartItemUseCase = async (
   });
 };
 
-<<<<<<< HEAD
-export const removeCartItemUseCase = async (idClient, barcodeId) => {
-  const result = await storefrontRepository.removeCartItem(idClient, barcodeId);
-=======
 export const removeCartItemUseCase = async (idClient, productId, barcodeId) => {
   const result = await storefrontRepository.removeCartItem(idClient, productId, barcodeId);
->>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
   const items = await storefrontRepository.getCart(idClient);
 
   return mapCartResponse(items, {
@@ -125,18 +107,11 @@ export const mergeCartUseCase = async (idClient, incomingItems) => {
   const combinedItems = Array.from(
     incomingItems.reduce((itemsByVariant, item) => {
       const key = `${item.productId}:${item.barcodeId}`;
-<<<<<<< HEAD
-      const current = itemsByVariant.get(key) || { ...item, quantity: 0 };
-      itemsByVariant.set(key, {
-        ...current,
-        quantity: current.quantity + item.quantity,
-=======
       const current = itemsByVariant.get(key);
       itemsByVariant.set(key, {
         productId: item.productId,
         barcodeId: item.barcodeId,
         quantity: (current?.quantity || 0) + item.quantity,
->>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
       });
       return itemsByVariant;
     }, new Map()),

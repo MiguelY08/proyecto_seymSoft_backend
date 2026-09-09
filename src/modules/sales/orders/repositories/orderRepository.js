@@ -1017,8 +1017,12 @@ export class OrderRepository {
         },
       });
 
-      const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
-      favorBalanceRestoredAmount = refundableFavorBalance;
+      // Sumamos el total de todos los pagos registrados (sin importar el método)
+      const totalPaidAmount = (order.order_payments || []).reduce(
+        (total, p) => total + Number(p.amount || 0),
+        0
+      );
+      favorBalanceRestoredAmount = totalPaidAmount;
 
       await tx.sales_orders.update({
         where: {
@@ -1035,10 +1039,10 @@ export class OrderRepository {
         },
       });
 
-      if (refundableFavorBalance > 0) {
+      if (totalPaidAmount > 0) {
         await restoreClientFavorBalanceAmount(tx, {
           idClient: order.id_customer,
-          amount: refundableFavorBalance,
+          amount: totalPaidAmount,
         });
       }
     });
@@ -1408,8 +1412,12 @@ export class OrderRepository {
         },
       });
 
-      const refundableFavorBalance = getRefundableFavorBalanceAmount(order);
-      favorBalanceRestoredAmount = refundableFavorBalance;
+      // Sumamos el total de todos los pagos registrados (sin importar el método)
+      const totalPaidAmount = (order.order_payments || []).reduce(
+        (total, p) => total + Number(p.amount || 0),
+        0
+      );
+      favorBalanceRestoredAmount = totalPaidAmount;
 
       await tx.sales_orders.update({
         where: {
@@ -1428,10 +1436,10 @@ export class OrderRepository {
         },
       });
 
-      if (refundableFavorBalance > 0) {
+      if (totalPaidAmount > 0) {
         await restoreClientFavorBalanceAmount(tx, {
           idClient: order.id_customer,
-          amount: refundableFavorBalance,
+          amount: totalPaidAmount,
         });
       }
     });

@@ -20,10 +20,6 @@ export const cartQuantitySchema = z.object({
   quantity: z.coerce.number().int().positive().max(100000),
 });
 
-export const cartItemSchema = cartQuantitySchema.extend({
-  barcodeId: positiveId,
-});
-
 export const barcodeIdParamsSchema = z.object({
   productId: positiveId,
   barcodeId: positiveId,

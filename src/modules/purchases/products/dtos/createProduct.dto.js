@@ -22,14 +22,9 @@ const normalizeBarcode = (barcode) => ({
   barcode: barcode?.barcode ?? barcode?.codBarras ?? barcode?.code,
   barcode_type: barcode?.barcode_type ?? barcode?.barcodeType ?? "EAN13",
   stock: parseInt(barcode?.stock ?? barcode?.cantidad ?? barcode?.quantity, 10) || 0,
-<<<<<<< HEAD
   variant_name: barcode?.variant_name ?? barcode?.variantName ?? barcode?.name ?? "Estilo pendiente",
   variant_image_url: barcode?.variant_image_url ?? barcode?.variantImageUrl ?? barcode?.imageUrl ?? null,
   is_active: barcode?.is_active !== false && barcode?.isActive !== false,
-=======
-  variant_name: barcode?.variant_name ?? barcode?.variantName ?? "Estilo pendiente",
-  variant_image_url: barcode?.variant_image_url ?? barcode?.variantImageUrl ?? null,
->>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
   is_default: barcode?.is_default === true || barcode?.isDefault === true,
 });
 

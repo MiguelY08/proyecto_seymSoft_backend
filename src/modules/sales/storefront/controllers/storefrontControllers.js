@@ -13,8 +13,6 @@ import {
   cartItemSchema,
   barcodeIdParamsSchema,
   mergeCartSchema,
-  cartItemSchema,
-  cartVariantParamsSchema,
   productIdParamsSchema,
 } from "../validators/storefrontValidators.js";
 
@@ -103,14 +101,9 @@ export const setCartItemController = async (req, res, next) => {
 
 export const removeCartItemController = async (req, res, next) => {
   try {
-<<<<<<< HEAD
-    const { barcodeId } = validate(cartVariantParamsSchema, req.params);
-    const data = await removeCartItemUseCase(req.client.idClient, barcodeId);
-=======
     const paramsSchema = req.params.barcodeId ? barcodeIdParamsSchema : productIdParamsSchema;
     const { productId, barcodeId } = validate(paramsSchema, req.params);
     const data = await removeCartItemUseCase(req.client.idClient, productId, barcodeId);
->>>>>>> b7a1df85e7dedc5f0025b0ae6d95b003a3d052a8
     return res.status(200).json({
       success: true,
       message: "Producto eliminado del carrito",

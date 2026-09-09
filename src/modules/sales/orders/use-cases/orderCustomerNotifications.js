@@ -210,3 +210,37 @@ export const notifyCustomerOrderExpired = async ({ order, reason }) => {
     return null;
   }
 };
+
+export const notifyCustomerOrderCancelled = async ({ order, reason }) => {
+  const idUser = getCustomerUserId(order);
+  const orderId = getOrderId(order);
+
+  if (!idUser || !orderId) {
+    return null;
+  }
+
+  const restoredAmount = Number(order?.favorBalanceRestoredAmount || 0);
+  let message = `Tu pedido #${orderId} fue cancelado. Motivo: ${reason || 'No especificado'}`;
+  
+  if (restoredAmount > 0) {
+    message = `Tu pedido #${orderId} fue cancelado. Se acredito ${formatCurrency(restoredAmount)} a tu saldo a favor por los pagos realizados.`;
+  }
+
+  try {
+    return await notificationService.create({
+      idUser,
+      title: 'Pedido cancelado',
+      message,
+      type: 'warning',
+      actionUrl: createOrderActionUrl(order),
+      metadata: {
+        orderId,
+        event: 'order_cancelled',
+        favorBalanceRestoredAmount: restoredAmount,
+      },
+    });
+  } catch (error) {
+    console.error('[OrderCustomerNotifications] Order cancelled notification error:', error.message);
+    return null;
+  }
+};
