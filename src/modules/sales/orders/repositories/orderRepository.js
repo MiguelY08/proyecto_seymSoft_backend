@@ -104,6 +104,12 @@ const orderInclude = {
         products: {
           select: {
             name: true,
+            barcodes: {
+              select: {
+                id_barcode: true,
+                variant_image_url: true,
+              },
+            },
             product_images: {
               select: {
                 id_image: true,

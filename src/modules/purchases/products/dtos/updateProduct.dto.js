@@ -13,6 +13,21 @@ const assertReferenceLength = (reference) => {
   }
 };
 
+const assertNameLength = (name) => {
+  if (name !== undefined && String(name ?? "").trim().length > 100) {
+    throw new AppError("El nombre del producto no puede superar los 100 caracteres.", 400);
+  }
+};
+
+const assertBarcodeVariantNameLengths = (barcodes) => {
+  for (const barcode of barcodes) {
+    const variantName = String(barcode.variant_name ?? "").trim();
+    if (variantName.length > 100) {
+      throw new AppError("Los estilos de los codigos de barras no pueden superar los 100 caracteres.", 400);
+    }
+  }
+};
+
 const normalizeBarcode = (barcode) => {
   const code = firstDefined(barcode.barcode, barcode.codBarras, barcode.code);
 
@@ -31,6 +46,7 @@ const normalizeBarcode = (barcode) => {
 export class UpdateProductDto {
   constructor(data) {
     this.name = firstDefined(data.name, data.nombre);
+    assertNameLength(this.name);
     this.reference = firstDefined(data.reference, data.referencia);
     assertReferenceLength(this.reference);
     this.retailPrice = firstDefined(data.retailPrice, data.precioDetalle, data.retail_price);
@@ -94,5 +110,7 @@ export class UpdateProductDto {
         }
       }
     }
+
+    assertBarcodeVariantNameLengths(this.barcodes);
   }
 }

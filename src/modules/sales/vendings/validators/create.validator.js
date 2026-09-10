@@ -56,6 +56,15 @@ const orderItemSchema = z.object({
     .int("El ID del producto debe ser un numero entero")
     .positive("El ID del producto debe ser positivo"),
 
+  idBarcode: z
+    .number({
+      error: "El ID del codigo de barras debe ser un numero",
+    })
+    .int("El ID del codigo de barras debe ser un numero entero")
+    .positive("El ID del codigo de barras debe ser positivo")
+    .nullable()
+    .optional(),
+
   barcode: z
     .string({
       error: "El codigo de barras es obligatorio",

@@ -37,9 +37,25 @@ const assertBarcodeLengths = (barcodes) => {
   }
 };
 
+const assertNameLength = (name) => {
+  if (name !== undefined && String(name ?? "").trim().length > 100) {
+    throw new AppError("El nombre del producto no puede superar los 100 caracteres.", 400);
+  }
+};
+
+const assertBarcodeVariantNameLengths = (barcodes) => {
+  for (const barcode of barcodes) {
+    const variantName = String(barcode.variant_name ?? "").trim();
+    if (variantName.length > 100) {
+      throw new AppError("Los estilos de los codigos de barras no pueden superar los 100 caracteres.", 400);
+    }
+  }
+};
+
 export class CreateProductDto {
   constructor(data) {
     this.name = data.nombre ?? data.name;
+    assertNameLength(this.name);
     this.reference = data.referencia ?? data.reference;
     if (String(this.reference ?? "").trim().length > 50) {
       throw new AppError("La referencia no puede superar los 50 caracteres.", 400);
@@ -104,5 +120,6 @@ export class CreateProductDto {
     }
 
     assertBarcodeLengths(this.barcodes);
+    assertBarcodeVariantNameLengths(this.barcodes);
   }
 }

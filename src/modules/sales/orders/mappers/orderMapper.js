@@ -215,6 +215,9 @@ export const mapOrder = (order) => {
       const images = mapProductImages(
         detail.products?.product_images || []
       );
+      const variantImage = detail.products?.barcodes?.find(
+        (barcode) => Number(barcode.id_barcode) === Number(detail.id_barcode)
+      )?.variant_image_url || null;
 
       return {
         id: detail.id_order_detail,
@@ -226,7 +229,8 @@ export const mapOrder = (order) => {
         unitPrice: Number(detail.unit_price),
         subtotal: Number(detail.subtotal),
         ivaAmount: Number(detail.iva_amount),
-        image: images.find((image) => image.isPrimary)?.url ?? images[0]?.url ?? null,
+        image: variantImage || images.find((image) => image.isPrimary)?.url || images[0]?.url || null,
+        variantImageUrl: variantImage,
         images,
       };
     }),
