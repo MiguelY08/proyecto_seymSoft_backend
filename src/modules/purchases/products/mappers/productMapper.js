@@ -5,7 +5,9 @@
  * Ahora el stock está distribuido en los barcodes.
  */
 export const mapProduct = (product) => {
-  const totalStock = (product.barcodes || []).reduce((sum, b) => sum + (b.stock || 0), 0);
+  const totalStock = (product.barcodes || [])
+    .filter((barcode) => barcode.is_active !== false)
+    .reduce((sum, b) => sum + (b.stock || 0), 0);
   const relatedCategories = (product.product_categories || []).map((pc) => ({
     id: pc.id_category,
     name: pc.categories?.category_name,

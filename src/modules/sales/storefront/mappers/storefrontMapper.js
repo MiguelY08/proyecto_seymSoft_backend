@@ -4,7 +4,7 @@ const toNumber = (value) => {
 };
 
 export const mapStorefrontProduct = (product) => {
-  const totalStock = (product.barcodes || []).reduce(
+  const totalStock = (product.barcodes || []).filter((barcode) => barcode.is_active !== false).reduce(
     (total, barcode) => total + Number(barcode.stock || 0),
     0,
   );
@@ -69,6 +69,11 @@ export const mapFavorite = (favorite) => ({
 export const mapCartItem = (item) => ({
   idCartItem: item.id_cart_item,
   quantity: item.quantity,
+  barcodeId: item.id_barcode,
+  barcode: item.barcodes?.barcode || null,
+  variantName: item.barcodes?.variant_name || null,
+  variantImageUrl: item.barcodes?.variant_image_url || null,
+  variantStock: item.barcodes?.stock || 0,
   createdAt: item.created_at,
   updatedAt: item.updated_at,
   barcodeId: item.id_barcode,

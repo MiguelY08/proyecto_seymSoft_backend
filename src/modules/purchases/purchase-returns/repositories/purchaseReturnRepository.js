@@ -1363,6 +1363,7 @@ export class PurchaseReturnRepository {
               barcodes: {
                 select: {
                   stock: true,
+                  variant_name: true,
                 },
               },
             },

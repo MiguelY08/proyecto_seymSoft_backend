@@ -322,24 +322,27 @@ const getCreditAmount = (paymentMethods = []) => {
 const groupQuantitiesByBarcode = (details = []) =>
   Array.from(
     details.reduce((grouped, detail) => {
+      const barcodeId = Number(detail.id_barcode ?? detail.idBarcode ?? detail.barcodeId);
       const barcode = String(detail.barcode || "").trim();
       const quantity = Number(detail.quantity || 0);
 
-      if (!barcode || quantity <= 0) {
+      if ((!barcodeId && !barcode) || quantity <= 0) {
         return grouped;
       }
 
+      const key = barcodeId ? `id:${barcodeId}` : `code:${barcode}`;
       grouped.set(
-        barcode,
-        (grouped.get(barcode) || 0) + quantity
+        key,
+        {
+          idBarcode: barcodeId || null,
+          barcode,
+          quantity: (grouped.get(key)?.quantity || 0) + quantity,
+        }
       );
 
       return grouped;
     }, new Map()),
-    ([barcode, quantity]) => ({
-      barcode,
-      quantity,
-    })
+    ([, detail]) => detail
   );
 
 const decreaseStockAtomically = async (tx, details = []) => {
@@ -350,8 +353,9 @@ const decreaseStockAtomically = async (tx, details = []) => {
     const result =
       await tx.barcodes.updateMany({
         where: {
-          barcode:
-            detail.barcode,
+          ...(detail.idBarcode
+            ? { id_barcode: detail.idBarcode }
+            : { barcode: detail.barcode }),
           stock: {
             gte:
               detail.quantity,
@@ -367,7 +371,7 @@ const decreaseStockAtomically = async (tx, details = []) => {
 
     if (result.count !== 1) {
       throw new Error(
-        `Stock insuficiente para el codigo de barras ${detail.barcode}`
+        `Stock insuficiente para el codigo de barras ${detail.barcode || detail.idBarcode}`
       );
     }
   }
@@ -585,6 +589,7 @@ export class VendingRepository {
         data: orderData.items.map((item) => ({
           id_order: order.id_order,
           id_product: Number(item.idProduct ?? item.id_product),
+          id_barcode: Number(item.idBarcode ?? item.id_barcode) || null,
           barcode: item.barcode,
           quantity: Number(item.quantity),
           unit_price: item.unitPrice,

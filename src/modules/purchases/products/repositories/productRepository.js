@@ -1,4 +1,5 @@
 import { prisma } from "../../../../config/prisma.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 
 const productSelect = {
   id_product: true,
@@ -25,6 +26,7 @@ const productInclude = {
     unit_measures: { select: { id_unit_measure: true, name_unit_measure: true, abbreviation: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
     barcodes: {
+      where: { is_active: true },
       select: {
         id_barcode: true,
         barcode: true,
@@ -35,7 +37,7 @@ const productInclude = {
         is_active: true,
         is_default: true,
       },
-      orderBy: { id_barcode: "asc" },
+      orderBy: [{ is_default: "desc" }, { id_barcode: "asc" }],
     },
     product_images: {
       select: { id_image: true, image_url: true, is_primary: true },
@@ -128,6 +130,42 @@ export class ProductRepository {
     });
   }
 
+  async findBarcodeByProduct(productId, barcode) {
+    return prisma.barcodes.findFirst({
+      where: {
+        id_product: Number(productId),
+        barcode: { equals: barcode, mode: "insensitive" },
+      },
+    });
+  }
+
+  async getBarcodeRelations(barcodeId) {
+    const barcode = await prisma.barcodes.findUnique({
+      where: { id_barcode: parseInt(barcodeId, 10) },
+      select: {
+        id_barcode: true,
+        barcode: true,
+        _count: {
+          select: {
+            purchase_details: true,
+            order_details: true,
+            sale_return_details: true,
+            shopping_cart_items: true,
+            non_conforming_products: true,
+            inventory_stock_movements: true,
+          },
+        },
+      },
+    });
+
+    if (!barcode) return null;
+
+    return {
+      barcode: barcode.barcode,
+      hasRelations: Object.values(barcode._count).some((count) => count > 0),
+    };
+  }
+
   async findUnitMeasureById(id) {
     return prisma.unit_measures.findUnique({
       where: { id_unit_measure: parseInt(id) },
@@ -198,6 +236,7 @@ export class ProductRepository {
             stock: parseIntOrZero(b.stock),
             variant_name: b.variant_name || "Estilo pendiente",
             variant_image_url: b.variant_image_url || null,
+            is_active: b.is_active !== false,
             is_default: b.is_default === true,
             id_product: product.id_product,
           })),
@@ -285,58 +324,94 @@ export class ProductRepository {
         const currentBarcodes = await tx.barcodes.findMany({
           where: { id_product: productId },
         });
-        const incomingCodes = data.barcodes.map((b) => String(b.barcode));
-        const codesToDelete = currentBarcodes
-          .filter((b) => !incomingCodes.includes(b.barcode))
+        const currentById = new Map(currentBarcodes.map((b) => [b.id_barcode, b]));
+        const currentByCode = new Map(currentBarcodes.map((b) => [b.barcode, b]));
+        const matchedIds = new Set();
+        const barcodeUpdates = data.barcodes.map((barcode, index) => {
+          const barcodeId = Number.parseInt(barcode.id, 10);
+          let existing = Number.isInteger(barcodeId)
+            ? currentById.get(barcodeId)
+            : undefined;
+
+          if (!existing) {
+            existing = currentByCode.get(String(barcode.barcode));
+          }
+
+          if (!existing && currentBarcodes.length === data.barcodes.length) {
+            existing = currentBarcodes[index];
+          }
+
+          if (existing) matchedIds.add(existing.id_barcode);
+          return { barcode, existing };
+        });
+
+        const codesToDeactivate = currentBarcodes
+          .filter((b) => !matchedIds.has(b.id_barcode))
           .map((b) => b.id_barcode);
 
-        if (codesToDelete.length > 0) {
-          await tx.barcodes.deleteMany({
-            where: { id_barcode: { in: codesToDelete } },
+        if (codesToDeactivate.length > 0) {
+          const barcodeRelations = await tx.barcodes.findMany({
+            where: { id_barcode: { in: codesToDeactivate } },
+            select: {
+              barcode: true,
+              _count: {
+                select: {
+                  purchase_details: true,
+                  order_details: true,
+                  sale_return_details: true,
+                  shopping_cart_items: true,
+                  non_conforming_products: true,
+                  inventory_stock_movements: true,
+                },
+              },
+            },
+          });
+          const relatedBarcodes = barcodeRelations.filter(({ _count }) =>
+            Object.values(_count).some((count) => count > 0)
+          );
+
+          if (relatedBarcodes.length > 0) {
+            const codes = relatedBarcodes.map(({ barcode }) => `"${barcode}"`).join(", ");
+            throw new AppError(
+              `No se pueden quitar los codigos de barras ${codes} porque tienen compras, pedidos, ventas, devoluciones u otros movimientos asociados.`,
+              409,
+              { errorCode: "BARCODE_HAS_RELATIONS" }
+            );
+          }
+
+          await tx.barcodes.updateMany({
+            where: { id_barcode: { in: codesToDeactivate } },
+            data: { is_active: false, is_default: false },
           });
         }
 
-        const currentByCode = new Map(currentBarcodes.map((b) => [b.barcode, b]));
-
-        for (const barcode of data.barcodes) {
+        for (const { barcode, existing } of barcodeUpdates) {
           const code = String(barcode.barcode);
-          const existing = currentByCode.get(code);
           const barcodeData = {
             barcode_type: barcode.barcode_type || "EAN13",
-            stock: Math.max(0, parseIntOrZero(barcode.stock)),
             variant_name: barcode.variant_name || "Estilo pendiente",
             ...(barcode.variant_image_url !== undefined
               ? { variant_image_url: barcode.variant_image_url || null }
               : {}),
+            is_active: barcode.is_active !== false,
             is_default: barcode.is_default === true,
           };
 
           if (existing) {
             await tx.barcodes.update({
               where: { id_barcode: existing.id_barcode },
-              data: barcodeData,
+              data: { barcode: code, ...barcodeData },
             });
           } else {
             await tx.barcodes.create({
               data: {
                 barcode: code,
                 ...barcodeData,
+                stock: 0,
                 id_product: productId,
               },
             });
           }
-        }
-      } else if (data.stock !== undefined) {
-        const firstBarcode = await tx.barcodes.findFirst({
-          where: { id_product: productId },
-          orderBy: { id_barcode: "asc" },
-        });
-
-        if (firstBarcode) {
-          await tx.barcodes.update({
-            where: { id_barcode: firstBarcode.id_barcode },
-            data: { stock: Math.max(0, parseIntOrZero(data.stock)) },
-          });
         }
       }
 
@@ -390,6 +465,16 @@ export class ProductRepository {
         image_url: url,
         is_primary: idx === 0,
       })),
+    });
+  }
+
+  async deleteProductImages(productId, imageIds) {
+    if (!imageIds?.length) return;
+    await prisma.product_images.deleteMany({
+      where: {
+        id_product: parseInt(productId),
+        id_image: { in: imageIds },
+      },
     });
   }
 

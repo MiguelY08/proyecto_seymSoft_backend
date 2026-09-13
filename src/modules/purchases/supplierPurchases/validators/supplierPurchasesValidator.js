@@ -28,6 +28,15 @@ export const createSupplierPurchaseValidator = z.object({
             .int()
             .positive('El ID del producto debe ser un entero positivo.'),
 
+          idBarcode: z.coerce
+            .number()
+            .int()
+            .positive('El ID del código de barras debe ser un entero positivo.')
+            .optional()
+            .nullable(),
+
+          barcode: z.string().trim().min(1).max(100).optional(),
+
           quantity: z.coerce
             .number()
             .int()
@@ -54,13 +63,25 @@ export const createSupplierPurchaseValidator = z.object({
 
           extraBarcodes: z
             .array(
-              z.string()
-                .trim()
-                .min(1, 'El código de barras no puede estar vacío.')
-                .max(100, 'El código de barras no puede superar los 100 caracteres.')
+              z.union([
+                z.string()
+                  .trim()
+                  .min(1, 'El código de barras no puede estar vacío.')
+                  .max(100, 'El código de barras no puede superar los 100 caracteres.'),
+                z.object({
+                  barcode: z.string().trim().min(1).max(100),
+                  variantName: z.string().trim().min(1).max(100),
+                  stock: z.coerce.number().int().min(0).optional().default(0),
+                  isActive: z.boolean().optional(),
+                }).strict(),
+              ])
             )
             .optional()
             .default([]),
+        })
+        .refine((detail) => detail.idBarcode != null || detail.barcode !== undefined, {
+          message: 'Debe seleccionar un código de barras.',
+          path: ['idBarcode'],
         })
       )
       .min(1, 'La compra debe tener al menos un producto.'),

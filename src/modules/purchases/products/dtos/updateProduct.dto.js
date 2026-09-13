@@ -13,6 +13,21 @@ const assertReferenceLength = (reference) => {
   }
 };
 
+const assertNameLength = (name) => {
+  if (name !== undefined && String(name ?? "").trim().length > 100) {
+    throw new AppError("El nombre del producto no puede superar los 100 caracteres.", 400);
+  }
+};
+
+const assertBarcodeVariantNameLengths = (barcodes) => {
+  for (const barcode of barcodes) {
+    const variantName = String(barcode.variant_name ?? "").trim();
+    if (variantName.length > 100) {
+      throw new AppError("Los estilos de los codigos de barras no pueden superar los 100 caracteres.", 400);
+    }
+  }
+};
+
 const normalizeBarcode = (barcode) => {
   const code = firstDefined(barcode.barcode, barcode.codBarras, barcode.code);
 
@@ -21,8 +36,11 @@ const normalizeBarcode = (barcode) => {
     barcode: code !== undefined ? String(code) : undefined,
     barcode_type: firstDefined(barcode.barcode_type, barcode.barcodeType) || "EAN13",
     stock: firstDefined(barcode.stock, barcode.cantidad, barcode.quantity),
-    variant_name: firstDefined(barcode.variant_name, barcode.variantName) || "Estilo pendiente",
-    variant_image_url: firstPresent(barcode.variant_image_url, barcode.variantImageUrl),
+    variant_name: firstDefined(barcode.variant_name, barcode.variantName, barcode.name) || "Estilo pendiente",
+    variant_image_url: barcode.variant_image_url !== undefined
+      ? barcode.variant_image_url
+      : barcode.variantImageUrl,
+    is_active: barcode.is_active !== false && barcode.isActive !== false,
     is_default: barcode.is_default === true || barcode.isDefault === true,
   };
 };
@@ -30,6 +48,7 @@ const normalizeBarcode = (barcode) => {
 export class UpdateProductDto {
   constructor(data) {
     this.name = firstDefined(data.name, data.nombre);
+    assertNameLength(this.name);
     this.reference = firstDefined(data.reference, data.referencia);
     assertReferenceLength(this.reference);
     this.retailPrice = firstDefined(data.retailPrice, data.precioDetalle, data.retail_price);
@@ -67,6 +86,9 @@ export class UpdateProductDto {
     this.stock = firstDefined(data.stock, data.cantidad, data.quantity);
     this.categories = data.categories ?? [];
     this.subcategories = data.subcategories ?? [];
+    this.deletedImageIds = Array.isArray(data.deletedImageIds)
+      ? data.deletedImageIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
 
     this.barcodes = Array.isArray(data.barcodes)
       ? data.barcodes.map(normalizeBarcode)
@@ -93,5 +115,7 @@ export class UpdateProductDto {
         }
       }
     }
+
+    assertBarcodeVariantNameLengths(this.barcodes);
   }
 }

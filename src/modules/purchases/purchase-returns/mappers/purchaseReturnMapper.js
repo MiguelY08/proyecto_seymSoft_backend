@@ -58,6 +58,7 @@ export class PurchaseReturnMapper {
     return {
       id: barcode.id_barcode,
       code: barcode.barcode,
+      variantName: barcode.variant_name ?? null,
       type: barcode.barcode_type ?? null,
       stock: barcode.stock ?? 0,
       productId: barcode.id_product,

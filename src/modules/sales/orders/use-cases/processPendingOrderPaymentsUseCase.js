@@ -4,8 +4,17 @@
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
 import { notifyCustomerOrderExpired } from './orderCustomerNotifications.js';
+import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
 
 const EXPIRATION_REASON = 'Pedido cancelado automaticamente por vencimiento de pago.';
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
 
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
@@ -158,6 +167,24 @@ export class ProcessPendingOrderPaymentsUseCase {
         await notifyCustomerOrderExpired({
           order: expiredOrder,
           reason: EXPIRATION_REASON,
+        });
+        
+        const restoredAmount = Number(expiredOrder?.favorBalanceRestoredAmount || 0);
+        let adminMessage = `El pedido #${expiredOrder.id_order} venció y fue cancelado automáticamente.`;
+        if (restoredAmount > 0) {
+          adminMessage += ` Saldo a favor devuelto: ${formatCurrency(restoredAmount)}.`;
+        }
+
+        void notifyAdmins({
+          title: 'Pedido vencido',
+          message: adminMessage,
+          type: 'warning',
+          actionUrl: '/admin/sales/orders',
+          metadata: {
+            module: 'orders',
+            idOrder: expiredOrder.id_order,
+            event: 'order_expired_automatically',
+          },
         });
 
         expirations.push({

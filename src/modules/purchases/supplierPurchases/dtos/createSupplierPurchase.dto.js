@@ -13,11 +13,20 @@ export class CreateSupplierPurchaseDto {
     this.maxReturnDate = data.maxReturnDate ? new Date(data.maxReturnDate) : null;
     this.details       = (data.details || []).map((d) => ({
       idProduct:       Number(d.idProduct),
+      idBarcode:       d.idBarcode !== undefined ? Number(d.idBarcode) : null,
+      barcode:         d.barcode?.trim() || null,
       quantity:        Number(d.quantity),
       supplierPrice:   d.supplierPrice ? Number(d.supplierPrice) : null,
       purchaseType:    d.purchaseType || "Unidad",
       quantityPerPack: Number(d.quantityPerPack) || 0,
-      extraBarcodes:   (d.extraBarcodes || []).map((b) => b.trim()).filter(Boolean),
+      extraBarcodes:   (d.extraBarcodes || []).map((b) => {
+        if (typeof b === 'string') return b.trim();
+        return {
+          barcode: String(b.barcode || '').trim(),
+          variantName: String(b.variantName || b.variant_name || 'Estilo pendiente').trim(),
+          stock: Number(b.stock) || 0,
+        };
+      }).filter((b) => typeof b === 'string' ? b : b.barcode),
     }));
   }
 }

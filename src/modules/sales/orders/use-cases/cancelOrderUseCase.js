@@ -5,10 +5,20 @@ import {
 import { AppError } from '../../../../shared/errors/appError.js';
 import { EmailService } from '../../../../shared/services/emailService.js';
 import { mapOrder } from '../mappers/orderMapper.js';
+import { notifyCustomerOrderCancelled } from './orderCustomerNotifications.js';
+import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
 
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 const ANNULLED_SALE_STATUS_ID = SALE_STATUSES[4].id;
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
 
 export const notifyOrderCancelled = async ({ order, reason }) => {
   const mappedOrder =
@@ -39,6 +49,28 @@ export const notifyOrderCancelled = async ({ order, reason }) => {
       deliveryRecipientName: mappedOrder.deliveryRecipientName,
       deliveryDepartment: mappedOrder.deliveryDepartment,
       deliveryCity: mappedOrder.deliveryCity,
+    });
+    
+    // In-app notifications
+    void notifyCustomerOrderCancelled({ order, reason });
+    
+    const customerName = mappedOrder.customer?.name || 'Un cliente';
+    const restoredAmount = Number(order?.favorBalanceRestoredAmount || 0);
+    let adminMessage = `El pedido #${mappedOrder.id} de ${customerName} fue cancelado manualmente.`;
+    if (restoredAmount > 0) {
+      adminMessage += ` Saldo a favor acreditado: ${formatCurrency(restoredAmount)}.`;
+    }
+
+    void notifyAdmins({
+      title: 'Pedido cancelado',
+      message: adminMessage,
+      type: 'warning',
+      actionUrl: '/admin/sales/orders',
+      metadata: {
+        module: 'orders',
+        idOrder: mappedOrder.id,
+        event: 'order_cancelled_manually',
+      },
     });
   } catch (error) {
     console.error('[NotifyOrderCancelled] Email error:', error.message);

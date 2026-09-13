@@ -22,8 +22,9 @@ const normalizeBarcode = (barcode) => ({
   barcode: barcode?.barcode ?? barcode?.codBarras ?? barcode?.code,
   barcode_type: barcode?.barcode_type ?? barcode?.barcodeType ?? "EAN13",
   stock: parseInt(barcode?.stock ?? barcode?.cantidad ?? barcode?.quantity, 10) || 0,
-  variant_name: barcode?.variant_name ?? barcode?.variantName ?? "Estilo pendiente",
-  variant_image_url: barcode?.variant_image_url ?? barcode?.variantImageUrl ?? null,
+  variant_name: barcode?.variant_name ?? barcode?.variantName ?? barcode?.name ?? "Estilo pendiente",
+  variant_image_url: barcode?.variant_image_url ?? barcode?.variantImageUrl ?? barcode?.imageUrl ?? null,
+  is_active: barcode?.is_active !== false && barcode?.isActive !== false,
   is_default: barcode?.is_default === true || barcode?.isDefault === true,
 });
 
@@ -36,9 +37,25 @@ const assertBarcodeLengths = (barcodes) => {
   }
 };
 
+const assertNameLength = (name) => {
+  if (name !== undefined && String(name ?? "").trim().length > 100) {
+    throw new AppError("El nombre del producto no puede superar los 100 caracteres.", 400);
+  }
+};
+
+const assertBarcodeVariantNameLengths = (barcodes) => {
+  for (const barcode of barcodes) {
+    const variantName = String(barcode.variant_name ?? "").trim();
+    if (variantName.length > 100) {
+      throw new AppError("Los estilos de los codigos de barras no pueden superar los 100 caracteres.", 400);
+    }
+  }
+};
+
 export class CreateProductDto {
   constructor(data) {
     this.name = data.nombre ?? data.name;
+    assertNameLength(this.name);
     this.reference = data.referencia ?? data.reference;
     if (String(this.reference ?? "").trim().length > 50) {
       throw new AppError("La referencia no puede superar los 50 caracteres.", 400);
@@ -103,5 +120,6 @@ export class CreateProductDto {
     }
 
     assertBarcodeLengths(this.barcodes);
+    assertBarcodeVariantNameLengths(this.barcodes);
   }
 }
