@@ -1,4 +1,5 @@
 import { prisma } from "../../../../config/prisma.js";
+import { AppError } from "../../../../shared/errors/appError.js";
 
 const productSelect = {
   id_product: true,
@@ -25,6 +26,7 @@ const productInclude = {
     unit_measures: { select: { id_unit_measure: true, name_unit_measure: true, abbreviation: true } },
     general_statuses: { select: { id_status: true, name_status: true } },
     barcodes: {
+      where: { is_active: true },
       select: {
         id_barcode: true,
         barcode: true,
@@ -135,6 +137,33 @@ export class ProductRepository {
         barcode: { equals: barcode, mode: "insensitive" },
       },
     });
+  }
+
+  async getBarcodeRelations(barcodeId) {
+    const barcode = await prisma.barcodes.findUnique({
+      where: { id_barcode: parseInt(barcodeId, 10) },
+      select: {
+        id_barcode: true,
+        barcode: true,
+        _count: {
+          select: {
+            purchase_details: true,
+            order_details: true,
+            sale_return_details: true,
+            shopping_cart_items: true,
+            non_conforming_products: true,
+            inventory_stock_movements: true,
+          },
+        },
+      },
+    });
+
+    if (!barcode) return null;
+
+    return {
+      barcode: barcode.barcode,
+      hasRelations: Object.values(barcode._count).some((count) => count > 0),
+    };
   }
 
   async findUnitMeasureById(id) {
@@ -321,6 +350,35 @@ export class ProductRepository {
           .map((b) => b.id_barcode);
 
         if (codesToDeactivate.length > 0) {
+          const barcodeRelations = await tx.barcodes.findMany({
+            where: { id_barcode: { in: codesToDeactivate } },
+            select: {
+              barcode: true,
+              _count: {
+                select: {
+                  purchase_details: true,
+                  order_details: true,
+                  sale_return_details: true,
+                  shopping_cart_items: true,
+                  non_conforming_products: true,
+                  inventory_stock_movements: true,
+                },
+              },
+            },
+          });
+          const relatedBarcodes = barcodeRelations.filter(({ _count }) =>
+            Object.values(_count).some((count) => count > 0)
+          );
+
+          if (relatedBarcodes.length > 0) {
+            const codes = relatedBarcodes.map(({ barcode }) => `"${barcode}"`).join(", ");
+            throw new AppError(
+              `No se pueden quitar los codigos de barras ${codes} porque tienen compras, pedidos, ventas, devoluciones u otros movimientos asociados.`,
+              409,
+              { errorCode: "BARCODE_HAS_RELATIONS" }
+            );
+          }
+
           await tx.barcodes.updateMany({
             where: { id_barcode: { in: codesToDeactivate } },
             data: { is_active: false, is_default: false },
@@ -331,7 +389,6 @@ export class ProductRepository {
           const code = String(barcode.barcode);
           const barcodeData = {
             barcode_type: barcode.barcode_type || "EAN13",
-            stock: Math.max(0, parseIntOrZero(barcode.stock)),
             variant_name: barcode.variant_name || "Estilo pendiente",
             ...(barcode.variant_image_url !== undefined
               ? { variant_image_url: barcode.variant_image_url || null }
@@ -350,22 +407,11 @@ export class ProductRepository {
               data: {
                 barcode: code,
                 ...barcodeData,
+                stock: 0,
                 id_product: productId,
               },
             });
           }
-        }
-      } else if (data.stock !== undefined) {
-        const firstBarcode = await tx.barcodes.findFirst({
-          where: { id_product: productId },
-          orderBy: { id_barcode: "asc" },
-        });
-
-        if (firstBarcode) {
-          await tx.barcodes.update({
-            where: { id_barcode: firstBarcode.id_barcode },
-            data: { stock: Math.max(0, parseIntOrZero(data.stock)) },
-          });
         }
       }
 
@@ -419,6 +465,16 @@ export class ProductRepository {
         image_url: url,
         is_primary: idx === 0,
       })),
+    });
+  }
+
+  async deleteProductImages(productId, imageIds) {
+    if (!imageIds?.length) return;
+    await prisma.product_images.deleteMany({
+      where: {
+        id_product: parseInt(productId),
+        id_image: { in: imageIds },
+      },
     });
   }
 

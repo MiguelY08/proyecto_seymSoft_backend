@@ -108,6 +108,22 @@ export const getProductById = async (req, res, next) => {
   }
 };
 
+export const checkBarcodeRelations = async (req, res, next) => {
+  try {
+    const result = await repo.getBarcodeRelations(req.params.barcodeId);
+    if (!result) {
+      throw new AppError("Codigo de barras no encontrado.", 404);
+    }
+
+    res.status(httpCodes.OK).json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Update Product ───────────────────────────────────────────────────────────
 export const updateProduct = async (req, res, next) => {
   try {
@@ -136,6 +152,7 @@ const subcategories = parseArrayField(
 );
 
 const barcodes = parseArrayField(req.body.barcodes);
+const deletedImageIds = parseArrayField(req.body.deletedImageIds);
 
 const files = req.files || [];
   assertProductImageFields(files);
@@ -148,6 +165,7 @@ const files = req.files || [];
   categories,
   subcategories,
   barcodes,
+  deletedImageIds,
 });
 
     console.log('📋 dto.categories:', dto.categories);

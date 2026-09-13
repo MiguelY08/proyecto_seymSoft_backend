@@ -7,6 +7,7 @@ import {
   getAllProducts,
   getUnitMeasures,
   getProductById,
+  checkBarcodeRelations,
   updateProduct,
   toggleProductStatus,
   deleteProduct,
@@ -26,6 +27,7 @@ const upload = multer({
 // Otras rutas
 router.get('/', getAllProducts);
 router.get('/unit-measures', getUnitMeasures);
+router.get('/barcodes/:barcodeId/relations', authMiddleware, checkBarcodeRelations);
 router.get('/:id', getProductById);
 
 // Rutas administrativas

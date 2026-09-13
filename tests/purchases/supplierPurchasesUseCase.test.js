@@ -13,6 +13,7 @@ const originalRepositoryMethods = {
   findProviderById: SupplierPurchaseRepository.prototype.findProviderById,
   findProductById: SupplierPurchaseRepository.prototype.findProductById,
   findBarcodeByCode: SupplierPurchaseRepository.prototype.findBarcodeByCode,
+  findBarcodeById: SupplierPurchaseRepository.prototype.findBarcodeById,
   create: SupplierPurchaseRepository.prototype.create,
 };
 
@@ -32,6 +33,7 @@ const validPurchaseInput = {
   details: [
     {
       idProduct: 10,
+      idBarcode: 22,
       quantity: 2,
       supplierPrice: 10000,
       purchaseType: "Unidad",
@@ -160,6 +162,11 @@ test("CreateSupplierPurchaseUseCase calcula fecha maxima, stock por paca y subto
     max_return_period: 15,
   });
   SupplierPurchaseRepository.prototype.findProductById = async () => productWithBarcode;
+  SupplierPurchaseRepository.prototype.findBarcodeById = async () => ({
+    id_barcode: 22,
+    id_product: 10,
+    is_active: true,
+  });
   SupplierPurchaseRepository.prototype.findBarcodeByCode = async () => null;
   prisma.users.findMany = async () => [];
   SupplierPurchaseRepository.prototype.create = async (purchaseData, details) => {
@@ -194,6 +201,7 @@ test("CreateSupplierPurchaseUseCase calcula fecha maxima, stock por paca y subto
       details: [
         {
           idProduct: 10,
+          idBarcode: 22,
           quantity: 3,
           supplierPrice: 10000,
           purchaseType: "X Paca",

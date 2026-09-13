@@ -2,6 +2,7 @@
 import { SupplierPurchaseRepository } from '../repositories/supplierPurchaseRepository.js';
 import { SupplierPurchaseMapper }     from '../mappers/supplierPurchaseMapper.js';
 import { notifyAdmins } from '../../../notifications/services/adminNotificationService.js';
+import { AppError } from '../../../../shared/errors/appError.js';
 
 const repo = new SupplierPurchaseRepository();
 
@@ -11,17 +12,13 @@ export class CreateSupplierPurchaseUseCase {
     // 1 — Factura única
     const duplicate = await repo.findByInvoiceNumber(dto.invoiceNumber);
     if (duplicate) {
-      const error = new Error('Ya existe una compra con ese número de factura.');
-      error.statusCode = 409;
-      throw error;
+      throw new AppError('Ya existe una compra con ese número de factura.', 409);
     }
 
     // 2 — Proveedor existe y obtener su plazo de devolución
     const provider = await repo.findProviderById(dto.idProvider);
     if (!provider) {
-      const error = new Error('Proveedor no encontrado.');
-      error.statusCode = 404;
-      throw error;
+      throw new AppError('Proveedor no encontrado.', 404);
     }
 
     // 3 — Calcular fecha máxima de devolución
@@ -38,26 +35,56 @@ export class CreateSupplierPurchaseUseCase {
       // 4a — Producto existe
       const product = await repo.findProductById(detail.idProduct);
       if (!product) {
-        const error = new Error(`Producto con id ${detail.idProduct} no encontrado.`);
-        error.statusCode = 404;
-        throw error;
+        throw new AppError(`Producto con id ${detail.idProduct} no encontrado.`, 404);
       }
 
       // 4b — Tiene al menos un barcode
       if (!product.barcodes?.length) {
-        const error = new Error(`El producto "${product.name}" no tiene código de barras asignado.`);
-        error.statusCode = 422;
-        throw error;
+        throw new AppError(`El producto "${product.name}" no tiene código de barras asignado.`, 422);
+      }
+
+      const selectedExtraBarcode = detail.barcode && detail.extraBarcodes.some((extraCode) => (
+        (typeof extraCode === 'string' ? extraCode : extraCode.barcode) === detail.barcode
+      ));
+      if (!detail.idBarcode && detail.barcode && !selectedExtraBarcode) {
+        detail.extraBarcodes.push({
+          barcode: detail.barcode,
+          variantName: 'Estilo pendiente',
+          stock: 0,
+        });
+      }
+      if (!detail.idBarcode && detail.barcode) {
+        await repo.createExtraBarcodes([detail]);
       }
 
       // 4c — extraBarcodes no pertenecen a otro producto
       for (const extraCode of detail.extraBarcodes) {
-        const existing = await repo.findBarcodeByCode(extraCode);
+        const barcode = typeof extraCode === 'string' ? extraCode : extraCode.barcode;
+        const existing = await repo.findBarcodeByCode(barcode);
         if (existing && existing.id_product !== detail.idProduct) {
-          const error = new Error(`El código de barras "${extraCode}" ya pertenece a otro producto.`);
-          error.statusCode = 409;
-          throw error;
+          throw new AppError(`El código de barras "${barcode}" ya pertenece a otro producto.`, 409);
         }
+      }
+
+      const selectedBarcode = detail.idBarcode
+        ? await repo.findBarcodeById(detail.idBarcode)
+        : detail.barcode
+          ? await repo.findBarcodeByCode(detail.barcode)
+          : product.barcodes[0];
+
+      if (!selectedBarcode) {
+        throw new AppError('El código de barras seleccionado no existe.', 404);
+      }
+
+      if (
+        selectedBarcode.id_product !== undefined &&
+        selectedBarcode.id_product !== detail.idProduct
+      ) {
+        throw new AppError('El código de barras seleccionado no pertenece al producto.', 409);
+      }
+
+      if (selectedBarcode.is_active === false) {
+        throw new AppError('El código de barras seleccionado está inactivo.', 422);
       }
 
       // 4d — Tomar precios del producto
@@ -70,8 +97,8 @@ export class CreateSupplierPurchaseUseCase {
       const ivaSubtotal    = +(taxUnitPrice   * quantity).toFixed(2);
       const netSubtotal    = +(netUnitPrice   * quantity).toFixed(2);
 
-      // 4e — primaryBarcodeId (el primero ordenado por id_barcode asc)
-      const primaryBarcodeId = product.barcodes[0].id_barcode;
+      // 4e — conservar exactamente el código seleccionado en el formulario
+      const primaryBarcodeId = selectedBarcode.id_barcode;
 
       // ========== CALCULAR STOCK A SUMAR ==========
       let stockAdded = Number(detail.quantity);

@@ -21,7 +21,7 @@ const purchaseWithDetailsInclude = {
             select: {
               id_product: true,
               name:        true,
-              barcodes: { select: { id_barcode: true, barcode: true } },
+              barcodes: { select: { id_barcode: true, barcode: true, variant_name: true } },
             },
           },
         },
@@ -204,19 +204,28 @@ export class SupplierPurchaseRepository {
   async findBarcodeByCode(barcode) {
     return prisma.barcodes.findUnique({
       where:  { barcode },
-      select: { id_barcode: true, barcode: true, id_product: true },
+      select: { id_barcode: true, barcode: true, id_product: true, is_active: true },
+    });
+  }
+
+  async findBarcodeById(id) {
+    return prisma.barcodes.findUnique({
+      where: { id_barcode: parseInt(id) },
+      select: { id_barcode: true, barcode: true, id_product: true, is_active: true },
     });
   }
 
   async createExtraBarcodes(details) {
     for (const detail of details) {
       for (const extraCode of detail.extraBarcodes) {
-        const existing = await prisma.barcodes.findUnique({ where: { barcode: extraCode } });
+        const barcode = typeof extraCode === 'string' ? extraCode : extraCode.barcode;
+        const existing = await prisma.barcodes.findUnique({ where: { barcode } });
         if (!existing) {
           await prisma.barcodes.create({
             data: {
-              barcode:      extraCode,
+              barcode,
               barcode_type: 'extra',
+              variant_name: typeof extraCode === 'string' ? 'Estilo pendiente' : extraCode.variantName,
               stock:        0,
               id_product:   detail.idProduct,
             },
@@ -233,13 +242,19 @@ export class SupplierPurchaseRepository {
       details.map(async (detail) => {
         const extraIds = [];
         for (const extraCode of detail.extraBarcodes) {
+          const barcode = typeof extraCode === 'string' ? extraCode : extraCode.barcode;
           const b = await prisma.barcodes.findUnique({
-            where:  { barcode: extraCode },
+            where:  { barcode },
             select: { id_barcode: true },
           });
           if (b) extraIds.push(b.id_barcode);
         }
-        return { ...detail, extraBarcodeIds: extraIds };
+        return {
+          ...detail,
+          // El código seleccionado es el principal; no debe volver a incrementarse
+          // si también llegó accidentalmente dentro de los códigos adicionales.
+          extraBarcodeIds: [...new Set(extraIds)].filter((id) => id !== detail.primaryBarcodeId),
+        };
       })
     );
 

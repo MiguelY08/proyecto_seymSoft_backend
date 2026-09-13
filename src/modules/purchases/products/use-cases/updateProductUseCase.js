@@ -58,6 +58,7 @@ export class UpdateProductUseCase {
     }
 
     const updated = await this.repo.update(id, dto);
+    await this.repo.deleteProductImages(id, dto.deletedImageIds);
 
     const productFiles = getProductImageFiles(files);
 

@@ -37,7 +37,9 @@ const normalizeBarcode = (barcode) => {
     barcode_type: firstDefined(barcode.barcode_type, barcode.barcodeType) || "EAN13",
     stock: firstDefined(barcode.stock, barcode.cantidad, barcode.quantity),
     variant_name: firstDefined(barcode.variant_name, barcode.variantName, barcode.name) || "Estilo pendiente",
-    variant_image_url: firstPresent(barcode.variant_image_url, barcode.variantImageUrl),
+    variant_image_url: barcode.variant_image_url !== undefined
+      ? barcode.variant_image_url
+      : barcode.variantImageUrl,
     is_active: barcode.is_active !== false && barcode.isActive !== false,
     is_default: barcode.is_default === true || barcode.isDefault === true,
   };
@@ -84,6 +86,9 @@ export class UpdateProductDto {
     this.stock = firstDefined(data.stock, data.cantidad, data.quantity);
     this.categories = data.categories ?? [];
     this.subcategories = data.subcategories ?? [];
+    this.deletedImageIds = Array.isArray(data.deletedImageIds)
+      ? data.deletedImageIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
 
     this.barcodes = Array.isArray(data.barcodes)
       ? data.barcodes.map(normalizeBarcode)
