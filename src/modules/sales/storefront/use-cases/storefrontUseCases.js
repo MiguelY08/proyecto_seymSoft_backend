@@ -17,6 +17,18 @@ const requireAvailableProduct = async (productId) => {
   return product;
 };
 
+const requireAvailableBarcode = (product, barcodeId) => {
+  const barcode = product.barcodes?.find(
+    (item) => item.id_barcode === Number(barcodeId),
+  );
+
+  if (!barcode || !barcode.is_active) {
+    throw new NotFoundError("Variante no encontrada o inactiva");
+  }
+
+  return barcode;
+};
+
 export const getFavoritesUseCase = async (idClient) => {
   const favorites = await storefrontRepository.getFavorites(idClient);
   return favorites.map(mapFavorite);
@@ -46,12 +58,7 @@ export const setCartItemUseCase = async (
   requestedQuantity,
 ) => {
   const product = await requireAvailableProduct(productId);
-  const barcode = product.barcodes?.find((item) => item.id_barcode === barcodeId);
-
-  if (!barcode) {
-    throw new NotFoundError("Codigo de barras no encontrado para este producto");
-  }
-
+  const barcode = requireAvailableBarcode(product, barcodeId);
   const stock = Number(barcode.stock || 0);
 
   if (stock < 1) {
@@ -67,7 +74,7 @@ export const setCartItemUseCase = async (
   const changedItem = await storefrontRepository.setCartItem(
     idClient,
     productId,
-    barcodeId,
+    barcode.id_barcode,
     requestedQuantity,
   );
   const items = await storefrontRepository.getCart(idClient);
@@ -83,7 +90,7 @@ export const removeCartItemUseCase = async (idClient, productId, barcodeId) => {
 
   return mapCartResponse(items, {
     removed: result.count > 0,
-    removedProductId: productId,
+    removedBarcodeId: barcodeId,
   });
 };
 

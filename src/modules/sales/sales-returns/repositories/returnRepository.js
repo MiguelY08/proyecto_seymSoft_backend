@@ -372,22 +372,24 @@ static async findAll(filters = {}) {
       
       order?.order_details?.forEach(orderDetail => {
         const productBarcodes = orderDetail.products?.barcodes || [];
-        
-        productBarcodes.forEach(barcode => {
-          details.push({
-            id: orderDetail.id_order_detail,
-            idProduct: orderDetail.id_product,
-            productName: orderDetail.products?.name || '',
-            barcode: barcode.barcode,
-            idBarcode: barcode.id_barcode,
-            quantity: orderDetail.quantity || 0,
-            unitPrice: Number(orderDetail.unit_price || 0),
-            subtotal: Number(orderDetail.subtotal || 0),
-            ivaAmount: Number(orderDetail.iva_amount || 0),
-            stockAvailable: barcode.stock || 0
-            ,
-            imageUrl: orderDetail.products?.product_images?.[0]?.image_url || null
-          });
+        const barcode = orderDetail.id_barcode
+          ? productBarcodes.find((item) => item.id_barcode === orderDetail.id_barcode)
+          : productBarcodes.find((item) => item.barcode === orderDetail.barcode);
+
+        if (!barcode) return;
+
+        details.push({
+          id: orderDetail.id_order_detail,
+          idProduct: orderDetail.id_product,
+          productName: orderDetail.products?.name || '',
+          barcode: barcode.barcode,
+          idBarcode: barcode.id_barcode,
+          quantity: orderDetail.quantity || 0,
+          unitPrice: Number(orderDetail.unit_price || 0),
+          subtotal: Number(orderDetail.subtotal || 0),
+          ivaAmount: Number(orderDetail.iva_amount || 0),
+          stockAvailable: barcode.stock || 0,
+          imageUrl: orderDetail.products?.product_images?.[0]?.image_url || null
         });
       });
 

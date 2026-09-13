@@ -36,6 +36,7 @@ export class SupplierPurchaseMapper {
       id:             detail.id_purchase_detail,
       idBarcode:      detail.id_barcode,
       barcode:        detail.barcodes?.barcode ?? null,
+      variantName:    detail.barcodes?.variant_name ?? null,
       productId:      detail.barcodes?.id_product ?? null,
       productName:    detail.barcodes?.products?.name ?? null,
       quantity:       detail.quantity,

@@ -6,12 +6,18 @@ export const productIdParamsSchema = z.object({
   productId: positiveId,
 });
 
-export const cartQuantitySchema = z.object({
+export const cartVariantParamsSchema = z.object({
+  productId: positiveId,
+  barcodeId: positiveId,
+});
+
+export const cartItemSchema = z.object({
+  barcodeId: positiveId,
   quantity: z.coerce.number().int().positive().max(100000),
 });
 
-export const cartItemSchema = cartQuantitySchema.extend({
-  barcodeId: positiveId,
+export const cartQuantitySchema = z.object({
+  quantity: z.coerce.number().int().positive().max(100000),
 });
 
 export const barcodeIdParamsSchema = z.object({

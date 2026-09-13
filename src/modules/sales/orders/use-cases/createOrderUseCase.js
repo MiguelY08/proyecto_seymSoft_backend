@@ -51,8 +51,9 @@ const buildPaymentDeadline = () => {
   );
 };
 
-const buildProductBarcodeKey = (item) =>
-  `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
+const buildProductBarcodeKey = (item) => item.idBarcode
+  ? `id:${Number(item.idBarcode)}`
+  : `${Number(item.idProduct ?? item.id_product)}::${String(item.barcode || '').trim()}`;
 
 const getEnrichedOrderItems = async ({ repo, items, client }) => {
   const barcodeRecords =
@@ -60,6 +61,7 @@ const getEnrichedOrderItems = async ({ repo, items, client }) => {
   const barcodeRecordByItem = new Map(
     barcodeRecords.map((barcodeRecord) => [
       buildProductBarcodeKey({
+        idBarcode: barcodeRecord.id_barcode,
         idProduct: barcodeRecord.id_product,
         barcode: barcodeRecord.barcode,
       }),
@@ -101,6 +103,8 @@ const getEnrichedOrderItems = async ({ repo, items, client }) => {
 
     return {
       ...item,
+      idBarcode: barcodeRecord.id_barcode,
+      barcode: barcodeRecord.barcode,
       unitPrice: Number(unitPrice),
       ivaPercentage: Number(
         barcodeRecord.products.iva_percentage || 0

@@ -272,6 +272,7 @@ export class CreateOrderDto {
     // Normalizar productos recibidos desde frontend o API externa.
     this.items = this.items.map((item) => ({
       idProduct: item.idProduct ?? item.id_product,
+      idBarcode: item.idBarcode ?? item.id_barcode ?? item.barcodeId,
       barcode: item.barcode,
       quantity: Number(item.quantity),
     }));
@@ -281,8 +282,8 @@ export class CreateOrderDto {
         throw new Error('Cada item debe tener producto.');
       }
 
-      if (!item.barcode) {
-        throw new Error('Cada item debe tener codigo de barras.');
+      if (!item.idBarcode && !item.barcode) {
+        throw new Error('Cada item debe tener una variante o codigo de barras.');
       }
 
       if (!item.quantity || item.quantity <= 0) {

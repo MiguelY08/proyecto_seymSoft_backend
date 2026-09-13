@@ -34,7 +34,8 @@ const storefrontProductSelect = {
       is_active: true,
       is_default: true,
     },
-    orderBy: { id_barcode: "asc" },
+    where: { is_active: true },
+    orderBy: [{ is_default: "desc" }, { id_barcode: "asc" }],
   },
   product_images: {
     select: {
@@ -78,7 +79,19 @@ const calculateStock = (product) => (
 const findCartByClient = (db, idClient) => (
   db.shopping_cart_items.findMany({
     where: { id_client: idClient },
-    include: cartInclude,
+    include: {
+      ...cartInclude,
+      barcodes: {
+        select: {
+          id_barcode: true,
+          barcode: true,
+          variant_name: true,
+          variant_image_url: true,
+          stock: true,
+          is_active: true,
+        },
+      },
+    },
     orderBy: { created_at: "asc" },
   })
 );
@@ -140,7 +153,10 @@ export const storefrontRepository = {
         quantity,
       },
       update: { quantity },
-      include: cartInclude,
+      include: {
+        ...cartInclude,
+        barcodes: true,
+      },
     });
   },
 
@@ -164,10 +180,11 @@ export const storefrontRepository = {
     return prisma.$transaction(async (tx) => {
       for (const item of items) {
         const product = await this.findAvailableProduct(item.productId, tx);
-        if (!product) continue;
+        const barcode = product?.barcodes?.find(
+          (entry) => entry.id_barcode === item.barcodeId,
+        );
+        if (!product || !barcode) continue;
 
-        const barcode = product.barcodes?.find((entry) => entry.id_barcode === item.barcodeId);
-        if (!barcode) continue;
 
         const stock = Number(barcode.stock || 0);
         if (stock < 1) continue;
@@ -186,9 +203,9 @@ export const storefrontRepository = {
 
         await tx.shopping_cart_items.upsert({
           where: {
-            id_client_id_product: {
+            id_client_id_barcode: {
               id_client: idClient,
-              id_product: item.productId,
+              id_barcode: item.barcodeId,
             },
           },
           create: {

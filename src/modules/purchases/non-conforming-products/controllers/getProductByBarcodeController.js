@@ -23,6 +23,7 @@ export const getProductByBarcodeController = async (req, res, next) => {
         barcode: barcodeRecord.barcode,
         id_product: barcodeRecord.id_product,
         productName: barcodeRecord.products?.name,
+        variantName: barcodeRecord.variant_name,
         categoryName: barcodeRecord.products?.categories?.category_name,
         price: barcodeRecord.products?.retail_price,
         stock: barcodeRecord.stock || 0,
