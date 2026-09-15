@@ -355,6 +355,80 @@ static async findPermissionConflicts(permissions, excludeRoleId = null) {
   });
 }
 
+static async findExactPermissionSetConflicts(permissions, excludeRoleId = null) {
+  const normalizedPermissions = (permissions || [])
+    .map((permission) => ({
+      id_module: Number(permission.id_module),
+      id_privilege: Number(permission.id_privilege),
+    }))
+    .filter(
+      (permission) =>
+        Number.isInteger(permission.id_module) &&
+        Number.isInteger(permission.id_privilege),
+    );
+
+  if (!normalizedPermissions.length) {
+    return [];
+  }
+
+  const readPrivileges = await prisma.privileges.findMany({
+    where: {
+      id_privilege: {
+        in: normalizedPermissions.map(({ id_privilege }) => id_privilege),
+      },
+      name_privilege: {
+        equals: "read",
+        mode: "insensitive",
+      },
+    },
+    select: { id_privilege: true },
+  });
+  const readPrivilegeIds = new Set(
+    readPrivileges.map((privilege) => privilege.id_privilege),
+  );
+
+  const roles = await prisma.roles.findMany({
+    where: excludeRoleId
+      ? { NOT: { id_role: Number(excludeRoleId) } }
+      : undefined,
+    select: {
+      id_role: true,
+      name_role: true,
+      assigned_permissions: {
+        select: {
+          id_module: true,
+          id_privilege: true,
+          privileges: {
+            select: { name_privilege: true },
+          },
+        },
+      },
+    },
+  });
+
+  const comparablePermissions = (rolePermissions) =>
+    rolePermissions
+      .filter(
+        (permission) =>
+          permission.privileges?.name_privilege?.toLowerCase() !== "read",
+      )
+      .map(({ id_module, id_privilege }) => `${id_module}-${id_privilege}`)
+      .sort();
+
+  const requestedSet = normalizedPermissions
+    .filter(({ id_privilege }) => !readPrivilegeIds.has(id_privilege))
+    .map(({ id_module, id_privilege }) => `${id_module}-${id_privilege}`)
+    .sort();
+
+  return roles.filter((role) => {
+    const roleSet = comparablePermissions(role.assigned_permissions);
+    return (
+      roleSet.length === requestedSet.length &&
+      roleSet.every((permission, index) => permission === requestedSet[index])
+    );
+  });
+}
+
   /**
    * Crear permisos asignados a un rol
    */

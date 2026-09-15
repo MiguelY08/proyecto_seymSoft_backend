@@ -3,6 +3,7 @@ import { RoleResponseDto } from "../dtos/roleDtos.js";
 import {
   NotFoundError,
   BadRequestError,
+  ConflictError,
 } from "../../../../shared/errors/index.js";
 import { validateRolePermissions }
   from "../helpers/validateRolePermissions.js";
@@ -82,6 +83,18 @@ export class UpdateRoleUseCase {
       modules,
       privileges
     );
+
+    const permissionConflicts =
+      await RoleRepository.findExactPermissionSetConflicts(
+        permissionsToApply,
+        id_role,
+      );
+
+    if (permissionConflicts.length > 0) {
+      throw new ConflictError(
+        "Ya existe otro rol con los mismos permisos",
+      );
+    }
 
     const role =
       await RoleRepository.updateRolePermissionsTransaction(
