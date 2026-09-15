@@ -43,6 +43,12 @@ const assertNameLength = (name) => {
   }
 };
 
+const assertDescriptionLength = (description) => {
+  if (description !== undefined && String(description ?? "").length > 250) {
+    throw new AppError("La descripcion del producto no puede superar los 250 caracteres.", 400);
+  }
+};
+
 const assertBarcodeVariantNameLengths = (barcodes) => {
   for (const barcode of barcodes) {
     const variantName = String(barcode.variant_name ?? "").trim();
@@ -90,6 +96,7 @@ export class CreateProductDto {
       data.categoryId
     ));
     this.description = data.description || null;
+    assertDescriptionLength(this.description);
     this.quantityPerPack = parseInt(data.quantityPerPack, 10) || 0;
     const requestedStatus = parsePositiveInt(data.idStatus) || 1;
     this.idStatus = hasCompleteSalePrices(this) ? requestedStatus : 2;
