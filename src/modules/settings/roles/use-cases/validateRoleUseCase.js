@@ -57,10 +57,18 @@ export class ValidateRoleUseCase {
 
     validateRolePermissions(permissions, modules, privileges);
 
+    const conflicts = await RoleRepository.findExactPermissionSetConflicts(
+      permissions,
+      excludedRoleId,
+    );
+
     return {
-      valid: true,
-      message: "Permisos disponibles",
-      conflicts: [],
+      valid: conflicts.length === 0,
+      message:
+        conflicts.length > 0
+          ? "Ya existe otro rol con los mismos permisos"
+          : "Permisos disponibles",
+      conflicts,
     };
   }
 

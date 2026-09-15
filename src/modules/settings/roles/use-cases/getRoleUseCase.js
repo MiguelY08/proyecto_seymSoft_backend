@@ -1,5 +1,5 @@
 import { RoleRepository } from "../repositories/roleRepository.js";
-import { RoleResponseDto } from "../dtos/roleDtos.js";
+import { RoleMapper } from "../mappers/roleMapper.js";
 import { NotFoundError } from "../../../../shared/errors/index.js";
 
 /**
@@ -22,7 +22,7 @@ export class GetRoleUseCase {
         throw new NotFoundError("El rol no existe");
       }
       //  Mapear a formato de respuesta
-      return new RoleResponseDto(role);
+      return RoleMapper.toResponseDto(role);
 
     } catch (error) {
       throw error;

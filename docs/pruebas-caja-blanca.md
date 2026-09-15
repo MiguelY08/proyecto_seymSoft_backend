@@ -181,12 +181,7 @@ Resultado despues de agregar las pruebas de productos e inventario:
 - 61 aprobadas
 - 0 fallidas
 - 3 marcadas como TODO
-
-Conclusion parcial:
-
-El modulo de productos e inventario queda mejor cubierto porque se prueban reglas antes de persistir datos, validaciones contra duplicados y transformacion de datos hacia la respuesta. Estas pruebas son de caja blanca porque conocen el orden interno del use-case: primero valida catalogos, luego duplicados, despues crea/actualiza/elimina y finalmente mapea la respuesta.
-
-Siguiente modulo recomendado:
++dulo recomendado:
 
 Compras, porque impacta el aumento de stock, la relacion con proveedores y el registro de detalles de compra.
 

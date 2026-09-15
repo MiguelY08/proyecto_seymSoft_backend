@@ -173,3 +173,71 @@ test("UpdateRoleUseCase preserves current permissions when edit payload omits pe
     Object.assign(RoleRepository, originals);
   }
 });
+
+test("ValidateRoleUseCase rejects an exact permission set and excludes the edited role", async () => {
+  const original = RoleRepository.findExactPermissionSetConflicts;
+  const calls = [];
+
+  RoleRepository.findExactPermissionSetConflicts = async (permissions, idRole) => {
+    calls.push({ permissions, idRole });
+    return idRole === 7 ? [] : [{ id_role: 8, name_role: "Empleado" }];
+  };
+
+  try {
+    const { ValidateRoleUseCase } = await import(
+      "../../src/modules/settings/roles/use-cases/validateRoleUseCase.js"
+    );
+
+    const editing = await ValidateRoleUseCase.validatePermissions(
+      validPermissions,
+      7,
+    );
+    const creating = await ValidateRoleUseCase.validatePermissions(
+      validPermissions,
+    );
+
+    assert.equal(editing.valid, true);
+    assert.equal(creating.valid, false);
+    assert.deepEqual(calls.map((call) => call.idRole), [7, null]);
+  } finally {
+    RoleRepository.findExactPermissionSetConflicts = original;
+  }
+});
+
+test("CreateRoleUseCase rejects an exact permission set already used by another role", async () => {
+  const originals = {
+    findRoleByNameInsensitive: RoleRepository.findRoleByNameInsensitive,
+    findModulesByIds: RoleRepository.findModulesByIds,
+    findPrivilegesByIds: RoleRepository.findPrivilegesByIds,
+    findExactPermissionSetConflicts:
+      RoleRepository.findExactPermissionSetConflicts,
+  };
+
+  RoleRepository.findRoleByNameInsensitive = async () => null;
+  RoleRepository.findModulesByIds = async () => [
+    { id_module: 1, name_module: "Usuarios", description: null },
+  ];
+  RoleRepository.findPrivilegesByIds = async () => [
+    { id_privilege: 1, name_privilege: "CREATE", description: null },
+  ];
+  RoleRepository.findExactPermissionSetConflicts = async () => [
+    { id_role: 8, name_role: "Empleado" },
+  ];
+
+  try {
+    const { CreateRoleUseCase } = await import(
+      "../../src/modules/settings/roles/use-cases/createRoleUseCase.js"
+    );
+
+    await assert.rejects(
+      CreateRoleUseCase.execute({
+        name_role: "Nuevo Rol",
+        description: "Rol de prueba",
+        permissions: validPermissions,
+      }),
+      { name: "ConflictError", statusCode: 409 },
+    );
+  } finally {
+    Object.assign(RoleRepository, originals);
+  }
+});

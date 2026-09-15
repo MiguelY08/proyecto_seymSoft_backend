@@ -31,6 +31,17 @@ export class CreateRoleUseCase {
 
     validateRolePermissions(roleData.permissions, modules, privileges);
 
+    const permissionConflicts =
+      await RoleRepository.findExactPermissionSetConflicts(
+        roleData.permissions,
+      );
+
+    if (permissionConflicts.length > 0) {
+      throw new ConflictError(
+        "Ya existe otro rol con los mismos permisos",
+      );
+    }
+
     const newRole = await RoleRepository.createRole(roleData);
 
     await RoleRepository.createManyAssignedPermissions(
