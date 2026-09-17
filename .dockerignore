@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+.git
+.gitignore
+Dockerfile
+docker-compose*.yml
+docker-compose*.yaml
+coverage
+tests
+docs
+uploads
+backup.sql
+client_files.txt
