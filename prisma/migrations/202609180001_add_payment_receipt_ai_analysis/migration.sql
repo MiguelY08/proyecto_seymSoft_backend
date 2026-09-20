@@ -1,0 +1,17 @@
+ALTER TABLE "order_payment_receipts"
+ADD COLUMN "ai_analysis_status" VARCHAR(30) NOT NULL DEFAULT 'No analizado',
+ADD COLUMN "ai_analyzed_at" TIMESTAMP(6),
+ADD COLUMN "ai_model" VARCHAR(100),
+ADD COLUMN "ai_confidence" DECIMAL(5,4),
+ADD COLUMN "ai_amount" DECIMAL(12,2),
+ADD COLUMN "ai_currency" VARCHAR(10),
+ADD COLUMN "ai_transaction_reference" VARCHAR(100),
+ADD COLUMN "ai_transaction_date" VARCHAR(30),
+ADD COLUMN "ai_transaction_time" VARCHAR(30),
+ADD COLUMN "ai_bank" VARCHAR(100),
+ADD COLUMN "ai_sender_name" VARCHAR(150),
+ADD COLUMN "ai_recipient_name" VARCHAR(150),
+ADD COLUMN "ai_status" VARCHAR(50),
+ADD COLUMN "ai_warnings" JSONB,
+ADD COLUMN "ai_error" VARCHAR(500),
+ADD COLUMN "ai_raw_text" TEXT;

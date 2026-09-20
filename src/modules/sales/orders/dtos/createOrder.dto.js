@@ -11,6 +11,7 @@ import {
 
 const ORDER_SALE_TYPES = ['manual', 'direct', 'web'];
 const ADVISOR_ORDER_SALE_TYPES = ['manual', 'direct'];
+const MINIMUM_DELIVERY_AMOUNT = 13000;
 
 const getRawShippingAmount = (data = {}) =>
   data.shippingAmount ??
@@ -82,6 +83,14 @@ const normalizeShippingAmount = ({
     amount <= 0
   ) {
     throw new Error('El valor del envio debe ser mayor a 0 para pedidos a domicilio registrados por asesor.');
+  }
+
+  if (
+    deliveryType === DELIVERY_TYPES.DELIVERY &&
+    amount > 0 &&
+    amount < MINIMUM_DELIVERY_AMOUNT
+  ) {
+    throw new Error(`El valor del envio no puede ser inferior a ${MINIMUM_DELIVERY_AMOUNT}.`);
   }
 
   return Math.round(amount * 100) / 100;

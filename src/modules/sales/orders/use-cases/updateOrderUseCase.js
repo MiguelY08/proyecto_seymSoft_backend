@@ -22,6 +22,7 @@ const READY_ORDER_STATUS_ID = ORDER_STATUSES[2].id;
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
+const MINIMUM_DELIVERY_AMOUNT = 13000;
 const ADVISOR_ORDER_SALE_TYPES = ['manual', 'direct'];
 const OPERATIONAL_ORDER_STATUS_IDS = [
   READY_ORDER_STATUS_ID,
@@ -46,6 +47,17 @@ const validateShippingAmountForUpdate = ({ order, dto }) => {
   ) {
     throw new AppError(
       'El valor del envio debe ser mayor a 0 para pedidos a domicilio registrados por asesor.',
+      400
+    );
+  }
+
+  if (
+    dto.deliveryType === DELIVERY_TYPES.DELIVERY &&
+    roundMoney(dto.shippingAmount) > 0 &&
+    roundMoney(dto.shippingAmount) < MINIMUM_DELIVERY_AMOUNT
+  ) {
+    throw new AppError(
+      `El valor del envio no puede ser inferior a ${MINIMUM_DELIVERY_AMOUNT}.`,
       400
     );
   }
