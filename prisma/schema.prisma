@@ -304,6 +304,22 @@ model order_payment_receipts {
   review_observations      String?      @db.VarChar(255)
   reviewed_at              DateTime?    @db.Timestamp(6)
   reviewed_by              Int?
+  ai_analysis_status       String       @default("No analizado") @db.VarChar(30)
+  ai_analyzed_at           DateTime?    @db.Timestamp(6)
+  ai_model                 String?      @db.VarChar(100)
+  ai_confidence            Decimal?     @db.Decimal(5, 4)
+  ai_amount                Decimal?     @db.Decimal(12, 2)
+  ai_currency              String?      @db.VarChar(10)
+  ai_transaction_reference String?      @db.VarChar(100)
+  ai_transaction_date      String?      @db.VarChar(30)
+  ai_transaction_time      String?      @db.VarChar(30)
+  ai_bank                  String?      @db.VarChar(100)
+  ai_sender_name           String?      @db.VarChar(150)
+  ai_recipient_name        String?      @db.VarChar(150)
+  ai_status                String?      @db.VarChar(50)
+  ai_warnings              Json?
+  ai_error                 String?      @db.VarChar(500)
+  ai_raw_text              String?
   sales_orders             sales_orders @relation(fields: [id_order], references: [id_order], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_payment_receipts_order")
   users                    users?       @relation(fields: [reviewed_by], references: [id_user], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_payment_receipts_reviewed_by")
 

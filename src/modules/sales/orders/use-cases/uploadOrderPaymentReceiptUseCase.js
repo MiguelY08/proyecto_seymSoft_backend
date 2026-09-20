@@ -9,6 +9,7 @@ import {
   PAYMENT_RECEIPT_IMAGE_CONFIG,
   processAndSaveImage,
 } from '../../../../shared/utils/imageProcessor.js';
+import { analyzePaymentReceipt } from '../services/paymentReceiptOcrService.js';
 
 const getReceiptBucket = () =>
   process.env.SUPABASE_BUCKET_PAYMENT_RECEIPTS ||
@@ -52,6 +53,25 @@ const mapReceipt = (receipt) => ({
   observations: receipt.observations,
   status: receipt.verification_status,
   uploadedAt: receipt.uploaded_at,
+  analysis: {
+    status: receipt.ai_analysis_status,
+    analyzedAt: receipt.ai_analyzed_at,
+    model: receipt.ai_model,
+    confidence: receipt.ai_confidence === null
+      ? null
+      : Number(receipt.ai_confidence),
+    amount: receipt.ai_amount === null ? null : Number(receipt.ai_amount),
+    currency: receipt.ai_currency,
+    transactionReference: receipt.ai_transaction_reference,
+    transactionDate: receipt.ai_transaction_date,
+    transactionTime: receipt.ai_transaction_time,
+    bank: receipt.ai_bank,
+    senderName: receipt.ai_sender_name,
+    recipientName: receipt.ai_recipient_name,
+    statusText: receipt.ai_status,
+    warnings: receipt.ai_warnings || [],
+    error: receipt.ai_error ? 'No fue posible completar el análisis automático.' : null,
+  },
 });
 
 export class UploadOrderPaymentReceiptUseCase {
@@ -128,10 +148,36 @@ export class UploadOrderPaymentReceiptUseCase {
         },
       });
 
+      let analysis;
+      try {
+        analysis = await analyzePaymentReceipt(file.buffer);
+      } catch (error) {
+        console.error('[PaymentReceiptOCR] No fue posible analizar el comprobante:', error.message);
+        analysis = {
+          status: 'Fallido',
+          analyzedAt: new Date(),
+          model: 'tesseract.js-spa',
+          confidence: null,
+          amount: null,
+          currency: null,
+          transactionReference: null,
+          transactionDate: null,
+          transactionTime: null,
+          bank: null,
+          senderName: null,
+          recipientName: null,
+          statusText: null,
+          warnings: ['El análisis automático falló; se requiere revisión manual.'],
+          error: error.message,
+          rawText: null,
+        };
+      }
+
       const receipt = await this.repo.createPaymentReceipt(idOrder, {
         imageUrl,
         fileName: file.originalname,
         observations: options.observations,
+        analysis,
       });
 
       return mapReceipt(receipt);

@@ -9,6 +9,7 @@ import { mapOrder } from '../mappers/orderMapper.js';
 const DELIVERED_ORDER_STATUS_ID = ORDER_STATUSES[3].id;
 const CANCELLED_ORDER_STATUS_ID = ORDER_STATUSES[4].id;
 const PAID_PAYMENT_STATUS_ID = PAYMENT_STATUSES[2].id;
+const MINIMUM_DELIVERY_AMOUNT = 13000;
 
 const roundMoney = (value) =>
   Math.round((Number(value) || 0) * 100) / 100;
@@ -36,6 +37,13 @@ const normalizeShippingAmount = (data = {}) => {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new AppError(
       'El valor del envio debe ser un numero mayor a 0.',
+      400
+    );
+  }
+
+  if (amount < MINIMUM_DELIVERY_AMOUNT) {
+    throw new AppError(
+      `El valor del envio no puede ser inferior a ${MINIMUM_DELIVERY_AMOUNT}.`,
       400
     );
   }

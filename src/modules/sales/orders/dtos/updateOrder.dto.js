@@ -5,6 +5,8 @@ import {
   normalizeDeliveryType,
 } from '../../shared/deliveryTypes.js';
 
+const MINIMUM_DELIVERY_AMOUNT = 13000;
+
 const normalizeShippingAmount = ({
   value,
   deliveryType,
@@ -17,6 +19,14 @@ const normalizeShippingAmount = ({
 
   if (Number.isNaN(amount) || amount < 0) {
     throw new Error('El valor del envio debe ser un numero mayor o igual a 0.');
+  }
+
+  if (
+    deliveryType === DELIVERY_TYPES.DELIVERY &&
+    amount > 0 &&
+    amount < MINIMUM_DELIVERY_AMOUNT
+  ) {
+    throw new Error(`El valor del envio no puede ser inferior a ${MINIMUM_DELIVERY_AMOUNT}.`);
   }
 
   return Math.round(amount * 100) / 100;

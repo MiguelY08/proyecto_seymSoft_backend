@@ -49,6 +49,29 @@ const mapPaymentReceipts = (receipts = []) =>
     reviewObservations: receipt.review_observations || null,
     reviewedAt: receipt.reviewed_at || null,
     reviewedBy: receipt.reviewed_by || null,
+    analysis: {
+      status: receipt.ai_analysis_status || 'No analizado',
+      analyzedAt: receipt.ai_analyzed_at || null,
+      model: receipt.ai_model || null,
+      confidence: receipt.ai_confidence === null || receipt.ai_confidence === undefined
+        ? null
+        : Number(receipt.ai_confidence),
+      amount: receipt.ai_amount === null || receipt.ai_amount === undefined
+        ? null
+        : Number(receipt.ai_amount),
+      currency: receipt.ai_currency || null,
+      transactionReference: receipt.ai_transaction_reference || null,
+      transactionDate: receipt.ai_transaction_date || null,
+      transactionTime: receipt.ai_transaction_time || null,
+      bank: receipt.ai_bank || null,
+      senderName: receipt.ai_sender_name || null,
+      recipientName: receipt.ai_recipient_name || null,
+      statusText: receipt.ai_status || null,
+      warnings: receipt.ai_warnings || [],
+      error: receipt.ai_error
+        ? 'No fue posible completar el análisis automático.'
+        : null,
+    },
   }));
 
 const mapSale = (sale) => {
